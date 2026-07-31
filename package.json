@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "qrcode-generator": "^2.0.4"
+    "qrcode-generator": "^2.0.4",
+    "@vercel/blob": "^2.6.0"
   },
   "devDependencies": {
     "vite": "^7.0.0",

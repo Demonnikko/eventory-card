@@ -4,16 +4,23 @@
 // ~320КБ — кружок туда не поместится), а метаданные отзыва — в том же
 // Redis, что и остальные данные визитки.
 //
-// Пока Blob не подключён, модуль честно сообщает об этом, а не падает:
-// приложение продолжает работать, просто без видеоотзывов.
+// Blob-доступ идёт через официальный @vercel/blob SDK, а не через прямые
+// fetch-запросы: проект подключён к хранилищу через OIDC (Vercel сам
+// выдаёт временный токен на реквест), статичного BLOB_READ_WRITE_TOKEN
+// в переменных окружения нет. SDK одинаково работает в обоих случаях —
+// и с классическим токеном, если его когда-нибудь добавят, и без него.
 import crypto from 'node:crypto';
+import { put, del } from '@vercel/blob';
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
+// OIDC-токен, которым Vercel сам подписывает каждый запрос функции,
+// присутствует всегда на Vercel-рантайме проекта, подключённого к Blob.
+// BLOB_READ_WRITE_TOKEN — запасной путь, если хранилище подключат позже
+// классическим способом.
 export function blobConfigured() {
-  return Boolean(BLOB_TOKEN);
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_OIDC_TOKEN);
 }
 
 export function storeConfigured() {
@@ -135,38 +142,22 @@ export async function deleteReview(slug, id) {
 
 export const MAX_VIDEO_BYTES = 12 * 1024 * 1024; // ~30 секунд кружка
 
-// Загрузка в Vercel Blob напрямую по REST — чтобы не тянуть зависимость
-// в проект ради одного запроса.
 export async function uploadVideo(slug, buffer, contentType) {
   if (!blobConfigured()) throw new Error('blob_not_configured');
-  const name = `reviews/${slug}/${createId()}.${contentType.includes('mp4') ? 'mp4' : 'webm'}`;
-  const res = await fetch(`https://blob.vercel-storage.com/${name}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${BLOB_TOKEN}`,
-      'Content-Type': contentType,
-      'x-content-type': contentType,
-      'x-add-random-suffix': '1',
-      'x-cache-control-max-age': '31536000'
-    },
-    body: buffer
+  const ext = contentType.includes('mp4') ? 'mp4' : 'webm';
+  const name = `reviews/${slug}/${createId()}.${ext}`;
+  const blob = await put(name, buffer, {
+    access: 'public',
+    contentType,
+    addRandomSuffix: true,
+    cacheControlMaxAge: 31536000
   });
-  if (!res.ok) throw new Error('blob_upload_failed');
-  const data = await res.json().catch(() => null);
-  if (!data?.url) throw new Error('blob_upload_failed');
-  return data.url;
+  return blob.url;
 }
 
 export async function deleteVideo(url) {
   if (!blobConfigured() || !url) return;
   try {
-    await fetch('https://blob.vercel-storage.com/delete', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${BLOB_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ urls: [url] })
-    });
+    await del(url);
   } catch { /* висящий файл не ломает удаление отзыва */ }
 }
