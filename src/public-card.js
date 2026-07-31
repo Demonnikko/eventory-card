@@ -3,7 +3,7 @@
 // Единственный экран, который видят посторонние люди, поэтому здесь:
 // ненавязчивая подпись о CRM внизу и никакого интерфейса владельца.
 import { escapeHtml } from './shared/lib/html.js';
-import { renderCardView } from './card-view.js';
+import { renderCardView, cleanupRevealHints } from './card-view.js';
 import { bindReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { renderAskBlock, bindAsk, resetAsk } from './card-ask.js';
@@ -103,6 +103,7 @@ export const publicCard = {
       state.loading = false;
       updateMeta(cached);
       node.innerHTML = renderContent();
+      cleanupRevealHints(node);
     }
 
     try {
@@ -144,6 +145,7 @@ export const publicCard = {
 
     bindReviews(node, state.reviews);
     bindAsk(node, { slug, tagId: state.tagId });
+    cleanupRevealHints(node);
 
     // Переход в контакты — отдельный сигнал: он показывает, что визитка
     // сработала, а не просто открылась.

@@ -188,7 +188,9 @@ function setupTilt(node, card) {
       raf = 0;
       card.style.setProperty('--tilt-x', `${(-y * 0.32).toFixed(2)}deg`);
       card.style.setProperty('--tilt-y', `${(x * 0.42).toFixed(2)}deg`);
-      card.style.setProperty('--tilt-sheen', `${50 + x * 1.7}%`);
+      // % от ширины самого блика (translateX), не от родителя (left) —
+      // left запускал бы layout reflow на каждое событие датчика.
+      card.style.setProperty('--tilt-sheen-x', `${(x * 3.864 - 90.91).toFixed(1)}%`);
     });
   }
 

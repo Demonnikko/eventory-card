@@ -3,7 +3,7 @@
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { getCard } from './card-data.js';
-import { renderCardView } from './card-view.js';
+import { renderCardView, cleanupRevealHints } from './card-view.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 const state = { card: null };
@@ -45,5 +45,6 @@ export const preview = {
   async mount(node) {
     state.card = await getCard();
     node.innerHTML = renderContent();
+    cleanupRevealHints(node);
   }
 };

@@ -210,3 +210,15 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
     </article>
   `;
 }
+
+// [data-reveal] держит will-change на время появления — это ускоряет старт
+// анимации. Снимаем его сразу после, иначе GPU-слои остаются висеть на
+// статичной странице и на слабых телефонах эффект обратный: замедление
+// вместо ускорения. Вызывать один раз после вставки карточки в DOM.
+export function cleanupRevealHints(root) {
+  root.querySelectorAll('[data-reveal]').forEach((el) => {
+    el.addEventListener('animationend', () => {
+      el.style.willChange = 'auto';
+    }, { once: true });
+  });
+}

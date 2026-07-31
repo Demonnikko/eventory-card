@@ -116,8 +116,11 @@ body::before {
   gap: 11px;
   padding: calc(env(safe-area-inset-top) + 13px) 16px 13px;
   background: rgba(8, 8, 10, 0.78);
-  backdrop-filter: blur(22px) saturate(1.4);
-  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  /* Фон уже почти непрозрачный — blur нужен только для тонкого размытия
+     контента при скролле под sticky-шапкой. Меньший радиус даёт тот же
+     эффект дешевле: backdrop-filter пересчитывается на каждый кадр скролла. */
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
   border-bottom: 1px solid var(--border);
 }
 
@@ -1070,13 +1073,17 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
 .cp-cta-label { position: relative; z-index: 1; }
 
 /* Блик проходит по кнопке раз в несколько секунд — «живое» золото */
+/* transform вместо left: анимация left запускает layout reflow на каждый
+   кадр — на слабых телефонах это и есть источник подтормаживания. */
 .cp-cta-sheen {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -60%;
+  left: 0;
   width: 45%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-133%);
+  will-change: transform;
   animation: cp-sheen 4.6s var(--ease-soft) 1.8s infinite;
 }
 
@@ -1098,6 +1105,7 @@ a.cp-cta-btn:active { transform: scale(0.985); box-shadow: 0 8px 20px -14px rgba
 [data-reveal] {
   animation: cp-reveal 0.85s var(--ease-soft) both;
   animation-delay: calc(var(--reveal-order, 0) * 90ms);
+  will-change: transform, opacity;
 }
 
 .cp-rule[data-reveal] {
@@ -1126,8 +1134,8 @@ a.cp-cta-btn:active { transform: scale(0.985); box-shadow: 0 8px 20px -14px rgba
 }
 
 @keyframes cp-sheen {
-  0%, 62% { left: -60%; }
-  100% { left: 130%; }
+  0%, 62% { transform: translateX(-133%); }
+  100% { transform: translateX(289%); }
 }
 
 /* ===== Публичная страница ===== */
@@ -1194,8 +1202,10 @@ body[data-route='card-public'] .ca-header { display: none; }
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: rgba(12, 12, 15, 0.82);
-  backdrop-filter: blur(22px) saturate(1.4);
-  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  /* См. комментарий у .ca-header — меньший радиус blur вместо 22px:
+     тот же визуальный эффект дешевле для fixed-элемента при скролле. */
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
   border-top: 1px solid var(--border);
 }
 
@@ -1385,21 +1395,24 @@ body[data-route='onboarding']::before {
 }
 
 /* Блик, проходящий по бумаге, — как свет по лаку */
+/* transform вместо left: анимация left запускает layout reflow на каждый
+   кадр — движение и статичный поворот объединены в один transform. */
 .ob-paper-sheen {
   position: absolute;
   top: -60%;
   bottom: -60%;
-  left: -75%;
+  left: 0;
   width: 48%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.11), transparent);
-  transform: rotate(9deg);
+  transform: translateX(-156%) rotate(9deg);
+  will-change: transform;
   animation: ob-paper-sheen 6.5s var(--ease-soft) 1.4s infinite;
   pointer-events: none;
 }
 
 @keyframes ob-paper-sheen {
-  0%, 55% { left: -75%; }
-  100% { left: 150%; }
+  0%, 55% { transform: translateX(-156%) rotate(9deg); }
+  100% { transform: translateX(313%) rotate(9deg); }
 }
 
 /* Тиснёная подпись */
@@ -1672,19 +1685,23 @@ body[data-route='onboarding']::before {
 
 .ob-btn span:first-child { position: relative; z-index: 1; }
 
+/* transform вместо left: анимация left запускает layout reflow на каждый
+   кадр — источник подтормаживания на слабых телефонах. */
 .ob-btn-sheen {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -60%;
+  left: 0;
   width: 42%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  transform: translateX(-143%);
+  will-change: transform;
   animation: ob-btn-sheen 4.4s var(--ease-soft) 1.2s infinite;
 }
 
 @keyframes ob-btn-sheen {
-  0%, 64% { left: -60%; }
-  100% { left: 130%; }
+  0%, 64% { transform: translateX(-143%); }
+  100% { transform: translateX(310%); }
 }
 
 .ob-btn--plain {
@@ -1893,16 +1910,20 @@ body[data-route='present']::before {
 }
 
 /* Блик по лаку. При наклоне телефона ползёт вслед за рукой. */
+/* transform вместо left: движение блика вслед за наклоном телефона на
+   каждое событие гироскопа — переход через left запускал бы layout reflow
+   десятки раз в секунду, здесь это особенно заметно. */
 .pr-face-sheen {
   position: absolute;
   top: -60%;
   bottom: -60%;
-  left: calc(var(--tilt-sheen, 50%) - 90%);
+  left: 0;
   width: 44%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.13), transparent);
-  transform: rotate(9deg);
+  transform: translateX(var(--tilt-sheen-x, -91%)) rotate(9deg);
+  will-change: transform;
   pointer-events: none;
-  transition: left 0.3s var(--ease-soft);
+  transition: transform 0.3s var(--ease-soft);
   z-index: 2;
 }
 
