@@ -34,7 +34,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: false,
       filename: 'sw.js',
-      includeAssets: ['icon.svg', 'maskable-icon.svg'],
+      includeAssets: ['icon.png', 'icon-192.png', 'maskable-icon.png'],
       workbox: {
         // woff2 в precache: фирменная антиква должна быть и офлайн.
         // TTF (99КБ) намеренно не кэшируем — это запасной вариант для
@@ -61,8 +61,9 @@ export default defineConfig({
         background_color: '#0B0F14',
         theme_color: '#0B0F14',
         icons: [
-          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-          { src: '/maskable-icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' }
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/maskable-icon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ],
         shortcuts: [
           {
