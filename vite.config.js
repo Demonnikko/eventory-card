@@ -1,0 +1,78 @@
+// Сборка PWA-визитки — отдельный продукт на своём домене.
+//
+// Конфиг намеренно свой, а не общий с основным приложением: у визитки другой
+// манифест, другой Service Worker и другой набор кэшируемых файлов. Общий
+// остаётся только исходный код (../src) и серверные функции (../api).
+import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig({
+  // Общий код лежит выше корня — разрешаем Vite его читать.
+  server: {
+    host: true,
+    port: 4174,
+    // В деве публикация и чтение визитки ходят в боевые функции Vercel:
+    // локально serverless-функций нет, а без них нечего проверять.
+    proxy: {
+      '/api': {
+        target: 'https://eventory-mvp.vercel.app',
+        changeOrigin: true,
+        secure: true
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true
+  },
+  plugins: [
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: false,
+      filename: 'sw.js',
+      includeAssets: ['icon.svg', 'maskable-icon.svg'],
+      workbox: {
+        // woff2 в precache: фирменная антиква должна быть и офлайн.
+        // TTF (99КБ) намеренно не кэшируем — это запасной вариант для
+        // старых браузеров, грузится только если woff2 не поддержан.
+        globPatterns: ['**/*.{js,css,html,svg,webmanifest,woff2}'],
+        cleanupOutdatedCaches: true,
+        navigateFallback: '/index.html',
+        // /api/ — живые серверные функции: публикация и чтение визитки
+        // никогда не должны отдаваться из кэша.
+        navigateFallbackDenylist: [/^\/api\//],
+        skipWaiting: true,
+        clientsClaim: true
+      },
+      manifest: {
+        name: 'Визитка',
+        short_name: 'Визитка',
+        description: 'Бесплатная электронная визитка: контакты, услуги, QR-код и ссылка.',
+        lang: 'ru',
+        categories: ['business', 'productivity'],
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#0B0F14',
+        theme_color: '#0B0F14',
+        icons: [
+          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/maskable-icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' }
+        ],
+        shortcuts: [
+          {
+            name: 'QR-код визитки',
+            short_name: 'QR',
+            description: 'Показать QR-код',
+            url: '/#/share'
+          }
+        ]
+      }
+    })
+  ]
+});
