@@ -186,13 +186,16 @@ test('rate limit блокирует запросы сверх заданного
 });
 
 test('релизные UI-контракты остаются включены', async () => {
-  const [editor, preview, review, privacy, pwaUpdate, onboarding, vite, html] = await Promise.all([
+  const [editor, preview, review, privacy, pwaUpdate, onboarding, present, cardCss, share, vite, html] = await Promise.all([
     readFile(new URL('../src/editor.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/preview.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/review-record.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/privacy.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/pwa-update.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/onboarding.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/present.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/card-app.css', import.meta.url), 'utf8'),
+    readFile(new URL('../src/share.js', import.meta.url), 'utf8'),
     readFile(new URL('../vite.config.js', import.meta.url), 'utf8'),
     readFile(new URL('../index.html', import.meta.url), 'utf8')
   ]);
@@ -207,6 +210,14 @@ test('релизные UI-контракты остаются включены',
   assert.match(pwaUpdate, /SKIP_WAITING/);
   assert.match(onboarding, /preloadAllTemplates\(['"]high['"]\)/);
   assert.match(onboarding, /businessCardOnboardingTemplateUrl/);
+  assert.match(present, /data-qr-open/);
+  assert.match(present, /data-qr-dialog/);
+  assert.match(present, /QR_LAYOUT_BY_PROFESSION/);
+  assert.doesNotMatch(present, /DeviceOrientation|deviceorientation|requestPermission|is-flipped/);
+  assert.match(cardCss, /pr-card-settle/);
+  assert.match(cardCss, /pr-sheen-pass/);
+  assert.doesNotMatch(cardCss, /ca-present-sway|\.pr-screen\.is-flipped/);
+  assert.match(share, /QR уже на карточке/);
   assert.match(html, /data-pwa-update-control/);
   assert.match(html, /onboarding\/illusionist-card\.webp/);
   assert.match(vite, /skipWaiting:\s*false/);

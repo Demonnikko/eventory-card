@@ -1,27 +1,28 @@
-// Режим предъявления — карточка, которую протягивают в руке.
-//
-// Смысл экрана: это не страница, которую скроллят, а предмет. Человек
-// поворачивает телефон горизонтально, показывает визитку собеседнику,
-// тот берёт телефон — и жест выходит ровно таким же, как с бумажной
-// карточкой. Тап переворачивает её на обратную сторону с QR: собеседник
-// наводит камеру и забирает контакт за пару секунд.
-//
-// Поэтому здесь нет интерфейса: ни шапки, ни таббара, ни кнопок поверх.
-// Только карточка, подсказка и выход.
+// Режим предъявления — готовая визитка с QR-кодом на лицевой стороне.
+// Карточка появляется один раз и остаётся неподвижной: никаких переворотов,
+// гироскопа и разрешений датчика. По касанию увеличивается только QR-код.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { qrSvg } from './shared/data/qr.js';
 import { businessCardTemplateUrl } from './shared/data/businessCard.js';
-import { hapticLight, hapticMedium } from './shared/lib/haptic.js';
+import { hapticLight } from './shared/lib/haptic.js';
 import { getCard, cardPublicUrl } from './card-data.js';
 
-const state = {
-  card: null,
-  flipped: false,
-  hintSeen: false
-};
+const state = { card: null };
 
-const HINT_KEY = 'eventory-card:present-hint';
+// Координаты измерены по исходным шаблонам 1672×941. QR заполняет внутреннюю
+// часть декоративной рамки, а встроенная в SVG quiet zone сохраняет
+// считываемость кода. У организатора отдельной рамки нет — для него создаём
+// спокойную площадку в свободной правой части композиции.
+const QR_LAYOUT_BY_PROFESSION = {
+  host: { left: '64.6%', top: '29.0%', size: '25.3%' },
+  illusionist: { left: '67.0%', top: '34.2%', size: '18.8%' },
+  vocalist: { left: '64.3%', top: '28.4%', size: '23.3%' },
+  organizer: { left: '66.0%', top: '30.0%', size: '22.5%', framed: true },
+  decorator: { left: '66.1%', top: '31.0%', size: '19.6%' },
+  videographer: { left: '64.2%', top: '33.5%', size: '20.7%' },
+  photographer: { left: '69.0%', top: '39.7%', size: '21.8%' }
+};
 
 function splitName(full) {
   const parts = String(full || '').trim().split(/\s+/).filter(Boolean);
@@ -29,8 +30,41 @@ function splitName(full) {
   return { first: parts[0], last: parts.slice(1).join(' ') };
 }
 
-// Лицевая сторона: имя, роль, город на тиснёной бумаге направления.
-function renderFront(card) {
+function qrLayout(profession) {
+  return QR_LAYOUT_BY_PROFESSION[profession] || QR_LAYOUT_BY_PROFESSION.host;
+}
+
+function qrLayoutStyle(profession) {
+  const layout = qrLayout(profession);
+  return [
+    `--pr-qr-left:${layout.left}`,
+    `--pr-qr-top:${layout.top}`,
+    `--pr-qr-size:${layout.size}`
+  ].join(';');
+}
+
+function renderInlineQr(card, url) {
+  const layout = qrLayout(card.profession);
+  const classes = `pr-inline-qr${layout.framed ? ' is-framed' : ''}`;
+  const style = qrLayoutStyle(card.profession);
+
+  if (!url) {
+    return `
+      <span class="${classes} is-empty" style="${escapeAttr(style)}" aria-label="QR-код появится после публикации">
+        <small>После<br />публикации</small>
+      </span>
+    `;
+  }
+
+  return `
+    <button type="button" class="${classes}" style="${escapeAttr(style)}"
+      data-qr-open aria-label="Увеличить QR-код визитки">
+      ${qrSvg(url, { className: 'pr-inline-qr-svg', title: 'QR-код визитки' })}
+    </button>
+  `;
+}
+
+function renderCard(card, url) {
   const { first, last } = splitName(card.name);
   const meta = [card.role, card.city].filter(Boolean).join(' · ');
   const template = card.profession ? businessCardTemplateUrl(card.profession) : '';
@@ -45,29 +79,26 @@ function renderFront(card) {
         ${last ? `<span class="pr-surname">${escapeHtml(last)}</span>` : ''}
         ${meta ? `<em class="pr-meta">${escapeHtml(meta)}</em>` : ''}
       </div>
+      ${renderInlineQr(card, url)}
       <span class="pr-face-edge" aria-hidden="true"></span>
     </div>
   `;
 }
 
-// Обратная сторона: крупный QR на той же бумаге. Единственная задача —
-// чтобы собеседник навёл камеру и не промахнулся.
-function renderBack(card, url) {
-  const template = card.profession ? businessCardTemplateUrl(card.profession) : '';
+function renderQrDialog(url) {
+  if (!url) return '';
   return `
-    <div class="pr-face pr-face--back${template ? ' has-template' : ''}"
-      ${template ? `style="--pr-template:url('${escapeAttr(template)}')"` : ''}>
-      <span class="pr-face-bg" aria-hidden="true"></span>
-      <span class="pr-face-edge" aria-hidden="true"></span>
-      <div class="pr-back-inner">
-        ${url ? `
-          <div class="pr-qr">${qrSvg(url, { className: 'pr-qr-svg', title: 'QR-код визитки' })}</div>
-          <span class="pr-qr-caption">Наведите камеру</span>
-        ` : `
-          <div class="pr-qr-empty">
-            <span>Опубликуйте визитку —<br />здесь появится QR-код</span>
-          </div>
-        `}
+    <div class="pr-qr-dialog" data-qr-dialog role="dialog" aria-modal="true"
+      aria-labelledby="pr-qr-dialog-title" hidden>
+      <div class="pr-qr-dialog-panel">
+        <button type="button" class="pr-qr-dialog-close" data-qr-close aria-label="Закрыть QR-код">
+          ${renderIcon('x')}
+        </button>
+        <div class="pr-qr-dialog-code">
+          ${qrSvg(url, { className: 'pr-qr-dialog-svg', title: 'Увеличенный QR-код визитки' })}
+        </div>
+        <strong id="pr-qr-dialog-title">Наведите камеру</strong>
+        <span>Визитка откроется на телефоне клиента</span>
       </div>
     </div>
   `;
@@ -80,28 +111,27 @@ function renderContent() {
   const url = card.publishedSlug ? cardPublicUrl(card.publishedSlug) : '';
 
   return `
-    <div class="pr-screen${state.flipped ? ' is-flipped' : ''}" data-present>
+    <div class="pr-screen" data-present>
       <button type="button" class="pr-exit" data-exit aria-label="Закрыть">
         ${renderIcon('x')}
       </button>
 
       <div class="pr-stage">
-        <div class="pr-card" data-card role="button" tabindex="0"
-          aria-label="${state.flipped ? 'Показать лицевую сторону' : 'Показать QR-код'}">
-          ${renderFront(card)}
-          ${renderBack(card, url)}
+        <div class="pr-card" data-card aria-label="Визитка с QR-кодом">
+          ${renderCard(card, url)}
         </div>
       </div>
 
-      <p class="pr-hint${state.hintSeen ? ' is-quiet' : ''}" data-hint>
-        ${state.flipped ? 'Коснитесь, чтобы вернуть визитку' : 'Коснитесь — покажется QR-код'}
+      <p class="pr-hint">
+        ${url ? 'QR уже на визитке · коснитесь, чтобы увеличить' : 'QR появится здесь после публикации визитки'}
       </p>
 
-      <!-- Подсказка про поворот: только пока телефон вертикально -->
-      <p class="pr-rotate" data-rotate>
+      <p class="pr-rotate">
         ${renderIcon('navigation')}
-        <span>Поверните телефон — визитка станет во весь экран</span>
+        <span>В горизонтальном положении визитка станет крупнее</span>
       </p>
+
+      ${renderQrDialog(url)}
     </div>
   `;
 }
@@ -114,52 +144,17 @@ export const present = {
   },
   async mount(node) {
     state.card = await getCard();
-    state.flipped = false;
-    try {
-      state.hintSeen = localStorage.getItem(HINT_KEY) === '1';
-    } catch {
-      state.hintSeen = false;
-    }
-
     node.innerHTML = renderContent();
     bind(node);
   }
 };
 
 function bind(node) {
-  const screen = node.querySelector('[data-present]');
-  const card = node.querySelector('[data-card]');
-  if (!screen || !card) return;
-
-  function flip() {
-    state.flipped = !state.flipped;
-    screen.classList.toggle('is-flipped', state.flipped);
-    hapticMedium();
-
-    const hint = node.querySelector('[data-hint]');
-    if (hint) {
-      hint.textContent = state.flipped
-        ? 'Коснитесь, чтобы вернуть визитку'
-        : 'Коснитесь — покажется QR-код';
-      // Подсказка нужна один раз: дальше жест уже понятен.
-      if (!state.hintSeen) {
-        state.hintSeen = true;
-        hint.classList.add('is-quiet');
-        try { localStorage.setItem(HINT_KEY, '1'); } catch { /* приватный режим */ }
-      }
-    }
-    card.setAttribute('aria-label', state.flipped ? 'Показать лицевую сторону' : 'Показать QR-код');
-  }
-
-  card.addEventListener('click', flip);
-  card.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      flip();
-    }
-  });
-
   const exit = node.querySelector('[data-exit]');
+  const qrOpen = node.querySelector('[data-qr-open]');
+  const dialog = node.querySelector('[data-qr-dialog]');
+  const qrClose = node.querySelector('[data-qr-close]');
+
   if (exit) {
     exit.addEventListener('click', () => {
       hapticLight();
@@ -167,47 +162,41 @@ function bind(node) {
     });
   }
 
-  // Наклон телефона — карточка слегка ведёт за рукой, блик ползёт по
-  // тиснению. Это то, из-за чего экран показывают соседу. На iOS датчик
-  // требует явного разрешения, поэтому просим его по первому касанию.
-  setupTilt(node, card);
-}
+  if (!qrOpen || !dialog || !qrClose) return;
 
-function setupTilt(node, card) {
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-
-  let raf = 0;
-  function onOrient(e) {
-    // beta — наклон вперёд/назад, gamma — вбок. Ограничиваем диапазон,
-    // иначе карточка «улетает» при резком движении.
-    const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v || 0));
-    const x = clamp(e.gamma, 26);
-    const y = clamp((e.beta || 0) - 42, 22);
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      card.style.setProperty('--tilt-x', `${(-y * 0.32).toFixed(2)}deg`);
-      card.style.setProperty('--tilt-y', `${(x * 0.42).toFixed(2)}deg`);
-      // % от ширины самого блика (translateX), не от родителя (left) —
-      // left запускал бы layout reflow на каждое событие датчика.
-      card.style.setProperty('--tilt-sheen-x', `${(x * 3.864 - 90.91).toFixed(1)}%`);
+  function openDialog() {
+    hapticLight();
+    dialog.hidden = false;
+    requestAnimationFrame(() => {
+      dialog.classList.add('is-open');
+      qrClose.focus({ preventScroll: true });
     });
   }
 
-  function attach() {
-    window.addEventListener('deviceorientation', onOrient);
+  function closeDialog() {
+    if (dialog.hidden) return;
+    dialog.classList.remove('is-open');
+    const finish = () => {
+      dialog.hidden = true;
+      qrOpen.focus({ preventScroll: true });
+    };
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      finish();
+    } else {
+      window.setTimeout(finish, 250);
+    }
   }
 
-  const Perm = window.DeviceOrientationEvent?.requestPermission;
-  if (typeof Perm === 'function') {
-    // iOS: разрешение запрашивается только из обработчика жеста.
-    const ask = () => {
-      Perm.call(window.DeviceOrientationEvent)
-        .then((res) => { if (res === 'granted') attach(); })
-        .catch(() => { /* отказ — карточка просто останется статичной */ });
-    };
-    node.addEventListener('click', ask, { once: true });
-  } else if ('DeviceOrientationEvent' in window) {
-    attach();
-  }
+  qrOpen.addEventListener('click', openDialog);
+  qrClose.addEventListener('click', closeDialog);
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) closeDialog();
+  });
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeDialog();
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      qrClose.focus({ preventScroll: true });
+    }
+  });
 }
