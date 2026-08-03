@@ -8,6 +8,7 @@ import { onboarding, isOnboarded } from './onboarding.js';
 import { present } from './present.js';
 import { reviewRecord } from './review-record.js';
 import { insight } from './insight.js';
+import { privacy } from './privacy.js';
 import { renderIcon } from './shared/components/icons.js';
 
 const TABS = [
@@ -22,6 +23,7 @@ const VIEWS = {
   share,
   preview,
   insight,
+  privacy,
   onboarding,
   present,
   'review-record': reviewRecord,
@@ -66,7 +68,8 @@ function renderTabbar(activeId) {
   // На публичной визитке таббар не нужен: её смотрит клиент, а не владелец.
   if (activeId === 'card-public') return '';
   return TABS.map((tab) => `
-    <button type="button" class="ca-tab${tab.id === activeId ? ' is-active' : ''}" data-tab="${tab.id}">
+    <button type="button" role="tab" aria-selected="${tab.id === activeId ? 'true' : 'false'}"
+      class="ca-tab${tab.id === activeId ? ' is-active' : ''}" data-tab="${tab.id}">
       ${renderIcon(tab.icon)}
       <span>${tab.label}</span>
     </button>
@@ -82,10 +85,17 @@ export function mountApp() {
     const { id, params } = parseRoute();
     const view = VIEWS[id];
     document.body.dataset.route = id;
+    if (view.title) {
+      document.title = id === 'editor' ? 'Визитка' : `${view.title} — Визитка`;
+    } else if (id === 'review-record') {
+      document.title = 'Видеоотзыв — Визитка';
+    } else if (id !== 'card-public') {
+      document.title = 'Визитка';
+    }
 
     // Экран записи держит камеру — её нужно отпустить при уходе.
     if (currentView && currentView !== view && typeof currentView.unmount === 'function') {
-      try { currentView.unmount(); } catch { /* уход не должен ломать переход */ }
+      try { await currentView.unmount(); } catch { /* уход не должен ломать переход */ }
     }
     currentView = view;
 
@@ -101,7 +111,7 @@ export function mountApp() {
     }
 
     const chromeless = id === 'card-public' || id === 'onboarding'
-      || id === 'present' || id === 'review-record';
+      || id === 'present' || id === 'review-record' || id === 'privacy';
     tabbar.innerHTML = chromeless ? '' : renderTabbar(id);
     tabbar.hidden = chromeless;
     window.scrollTo(0, 0);

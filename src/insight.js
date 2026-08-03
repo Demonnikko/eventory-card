@@ -14,6 +14,7 @@ import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 const state = {
   card: null,
+  summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0 },
   tags: [],
   dialogs: [],
   loading: true,
@@ -33,6 +34,28 @@ function formatEventDate(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+}
+
+function contactHref(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `mailto:${value}`;
+  const telegram = value.replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '');
+  if (/^[a-z0-9_]{5,32}$/i.test(telegram) && (value.startsWith('@') || /t\.me\//i.test(value))) {
+    return `https://t.me/${telegram}`;
+  }
+  const phone = value.replace(/[^\d+]/g, '');
+  if (phone.replace(/\D/g, '').length >= 7) return `tel:${phone}`;
+  return '';
+}
+
+function renderDialogContact(dialog) {
+  const contact = String(dialog.contact || '').trim();
+  if (!contact) return '';
+  const href = contactHref(contact);
+  return href
+    ? `<a class="in-dialog-contact" href="${escapeAttr(href)}" target="_blank" rel="noopener">Ответить: ${escapeHtml(contact)}</a>`
+    : `<span class="in-dialog-contact">Контакт: ${escapeHtml(contact)}</span>`;
 }
 
 /* ─────────── Метки ─────────── */
@@ -136,6 +159,7 @@ function renderDialogs() {
           <div class="in-dialog${d.read ? '' : ' is-new'}">
             <p class="in-dialog-q">${escapeHtml(d.question)}</p>
             <p class="in-dialog-a">${escapeHtml(d.answer)}</p>
+            ${renderDialogContact(d)}
             <span class="in-dialog-time">${escapeHtml(formatDate(d.createdAt))}</span>
           </div>
         `).join('')}
@@ -170,14 +194,28 @@ function renderContent() {
     `;
   }
 
-  const total = state.tags.reduce((sum, t) => sum + (t.stats?.opens || 0), 0);
+  const summary = state.summary || {};
+  const hasSummary = Boolean(summary.opens || summary.visitors || summary.contacts);
 
   return `
     <div class="in-page">
-      ${total ? `
+      ${hasSummary ? `
         <div class="in-total">
-          <span class="in-total-value">${total}</span>
-          <span class="in-total-label">открытий визитки всего</span>
+          <span class="in-total-label">Вся визитка</span>
+          <div class="in-summary-stats">
+            <div class="in-stat">
+              <span class="in-total-value">${summary.opens || 0}</span>
+              <span class="in-stat-label">открытий</span>
+            </div>
+            <div class="in-stat">
+              <span class="in-total-value">${summary.visitors || 0}</span>
+              <span class="in-stat-label">человек</span>
+            </div>
+            <div class="in-stat${summary.contacts ? ' is-hot' : ''}">
+              <span class="in-total-value">${summary.contacts || 0}</span>
+              <span class="in-stat-label">обращений</span>
+            </div>
+          </div>
         </div>
       ` : ''}
 
@@ -213,6 +251,9 @@ export const insight = {
     state.loading = true;
     state.form = false;
     state.qrFor = '';
+    state.summary = { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
+    state.tags = [];
+    state.dialogs = [];
     state.card = await getCard();
 
     node.innerHTML = renderContent();
@@ -220,6 +261,7 @@ export const insight = {
     if (state.card.publishedSlug) {
       try {
         const data = await fetchInsight();
+        state.summary = data.summary || state.summary;
         state.tags = data.tags || [];
         state.dialogs = data.dialogs || [];
         // Владелец увидел вопросы — снимаем пометку «новое».

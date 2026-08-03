@@ -73,12 +73,12 @@ export async function fetchInvite(token) {
   return data;
 }
 
-export async function uploadReview(token, { blob, author, role, duration }) {
+export async function uploadReview(token, { blob, author, role, duration, consent }) {
   const video = await blobToDataUrl(blob);
   const data = await request('/api/card-review', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'upload', invite: token, video, author, role, duration })
+    body: JSON.stringify({ action: 'upload', invite: token, video, author, role, duration, consent: consent === true })
   });
   return data.review;
 }

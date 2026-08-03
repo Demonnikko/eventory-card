@@ -151,6 +151,68 @@ body::before {
   color: var(--muted-2);
 }
 
+.ca-update-control {
+  margin-left: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ca-update-control.has-update {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.ca-update-control[disabled] { opacity: 0.62; cursor: wait; }
+
+.ca-update-banner {
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 59px);
+  z-index: 19;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  max-width: 608px;
+  margin: 10px auto 0;
+  padding: 11px 12px 11px 15px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: rgba(24, 20, 15, 0.96);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.ca-update-banner[hidden] { display: none; }
+
+.ca-update-banner button {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--gold-leaf);
+  color: #241704;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ca-update-banner button[disabled] { opacity: 0.65; cursor: wait; }
+
+body[data-route='card-public'] .ca-update-banner,
+body[data-route='onboarding'] .ca-update-banner,
+body[data-route='present'] .ca-update-banner,
+body[data-route='review-record'] .ca-update-banner,
+body[data-route='privacy'] .ca-update-banner { display: none !important; }
+
 /* ===== Прогресс ===== */
 .ca-progress {
   background: var(--surface);
@@ -318,6 +380,11 @@ body::before {
 
 textarea.ca-input { resize: vertical; line-height: 1.6; }
 
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
+}
+
 .ca-field-hint {
   display: block;
   margin-top: 5px;
@@ -391,6 +458,156 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
 }
 
 .ca-cover-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ===== Галерея и пакеты в редакторе ===== */
+.ca-editor-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ca-editor-subhead > :last-child {
+  color: var(--muted-2);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.ca-gallery-list,
+.ca-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ca-gallery-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 9px;
+}
+
+.ca-gallery-row img {
+  width: 62px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.ca-gallery-row .ca-input { padding: 11px 12px; }
+.ca-gallery-add,
+.ca-package-add { width: 100%; margin-top: 11px; }
+
+.ca-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted-2);
+  cursor: pointer;
+}
+
+.ca-icon-btn:active { color: var(--danger); }
+
+.ca-package {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.ca-package-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.ca-package-head .ca-icon-btn { width: 34px; height: 34px; }
+
+.ca-backup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.ca-backup-actions .ca-btn { padding-inline: 10px; }
+
+.ca-backup-warning {
+  margin: 11px 0 0;
+  color: var(--muted-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ca-text-link,
+.cp-ask-privacy a,
+.rv-consent a {
+  color: var(--accent-strong);
+  text-underline-offset: 3px;
+}
+
+body[data-route='privacy'] { padding-bottom: env(safe-area-inset-bottom); }
+body[data-route='privacy'] .ca-header,
+body[data-route='privacy'] .ca-tabbar { display: none; }
+body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
+
+.pv-page {
+  padding: calc(env(safe-area-inset-top) + 24px) 0 calc(env(safe-area-inset-bottom) + 24px);
+}
+
+.pv-back {
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pv-eyebrow {
+  margin: 34px 0 10px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pv-page h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(30px, 9vw, 48px);
+  font-weight: 400;
+  line-height: 1.08;
+}
+
+.pv-lead { margin: 18px 0 28px; color: var(--muted); line-height: 1.65; }
+
+.pv-page section {
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+}
+
+.pv-page h2 { margin: 0 0 8px; font-size: 15px; }
+.pv-page section p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+
+@media (max-width: 390px) {
+  .ca-backup-actions { grid-template-columns: 1fr; }
+}
 
 /* ===== Темы ===== */
 .ca-themes {
@@ -1730,11 +1947,13 @@ body[data-route='onboarding']::before {
   .ob-paper-sheen, .ob-btn-sheen { display: none; }
 }
 
-/* Невысокие экраны: убираем поясняющий текст, карточка важнее */
+/* Невысокие экраны: сокращаем вторичные пояснения, но сохраняем главный
+   текст первого экрана — без него человек не понимает пользу визитки. */
 @media (max-height: 700px) {
   .ob-stage { padding: 2px 0 18px; }
   .ob-paper { max-width: 290px; }
-  .ob-lead { display: none; }
+  .ob-lead--sm { display: none; }
+  .ob-step--welcome .ob-lead { margin-top: 10px; font-size: 13px; line-height: 1.45; }
   .ob-tiles { margin-top: 16px; }
 }
 
@@ -2599,6 +2818,25 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 
 .rv-input::placeholder { color: #5f5f68; }
 
+.rv-consent {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-top: 5px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.rv-consent input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+
 .rv-actions {
   display: flex;
   flex-direction: column;
@@ -2825,6 +3063,16 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   text-transform: uppercase;
   color: var(--muted-2);
 }
+
+.in-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+  margin-top: 12px;
+}
+
+.in-summary-stats .in-total-value { font-size: 32px; }
+.in-summary-stats .in-stat + .in-stat { border-left: 1px solid var(--border); }
 
 .in-section {
   display: flex;
@@ -3054,6 +3302,16 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   color: var(--muted-2);
 }
 
+.in-dialog-contact {
+  display: inline-flex;
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
 /* ============================================================
    БЫСТРЫЙ ВОПРОС — на клиентской визитке
    ============================================================ */
@@ -3169,6 +3427,12 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 .cp-ask-form {
   display: flex;
   gap: 8px;
+}
+
+.cp-ask-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 12px;
 }
 
@@ -3188,6 +3452,15 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 
 .cp-ask-input:focus { border-color: var(--accent-border); }
 .cp-ask-input::placeholder { color: #62626a; }
+
+.cp-ask-contact { width: 100%; }
+
+.cp-ask-privacy {
+  padding: 0 2px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--muted-2);
+}
 
 .cp-ask-send {
   flex-shrink: 0;

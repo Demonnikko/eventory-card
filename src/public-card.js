@@ -37,12 +37,12 @@ function writeCache(slug, card) {
 // Подпись под визиткой. Это единственная реклама на публичной странице:
 // клиент пришёл смотреть человека, а не наш продукт.
 function renderFooter() {
-  if (!activeUpsell('public')) return '';
+  const point = activeUpsell('public');
   return `
     <footer class="cp-footer">
-      <a class="cp-footer-link" href="${upsellHref('public')}" target="_blank" rel="noopener">
-        Визитка сделана бесплатно · ${escapeHtml(CRM_NAME)}
-      </a>
+      ${point ? `<a class="cp-footer-link" href="${upsellHref('public')}" target="_blank" rel="noopener">
+        Визитка сделана бесплатно · ${escapeHtml(CRM_NAME)}</a>` : ''}
+      <a class="cp-footer-link" href="/#/privacy" target="_blank" rel="noopener">Данные и конфиденциальность</a>
     </footer>
   `;
 }
@@ -83,8 +83,10 @@ export const publicCard = {
     state.loading = true;
     state.error = '';
     state.card = null;
+    state.reviews = [];
     state.greeting = null;
     state.slug = slug;
+    document.title = 'Визитка';
     // Метка события из адреса: по ней считаем, с какого мероприятия гость.
     state.tagId = readTagFromUrl();
     resetAsk();

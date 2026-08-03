@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual"
     />
     <meta name="theme-color" content="#0B0F14" />
     <meta name="color-scheme" content="dark" />
@@ -28,9 +28,16 @@
         <div class="ca-header-title">Визитка</div>
         <div class="ca-header-sub">Бесплатно, без подписки</div>
       </div>
+      <button type="button" class="ca-update-control" data-pwa-update-control hidden>
+        Обновить
+      </button>
     </header>
+    <div class="ca-update-banner" data-pwa-update-banner role="status" hidden>
+      <span data-pwa-update-status>Доступна новая версия визитки</span>
+      <button type="button" data-pwa-update-action>Обновить</button>
+    </div>
     <div id="app"></div>
-    <nav id="tabbar" class="ca-tabbar" role="tablist" hidden></nav>
+    <nav id="tabbar" class="ca-tabbar" role="tablist" aria-label="Разделы приложения" hidden></nav>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

@@ -84,7 +84,7 @@ export const CARD_CHECKLIST = [
   { id: 'name', label: 'Имя', done: (c) => Boolean(c.name) },
   { id: 'role', label: 'Чем вы занимаетесь', done: (c) => Boolean(c.role || c.headline) },
   { id: 'contact', label: 'Контакт для связи', done: (c) => Boolean(c.phone || c.telegram || c.email) },
-  { id: 'cover', label: 'Фото или обложка', done: (c) => Boolean(c.coverPhoto) },
+  { id: 'cover', label: 'Фото или оформление', done: (c) => Boolean(c.coverPhoto || c.profession) },
   { id: 'about', label: 'О себе', done: (c) => Boolean(c.bio) },
   { id: 'services', label: 'Услуги или цена', done: (c) => Boolean(c.services || c.priceFrom || c.servicePackages?.length) }
 ];

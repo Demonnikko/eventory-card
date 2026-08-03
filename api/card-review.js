@@ -24,6 +24,7 @@ import {
   MAX_VIDEO_BYTES
 } from './_reviews-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
+import { enforceRateLimit } from './_rate-limit.js';
 
 function fail(res, status, error) {
   return res.status(status).json({ ok: false, error });
@@ -56,6 +57,10 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const invite = String(req.query?.invite || '').trim();
     if (invite) {
+      if (!/^[a-f0-9]{32}$/i.test(invite)) return fail(res, 400, 'invalid_invite');
+      if (!await enforceRateLimit(req, res, {
+        scope: 'review-invite-read', identifier: invite, limit: 60, windowSeconds: 3600
+      })) return;
       const slug = await readInvite(invite);
       if (!slug) return fail(res, 404, 'invite_not_found');
       const data = await readPublicCard(slug);
@@ -70,6 +75,9 @@ export default async function handler(req, res) {
 
     const slug = normalizeSlug(req.query?.slug);
     if (!slug) return fail(res, 400, 'invalid_slug');
+    if (!await enforceRateLimit(req, res, {
+      scope: 'review-list', identifier: slug, limit: 120, windowSeconds: 60
+    })) return;
     const key = String(req.query?.key || '').trim();
 
     if (key) {
@@ -95,6 +103,9 @@ export default async function handler(req, res) {
   if (action === 'invite') {
     const slug = normalizeSlug(body.slug);
     if (!slug) return fail(res, 400, 'invalid_slug');
+    if (!await enforceRateLimit(req, res, {
+      scope: 'review-invite-create', identifier: slug, limit: 20, windowSeconds: 3600
+    })) return;
     const owner = await assertOwner(slug, String(body.key || ''));
     if (!owner) return fail(res, 403, 'forbidden');
 
@@ -107,8 +118,13 @@ export default async function handler(req, res) {
   /* ─────────── Заказчик присылает кружок ─────────── */
   if (action === 'upload') {
     if (!blobConfigured()) return fail(res, 503, 'video_storage_not_configured');
+    if (body.consent !== true) return fail(res, 400, 'consent_required');
 
     const token = String(body.invite || '').trim();
+    if (!/^[a-f0-9]{32}$/i.test(token)) return fail(res, 400, 'invalid_invite');
+    if (!await enforceRateLimit(req, res, {
+      scope: 'review-upload', identifier: token, limit: 5, windowSeconds: 3600
+    })) return;
     const slug = await readInvite(token);
     if (!slug) return fail(res, 404, 'invite_not_found');
 
@@ -117,7 +133,12 @@ export default async function handler(req, res) {
     if (!match) return fail(res, 400, 'invalid_video');
 
     const buffer = Buffer.from(match[3], 'base64');
+    if (!buffer.length) return fail(res, 400, 'invalid_video');
     if (buffer.length > MAX_VIDEO_BYTES) return fail(res, 413, 'video_too_large');
+    const author = String(body.author || '').trim().slice(0, 60);
+    const duration = Number(body.duration);
+    if (!author) return fail(res, 400, 'invalid_author');
+    if (!Number.isFinite(duration) || duration < 2 || duration > 30) return fail(res, 400, 'invalid_duration');
 
     let videoUrl = '';
     try {
@@ -127,10 +148,11 @@ export default async function handler(req, res) {
     }
 
     const review = await addReview(slug, {
-      author: body.author,
+      author,
       role: body.role,
-      duration: body.duration,
-      videoUrl
+      duration,
+      videoUrl,
+      consentAt: Date.now()
     });
     if (!review) {
       await deleteVideo(videoUrl);
@@ -143,11 +165,14 @@ export default async function handler(req, res) {
   if (action === 'approve' || action === 'delete') {
     const slug = normalizeSlug(body.slug);
     if (!slug) return fail(res, 400, 'invalid_slug');
+    if (!await enforceRateLimit(req, res, {
+      scope: 'review-moderation', identifier: slug, limit: 60, windowSeconds: 60
+    })) return;
     const owner = await assertOwner(slug, String(body.key || ''));
     if (!owner) return fail(res, 403, 'forbidden');
 
     const id = String(body.id || '').trim();
-    if (!id) return fail(res, 400, 'invalid_id');
+    if (!/^[a-f0-9]{18}$/i.test(id)) return fail(res, 400, 'invalid_id');
 
     if (action === 'approve') {
       const next = await updateReview(slug, id, { approved: body.approved !== false });
@@ -158,9 +183,15 @@ export default async function handler(req, res) {
     // Удаляем и запись, и сам файл — иначе видео останется висеть в Blob.
     const all = await listReviews(slug, { approvedOnly: false });
     const target = all.find((r) => r.id === id);
+    if (!target) return fail(res, 404, 'review_not_found');
+    // Сначала удаляем публичный Blob и только затем метаданные. Иначе при
+    // временной ошибке хранилища ссылка на видео осталась бы жить без записи,
+    // которую владелец мог бы удалить повторно.
+    if (target.videoUrl && !await deleteVideo(target.videoUrl)) {
+      return fail(res, 502, 'video_delete_failed');
+    }
     const removed = await deleteReview(slug, id);
     if (!removed) return fail(res, 404, 'review_not_found');
-    if (target?.videoUrl) await deleteVideo(target.videoUrl);
     return res.status(200).json({ ok: true });
   }
 

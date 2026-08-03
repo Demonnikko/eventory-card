@@ -82,6 +82,7 @@ export function sanitizeReview(input = {}) {
     posterUrl: clean(input.posterUrl, 500),
     duration: Math.max(0, Math.min(120, Number(input.duration) || 0)),
     createdAt: Number(input.createdAt) || Date.now(),
+    consentAt: Number(input.consentAt) || 0,
     // Отзыв виден клиентам только после подтверждения владельцем.
     approved: input.approved === true
   };
@@ -156,8 +157,12 @@ export async function uploadVideo(slug, buffer, contentType) {
 }
 
 export async function deleteVideo(url) {
-  if (!blobConfigured() || !url) return;
+  if (!url) return true;
+  if (!blobConfigured()) return false;
   try {
     await del(url);
-  } catch { /* висящий файл не ломает удаление отзыва */ }
+    return true;
+  } catch {
+    return false;
+  }
 }

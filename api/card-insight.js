@@ -5,17 +5,18 @@
 //
 //   GET  ?slug=…&key=…                 — сводка для владельца (метки, диалоги)
 //   POST action=tag-create|tag-delete  — владелец заводит/убирает метку события
-//   POST action=track                  — гость открыл визитку (учёт по метке)
+//   POST action=track                  — гость открыл визитку (общий итог + метка)
 //   POST action=greet                  — узнавание вернувшегося гостя
 //   POST action=ask                    — вопрос от гостя, ответ визитки
 //   POST action=dialogs-read           — владелец прочитал диалоги
 import {
   storeConfigured,
   listTags, saveTag, deleteTag, readTagStats,
-  trackTagOpen, readVisitor, saveVisitor,
+  readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
   saveDialog, listDialogs, markDialogsRead
 } from './_tags-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
+import { enforceRateLimit } from './_rate-limit.js';
 
 function fail(res, status, error) {
   return res.status(status).json({ ok: false, error });
@@ -99,6 +100,9 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const slug = normalizeSlug(req.query?.slug);
     if (!slug) return fail(res, 400, 'invalid_slug');
+    if (!await enforceRateLimit(req, res, {
+      scope: 'insight-owner', identifier: slug, limit: 120, windowSeconds: 60
+    })) return;
     const owner = await assertOwner(slug, String(req.query?.key || ''));
     if (!owner) return fail(res, 403, 'forbidden');
 
@@ -110,6 +114,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
+      summary: await readCardStats(slug),
       tags: withStats,
       dialogs: await listDialogs(slug)
     });
@@ -121,6 +126,19 @@ export default async function handler(req, res) {
   const action = String(body.action || '').trim();
   const slug = normalizeSlug(body.slug);
   if (!slug) return fail(res, 400, 'invalid_slug');
+
+  const limits = {
+    track: { limit: 180, windowSeconds: 60 },
+    greet: { limit: 60, windowSeconds: 60 },
+    ask: { limit: 8, windowSeconds: 3600 },
+    'tag-create': { limit: 30, windowSeconds: 3600 },
+    'tag-delete': { limit: 30, windowSeconds: 3600 },
+    'dialogs-read': { limit: 120, windowSeconds: 60 }
+  };
+  const rule = limits[action];
+  if (rule && !await enforceRateLimit(req, res, {
+    scope: `insight-${action}`, identifier: slug, ...rule
+  })) return;
 
   /* ─────────── Метки: владелец ─────────── */
   if (action === 'tag-create' || action === 'tag-delete') {
@@ -144,10 +162,15 @@ export default async function handler(req, res) {
 
   /* ─────────── Гость открыл визитку ─────────── */
   if (action === 'track') {
-    const tagId = String(body.tag || '').trim();
-    const visitorId = String(body.visitor || '').trim().slice(0, 64);
+    const rawTagId = String(body.tag || '').trim();
+    const tagId = /^[a-f0-9]{8}$/i.test(rawTagId) ? rawTagId.toLowerCase() : '';
+    const rawVisitorId = String(body.visitor || '').trim();
+    const visitorId = /^[a-z0-9_-]{8,64}$/i.test(rawVisitorId) ? rawVisitorId : '';
+    const event = String(body.event || 'open');
+    if (!['open', 'contact'].includes(event)) return fail(res, 400, 'invalid_event');
+    await trackCardOpen(slug, visitorId, event);
     if (tagId) {
-      await trackTagOpen(slug, tagId, visitorId, String(body.event || 'open'));
+      await trackTagOpen(slug, tagId, visitorId, event);
     }
     // Запоминаем визит независимо от метки — для узнавания при возврате.
     if (visitorId) {
@@ -158,7 +181,9 @@ export default async function handler(req, res) {
 
   /* ─────────── Узнавание вернувшегося ─────────── */
   if (action === 'greet') {
-    const visitorId = String(body.visitor || '').trim().slice(0, 64);
+    const rawVisitorId = String(body.visitor || '').trim();
+    const visitorId = /^[a-z0-9_-]{8,64}$/i.test(rawVisitorId) ? rawVisitorId : '';
+    if (!visitorId) return fail(res, 400, 'invalid_visitor');
     const seen = await readVisitor(slug, visitorId);
     // Первый визит — не здороваемся «снова», это выглядело бы фальшиво.
     if (!seen || (Number(seen.visits) || 0) < 2) {
@@ -178,16 +203,21 @@ export default async function handler(req, res) {
     const data = await readPublicCard(slug);
     if (!data) return fail(res, 404, 'card_not_found');
 
-    const question = String(body.question || '').trim();
+    const question = String(body.question || '').trim().slice(0, 300);
     if (!question) return fail(res, 400, 'empty_question');
+    const contact = String(body.contact || '').trim().slice(0, 120);
+    if (!contact) return fail(res, 400, 'empty_contact');
+    if (!/(@[a-z0-9_]{5,32}|\+?[0-9][0-9()\s-]{6,}|[^\s@]+@[^\s@]+\.[^\s@]+)/i.test(contact)) {
+      return fail(res, 400, 'invalid_contact');
+    }
 
     const answer = buildAnswer(question, data.card || {});
     await saveDialog(slug, {
       question,
       answer: answer.text,
       kind: answer.kind,
-      contact: body.contact,
-      tagId: body.tag
+      contact,
+      tagId: /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim()) ? String(body.tag).trim().toLowerCase() : ''
     });
     return res.status(200).json({ ok: true, answer: answer.text, kind: answer.kind });
   }
