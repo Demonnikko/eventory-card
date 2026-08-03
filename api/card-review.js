@@ -111,7 +111,7 @@ export default async function handler(req, res) {
 
     const token = createInviteToken();
     const saved = await saveInvite(token, slug);
-    if (!saved) return fail(res, 503, 'store_not_configured');
+    if (!saved) return fail(res, 503, 'invite_store_failed');
     return res.status(200).json({ ok: true, token });
   }
 

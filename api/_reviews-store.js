@@ -29,17 +29,33 @@ export function storeConfigured() {
 
 async function redis(command) {
   if (!storeConfigured()) return null;
-  const res = await fetch(REDIS_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${REDIS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(command)
-  });
-  if (!res.ok) return null;
-  const data = await res.json().catch(() => null);
-  return data?.result ?? null;
+  const operation = String(command?.[0] || 'UNKNOWN');
+  try {
+    const res = await fetch(REDIS_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REDIS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(command)
+    });
+    if (!res.ok) {
+      console.error('[card-review:redis] response failed', { operation, status: res.status });
+      return null;
+    }
+    const data = await res.json().catch(() => null);
+    if (!data || !Object.prototype.hasOwnProperty.call(data, 'result')) {
+      console.error('[card-review:redis] invalid response', { operation });
+      return null;
+    }
+    return data.result ?? null;
+  } catch (error) {
+    console.error('[card-review:redis] request failed', {
+      operation,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return null;
+  }
 }
 
 const KEY = (slug) => `eventory:card:${slug}:reviews`;
@@ -60,8 +76,24 @@ export function createInviteToken() {
 // 30 дней: отзыв просят по свежим следам, вечная ссылка — лишний риск.
 export async function saveInvite(token, slug) {
   if (!storeConfigured()) return false;
-  await redis(['SET', INVITE_KEY(token), slug, 'EX', String(60 * 60 * 24 * 30)]);
-  return true;
+  const ttlSeconds = 60 * 60 * 24 * 30;
+
+  // Нельзя отдавать владельцу ссылку, пока мы не доказали, что токен
+  // действительно записан. Раньше SET мог завершиться ошибкой, но функция
+  // всё равно возвращала true — именно так появлялись «недействительные» ссылки.
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const saved = await redis(['SET', INVITE_KEY(token), slug, 'EX', String(ttlSeconds)]);
+    if (saved !== 'OK') {
+      console.error('[card-review:invite] save failed', { attempt });
+      continue;
+    }
+
+    const storedSlug = await redis(['GET', INVITE_KEY(token)]);
+    if (String(storedSlug || '') === slug) return true;
+    console.error('[card-review:invite] verification failed', { attempt });
+  }
+
+  return false;
 }
 
 export async function readInvite(token) {
