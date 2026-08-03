@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { createCardDraft } from '../src/editor-draft.js';
 import { DEFAULT_BUSINESS_CARD, cardCompletion } from '../src/card-data.js';
 import { renderAskBlock, resetAsk } from '../src/card-ask.js';
 import { createEncryptedBackup, restoreEncryptedBackup } from '../src/card-backup.js';
+import {
+  BUSINESS_CARD_PROFESSIONS,
+  businessCardOnboardingTemplateUrl
+} from '../src/shared/data/businessCard.js';
 
 test('автосохранение не теряет быстро заполненные поля', async () => {
   const saved = [];
@@ -38,6 +42,19 @@ test('шаблон профессии считается готовым офор
     profession: 'illusionist'
   });
   assert.equal(result.missing.some((item) => item.id === 'cover'), false);
+});
+
+test('все фоны выбора профессии облегчены и готовы к предзагрузке', async () => {
+  const files = BUSINESS_CARD_PROFESSIONS.map((profession) => {
+    const publicPath = businessCardOnboardingTemplateUrl(profession.id);
+    assert.match(publicPath, /^\/business-card-templates\/onboarding\/.+\.webp$/);
+    return new URL(`../public${publicPath}`, import.meta.url);
+  });
+  const sizes = await Promise.all(files.map(async (file) => (await stat(file)).size));
+
+  assert.equal(sizes.length, BUSINESS_CARD_PROFESSIONS.length);
+  assert.ok(sizes.every((size) => size < 64 * 1024));
+  assert.ok(sizes.reduce((total, size) => total + size, 0) < 300 * 1024);
 });
 
 test('быстрый вопрос запрашивает контакт и объясняет, кто его увидит', () => {
@@ -169,12 +186,13 @@ test('rate limit блокирует запросы сверх заданного
 });
 
 test('релизные UI-контракты остаются включены', async () => {
-  const [editor, preview, review, privacy, pwaUpdate, vite, html] = await Promise.all([
+  const [editor, preview, review, privacy, pwaUpdate, onboarding, vite, html] = await Promise.all([
     readFile(new URL('../src/editor.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/preview.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/review-record.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/privacy.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/pwa-update.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/onboarding.js', import.meta.url), 'utf8'),
     readFile(new URL('../vite.config.js', import.meta.url), 'utf8'),
     readFile(new URL('../index.html', import.meta.url), 'utf8')
   ]);
@@ -187,7 +205,12 @@ test('релизные UI-контракты остаются включены',
   assert.match(privacy, /случайный идентификатор/);
   assert.match(pwaUpdate, /registration\.update\(\)/);
   assert.match(pwaUpdate, /SKIP_WAITING/);
+  assert.match(onboarding, /preloadAllTemplates\(['"]high['"]\)/);
+  assert.match(onboarding, /businessCardOnboardingTemplateUrl/);
   assert.match(html, /data-pwa-update-control/);
+  assert.match(html, /onboarding\/illusionist-card\.webp/);
   assert.match(vite, /skipWaiting:\s*false/);
+  assert.match(vite, /business-card-templates\/onboarding\/\*\.webp/);
+  assert.match(vite, /eventory-card-templates-v1/);
   assert.doesNotMatch(html, /user-scalable\s*=\s*no|maximum-scale\s*=\s*1/);
 });

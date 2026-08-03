@@ -39,12 +39,31 @@ export default defineConfig({
         // woff2 в precache: фирменная антиква должна быть и офлайн.
         // TTF (99КБ) намеренно не кэшируем — это запасной вариант для
         // старых браузеров, грузится только если woff2 не поддержан.
-        globPatterns: ['**/*.{js,css,html,svg,webmanifest,woff2}'],
+        globPatterns: [
+          '**/*.{js,css,html,svg,webmanifest,woff2}',
+          'business-card-templates/onboarding/*.webp'
+        ],
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
         // /api/ — живые серверные функции: публикация и чтение визитки
         // никогда не должны отдаваться из кэша.
         navigateFallbackDenylist: [/^\/api\//],
+        // Компактные onboarding-фоны доступны сразу и офлайн. Выбранный
+        // полноразмерный шаблон сохраняется при первом использовании.
+        runtimeCaching: [
+          {
+            urlPattern: /\/business-card-templates\/.*\.webp$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'eventory-card-templates-v1',
+              expiration: {
+                maxEntries: 32,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ],
         // Новая версия ждёт явного нажатия «Обновить». После сообщения
         // SKIP_WAITING она активируется и берёт вкладку под контроль.
         skipWaiting: false,
