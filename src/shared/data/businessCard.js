@@ -28,9 +28,27 @@ export const BUSINESS_CARD_TEMPLATE_BY_PROFESSION = {
   photographer: '/business-card-templates/photographer-card.webp'
 };
 
+// Облегчённые копии для первого запуска. На экране выбора карточка занимает
+// лишь часть ширины телефона, поэтому грузить исходники 1672×941 нет смысла.
+// Все семь onboarding-фонов вместе весят меньше одного полного шаблона.
+export const BUSINESS_CARD_ONBOARDING_TEMPLATE_BY_PROFESSION = {
+  host: '/business-card-templates/onboarding/host-card.webp',
+  illusionist: '/business-card-templates/onboarding/illusionist-card.webp',
+  vocalist: '/business-card-templates/onboarding/vocalist-card.webp',
+  organizer: '/business-card-templates/onboarding/organizer-card.webp',
+  decorator: '/business-card-templates/onboarding/decorator-card.webp',
+  videographer: '/business-card-templates/onboarding/videographer-card.webp',
+  photographer: '/business-card-templates/onboarding/photographer-card.webp'
+};
+
 export function businessCardTemplateUrl(profession) {
   return BUSINESS_CARD_TEMPLATE_BY_PROFESSION[String(profession || '')]
     || BUSINESS_CARD_TEMPLATE_BY_PROFESSION.host;
+}
+
+export function businessCardOnboardingTemplateUrl(profession) {
+  return BUSINESS_CARD_ONBOARDING_TEMPLATE_BY_PROFESSION[String(profession || '')]
+    || BUSINESS_CARD_ONBOARDING_TEMPLATE_BY_PROFESSION.host;
 }
 
 // Один и тот же профиль можно показывать в разных точках, но для артиста

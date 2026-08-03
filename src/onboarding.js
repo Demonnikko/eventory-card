@@ -6,7 +6,11 @@
 // иллюстраций «о продукте» — сразу его будущая визитка.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
-import { BUSINESS_CARD_PROFESSIONS, businessCardTemplateUrl } from './shared/data/businessCard.js';
+import {
+  BUSINESS_CARD_PROFESSIONS,
+  businessCardOnboardingTemplateUrl,
+  businessCardTemplateUrl
+} from './shared/data/businessCard.js';
 import { getCard, saveCard } from './card-data.js';
 
 const ONBOARDING_KEY = 'eventory-card:onboarded';
@@ -33,14 +37,48 @@ const state = {
   busy: false
 };
 
-// Текстуры тяжёлые (200–310КБ). Грузим по одной, по мере наведения на плитку,
-// чтобы к моменту выбора картинка уже была в кэше браузера.
-const preloaded = new Set();
-function preloadTemplate(professionId) {
-  if (!professionId || preloaded.has(professionId)) return;
-  preloaded.add(professionId);
+// Onboarding использует облегчённые 960×540 копии: все семь вместе весят
+// около 230 КБ. Держим Image-объекты в памяти, чтобы браузер не только скачал,
+// но и заранее декодировал фон до первого касания по плитке.
+const preloaded = new Map();
+function preloadTemplate(professionId, priority = 'auto') {
+  if (!professionId) return null;
+  const existing = preloaded.get(professionId);
+  if (existing) {
+    if (priority === 'high') existing.img.fetchPriority = 'high';
+    return existing;
+  }
   const img = new Image();
+  img.decoding = 'async';
+  img.fetchPriority = priority;
+  const ready = new Promise((resolve) => {
+    img.onload = () => {
+      const decoded = typeof img.decode === 'function' ? img.decode() : Promise.resolve();
+      Promise.resolve(decoded).catch(() => {}).finally(resolve);
+    };
+    img.onerror = resolve;
+  });
+  img.src = businessCardOnboardingTemplateUrl(professionId);
+  const entry = { img, ready };
+  preloaded.set(professionId, entry);
+  return entry;
+}
+
+function preloadAllTemplates(priority = 'auto') {
+  BUSINESS_CARD_PROFESSIONS.forEach((profession) => {
+    preloadTemplate(profession.id, priority);
+  });
+}
+
+// Полноразмерный выбранный фон тихо прогреваем для следующего экрана.
+const fullTemplatePreloads = new Map();
+function preloadFullTemplate(professionId) {
+  if (!professionId || fullTemplatePreloads.has(professionId)) return;
+  const img = new Image();
+  img.decoding = 'async';
+  img.fetchPriority = 'low';
   img.src = businessCardTemplateUrl(professionId);
+  fullTemplatePreloads.set(professionId, img);
 }
 
 function professionLabel(id) {
@@ -61,7 +99,7 @@ function renderPaperCard() {
   const pro = state.profession || '';
   const { first, last } = splitName(state.name);
   const role = professionLabel(pro);
-  const template = pro ? businessCardTemplateUrl(pro) : '';
+  const template = pro ? businessCardOnboardingTemplateUrl(pro) : '';
 
   return `
     <div class="ob-paper${pro ? ' has-template' : ''}" data-paper style="${template ? `--ob-template:url('${escapeAttr(template)}')` : ''}">
@@ -109,7 +147,7 @@ function renderProfessionStep() {
       type="button"
       class="ob-tile${state.profession === p.id ? ' is-selected' : ''}"
       data-profession="${escapeAttr(p.id)}"
-      style="--tile-order:${i}; --ob-tile-art:url('${escapeAttr(businessCardTemplateUrl(p.id))}')"
+      style="--tile-order:${i}; --ob-tile-art:url('${escapeAttr(businessCardOnboardingTemplateUrl(p.id))}')"
       aria-pressed="${state.profession === p.id ? 'true' : 'false'}"
     >
       <span class="ob-tile-art" aria-hidden="true"></span>
@@ -203,7 +241,10 @@ export const onboarding = {
 
     node.innerHTML = renderContent();
     bind(node, ctx);
-    if (state.profession) preloadTemplate(state.profession);
+    // Четыре самых частых варианта браузер уже начал грузить из <head>.
+    // Здесь догреваем весь компактный набор — до шага выбора обычно всё готово.
+    preloadAllTemplates('high');
+    if (state.profession) preloadFullTemplate(state.profession);
   }
 };
 
@@ -239,6 +280,7 @@ function bind(node, ctx = {}) {
   node.querySelectorAll('[data-next]').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (btn.disabled) return;
+      if (btn.dataset.next === 'profession') preloadAllTemplates('high');
       state.step = btn.dataset.next;
       swapStep(node, ctx);
     });
@@ -247,10 +289,14 @@ function bind(node, ctx = {}) {
   // Выбор направления — карточка перестраивается сразу, без перезагрузки шага
   node.querySelectorAll('[data-profession]').forEach((tile) => {
     const id = tile.dataset.profession;
-    tile.addEventListener('pointerenter', () => preloadTemplate(id), { once: true });
+    tile.addEventListener('pointerenter', () => {
+      preloadTemplate(id, 'high');
+      preloadFullTemplate(id);
+    }, { once: true });
     tile.addEventListener('click', () => {
       state.profession = state.profession === id ? '' : id;
-      preloadTemplate(id);
+      preloadTemplate(id, 'high');
+      preloadFullTemplate(id);
 
       node.querySelectorAll('[data-profession]').forEach((t) => {
         const active = t.dataset.profession === state.profession;
