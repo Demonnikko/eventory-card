@@ -105,7 +105,7 @@ function renderContent() {
         </span>
         <span class="ca-present-copy">
           <span class="ca-present-title">Показать визитку</span>
-          <span class="ca-present-text">Поверните телефон и протяните собеседнику</span>
+          <span class="ca-present-text">QR уже на карточке — просто покажите её собеседнику</span>
         </span>
         ${renderIcon('chevron-right')}
       </a>
