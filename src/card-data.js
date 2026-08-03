@@ -25,19 +25,77 @@ export function cardPublicUrl(slug) {
   return `${origin}/v/${encodeURIComponent(cleanSlug)}`;
 }
 
+// leadKey — ключ владельца: по нему он модерирует отзывы и смотрит
+// статистику опубликованной визитки. Он обязан быть стабильным, поэтому
+// живёт отдельно от карточки и создаётся ровно один раз. Раньше ключ
+// выдавался внутри getCard и тут же сохранялся — из-за этого чтение
+// карточки становилось записью и приводило к гонкам между экранами.
+const LEAD_KEY_STORAGE = 'eventory-card:lead-key';
+
+function readStableLeadKey() {
+  try {
+    const saved = localStorage.getItem(LEAD_KEY_STORAGE);
+    if (/^[a-f0-9]{32}$/i.test(String(saved || ''))) return String(saved).toLowerCase();
+  } catch { /* приватный режим — ключ проживёт в рамках сессии */ }
+  return '';
+}
+
+function ensureStableLeadKey(existing) {
+  if (/^[a-f0-9]{32}$/i.test(String(existing || ''))) {
+    // Ключ уже есть в карточке — закрепляем его как основной.
+    try { localStorage.setItem(LEAD_KEY_STORAGE, String(existing).toLowerCase()); } catch {}
+    return String(existing).toLowerCase();
+  }
+  const stored = readStableLeadKey();
+  if (stored) return stored;
+  const fresh = createLeadKey();
+  try { localStorage.setItem(LEAD_KEY_STORAGE, fresh); } catch {}
+  return fresh;
+}
+
+// Карточка считается заполненной, если человек хоть что-то в неё ввёл.
+// Нужно, чтобы отличить реальные данные от пустой заготовки: пустышка
+// не должна вытеснять заполненную карточку — ни при чтении, ни при записи.
+function hasContent(card) {
+  if (!card) return false;
+  const fields = ['name', 'role', 'city', 'tagline', 'bio', 'services',
+    'priceFrom', 'phone', 'telegram', 'email', 'website', 'coverPhoto'];
+  if (fields.some((f) => String(card[f] || '').trim())) return true;
+  return Boolean(card.galleryPhotos?.length || card.servicePackages?.length);
+}
+
 export async function getCard() {
   const stored = await getRecord(CARD_ID);
-  // Если IndexedDB очистилась, поднимаем карточку из localStorage-зеркала.
-  const source = stored || mirrorRead() || DEFAULT_BUSINESS_CARD;
+  const mirror = mirrorRead();
+
+  // Зеркало выигрывает, если в базе пусто, а в нём — данные. Раньше здесь
+  // хватало самого факта записи в IndexedDB: пустая заготовка перекрывала
+  // живое зеркало, и карточка терялась безвозвратно.
+  let source = stored;
+  if (!hasContent(stored) && hasContent(mirror)) source = mirror;
+  if (!source) source = mirror || DEFAULT_BUSINESS_CARD;
+
   const normalized = normalizeBusinessCard(source);
-  if (!normalized.leadKey) {
-    return saveCard({ ...normalized, leadKey: createLeadKey() });
-  }
+  normalized.leadKey = ensureStableLeadKey(normalized.leadKey);
   return normalized;
 }
 
 export async function saveCard(card) {
   const normalized = normalizeBusinessCard(card);
+  // После публикации сервер возвращает свой leadKey — он и становится
+  // основным для этого устройства.
+  normalized.leadKey = ensureStableLeadKey(normalized.leadKey);
+
+  // Защита от затирания: пустую карточку поверх заполненной не пишем.
+  // Так сохранение, сработавшее на устаревшем состоянии, не обнулит данные.
+  if (!hasContent(normalized)) {
+    const existing = await getRecord(CARD_ID);
+    const mirror = mirrorRead();
+    if (hasContent(existing) || hasContent(mirror)) {
+      return normalizeBusinessCard(hasContent(existing) ? existing : mirror);
+    }
+  }
+
   await putRecord(normalized);
   mirrorSave(normalized);
   return normalized;

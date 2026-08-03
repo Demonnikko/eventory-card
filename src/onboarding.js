@@ -17,7 +17,15 @@ const ONBOARDING_KEY = 'eventory-card:onboarded';
 
 export function isOnboarded() {
   try {
-    return localStorage.getItem(ONBOARDING_KEY) === '1';
+    if (localStorage.getItem(ONBOARDING_KEY) === '1') return true;
+    // Флаг могли потерять (чистка хранилища, приватный режим), а карточка
+    // при этом заполнена. Показывать такому человеку «создайте визитку за
+    // две минуты» — выглядит как потеря аккаунта, поэтому судим ещё и по
+    // самим данным. Зеркало читается синхронно, в отличие от IndexedDB.
+    const raw = localStorage.getItem('eventory-card:mirror');
+    if (!raw) return false;
+    const card = JSON.parse(raw);
+    return Boolean(String(card?.name || '').trim() || String(card?.role || '').trim());
   } catch {
     return false;
   }
