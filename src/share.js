@@ -277,9 +277,11 @@ function bindReviewActions(node) {
         state.reviews = state.reviews.filter((r) => r.id !== id);
         rerender(node);
         toast.show('Отзыв удалён');
-      } catch {
+      } catch (err) {
         btn.disabled = false;
-        toast.show('Не удалось удалить', { error: true });
+        toast.show(err?.message === 'video_delete_failed'
+          ? 'Хранилище видео недоступно — попробуйте позже'
+          : 'Не удалось удалить', { error: true });
       }
     });
   });

@@ -6,6 +6,7 @@
 // видит готовый диалог, а не пропущенный контакт.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
+import { toast } from './shared/components/toast.js';
 import { askQuestion } from './insight-data.js';
 
 // Три вопроса, которые задают всегда. Показываем их кнопками — так человеку
@@ -22,6 +23,8 @@ const state = {
   card: null,
   open: false,
   busy: false,
+  contact: '',
+  sent: false,
   thread: []   // [{ from: 'guest'|'card', text }]
 };
 
@@ -83,17 +86,25 @@ export function renderAskBlock(card) {
           </div>
         `}
 
-        <div class="cp-ask-form">
-          <input class="cp-ask-input" type="text" placeholder="Свой вопрос…"
-            maxlength="300" data-ask-input ${state.busy ? 'disabled' : ''} />
-          <button type="button" class="cp-ask-send" data-ask-send
-            aria-label="Отправить" ${state.busy ? 'disabled' : ''}>
-            ${renderIcon('chevron-right')}
-          </button>
+        <div class="cp-ask-fields">
+          <div class="cp-ask-form">
+            <input class="cp-ask-input" type="text" placeholder="Свой вопрос…"
+              maxlength="300" data-ask-input ${state.busy ? 'disabled' : ''} />
+            <button type="button" class="cp-ask-send" data-ask-send
+              aria-label="Отправить" ${state.busy ? 'disabled' : ''}>
+              ${renderIcon('chevron-right')}
+            </button>
+          </div>
+          <input class="cp-ask-input cp-ask-contact" type="text"
+            value="${escapeAttr(state.contact)}"
+            placeholder="Телефон или @telegram для ответа"
+            maxlength="120" autocomplete="tel" data-ask-contact ${state.busy ? 'disabled' : ''} />
+          <span class="cp-ask-privacy">Контакт не публикуется — он нужен владельцу для ответа.
+            <a href="/#/privacy" target="_blank" rel="noopener">Подробнее</a></span>
         </div>
 
-        ${state.thread.length ? `
-          <p class="cp-ask-note">Вопрос сохранён — с вами свяжутся лично.</p>
+        ${state.sent ? `
+          <p class="cp-ask-note">Вопрос и контакт отправлены — с вами свяжутся лично.</p>
         ` : ''}
       </div>
     </section>
@@ -122,17 +133,34 @@ export function bindAsk(node, { slug, tagId }) {
   }
 
   node.querySelectorAll('[data-quick]').forEach((btn) => {
-    btn.addEventListener('click', () => send(node, btn.dataset.quick));
+    btn.addEventListener('click', () => {
+      const input = node.querySelector('[data-ask-input]');
+      if (input) input.value = btn.dataset.quick;
+      node.querySelector('[data-ask-contact]')?.focus();
+    });
   });
 
   const input = node.querySelector('[data-ask-input]');
+  const contact = node.querySelector('[data-ask-contact]');
+  if (contact) {
+    contact.addEventListener('input', () => {
+      state.contact = contact.value;
+    });
+  }
   const sendBtn = node.querySelector('[data-ask-send]');
   if (sendBtn && input) {
-    sendBtn.addEventListener('click', () => send(node, input.value));
+    sendBtn.addEventListener('click', () => send(node, input.value, contact?.value));
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        send(node, input.value);
+        if (contact && !contact.value.trim()) contact.focus();
+        else send(node, input.value, contact?.value);
+      }
+    });
+    contact?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        send(node, input.value, contact.value);
       }
     });
   }
@@ -149,17 +177,31 @@ function rerender(root) {
   if (thread) thread.scrollTop = thread.scrollHeight;
 }
 
-async function send(node, raw) {
+async function send(node, raw, rawContact) {
   const question = String(raw || '').trim();
+  const contact = String(rawContact || '').trim();
   if (!question || state.busy) return;
+  if (!contact) {
+    toast.show('Оставьте телефон или Telegram для ответа');
+    node.querySelector('[data-ask-contact]')?.focus();
+    return;
+  }
+  if (!/(@[a-z0-9_]{5,32}|\+?[0-9][0-9()\s-]{6,}|[^\s@]+@[^\s@]+\.[^\s@]+)/i.test(contact)) {
+    toast.show('Укажите телефон, @telegram или email');
+    node.querySelector('[data-ask-contact]')?.focus();
+    return;
+  }
 
+  state.contact = contact;
+  state.sent = false;
   state.thread.push({ from: 'guest', text: question });
   state.busy = true;
   rerender(node);
 
   try {
-    const data = await askQuestion(state.slug, { question, tagId: state.tagId });
+    const data = await askQuestion(state.slug, { question, contact, tagId: state.tagId });
     state.thread.push({ from: 'card', text: data.answer });
+    state.sent = true;
   } catch {
     state.thread.push({
       from: 'card',
@@ -174,5 +216,7 @@ async function send(node, raw) {
 export function resetAsk() {
   state.open = false;
   state.busy = false;
+  state.contact = '';
+  state.sent = false;
   state.thread = [];
 }

@@ -31,7 +31,7 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       injectRegister: false,
       filename: 'sw.js',
       includeAssets: ['icon.png', 'icon-192.png', 'maskable-icon.png'],
@@ -45,7 +45,9 @@ export default defineConfig({
         // /api/ — живые серверные функции: публикация и чтение визитки
         // никогда не должны отдаваться из кэша.
         navigateFallbackDenylist: [/^\/api\//],
-        skipWaiting: true,
+        // Новая версия ждёт явного нажатия «Обновить». После сообщения
+        // SKIP_WAITING она активируется и берёт вкладку под контроль.
+        skipWaiting: false,
         clientsClaim: true
       },
       manifest: {

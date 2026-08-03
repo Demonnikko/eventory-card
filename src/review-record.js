@@ -23,7 +23,10 @@ const state = {
   seconds: 0,
   timer: 0,
   busy: false,
-  error: ''
+  error: '',
+  author: '',
+  role: '',
+  consent: false
 };
 
 function stopStream() {
@@ -106,9 +109,14 @@ function renderReview() {
 
       <div class="rv-fields">
         <input class="rv-input" type="text" name="author" placeholder="Как вас зовут"
-          maxlength="60" autocomplete="name" data-author />
+          value="${escapeAttr(state.author)}" maxlength="60" autocomplete="name" data-author />
         <input class="rv-input" type="text" name="role" placeholder="Например: невеста, заказчик"
-          maxlength="80" data-role />
+          value="${escapeAttr(state.role)}" maxlength="80" data-role />
+        <label class="rv-consent">
+          <input type="checkbox" data-consent ${state.consent ? 'checked' : ''} />
+          <span>Согласен отправить видео владельцу и на публикацию после его подтверждения.
+            <a href="/#/privacy" target="_blank" rel="noopener">Как используются данные</a></span>
+        </label>
       </div>
 
       <div class="rv-actions">
@@ -175,6 +183,9 @@ export const reviewRecord = {
     state.error = '';
     state.blob = null;
     state.seconds = 0;
+    state.author = '';
+    state.role = '';
+    state.consent = false;
 
     if (!state.token) {
       state.error = 'Ссылка неполная. Попросите отправить её ещё раз.';
@@ -239,6 +250,10 @@ function bind(node) {
 
   const send = node.querySelector('[data-send]');
   if (send) send.addEventListener('click', () => send_(node));
+
+  node.querySelector('[data-author]')?.addEventListener('input', (e) => { state.author = e.target.value; });
+  node.querySelector('[data-role]')?.addEventListener('input', (e) => { state.role = e.target.value; });
+  node.querySelector('[data-consent]')?.addEventListener('change', (e) => { state.consent = e.target.checked; });
 }
 
 async function startCamera(node, { silent = false } = {}) {
@@ -331,11 +346,16 @@ async function send_(node) {
     return;
   }
 
-  const author = node.querySelector('[data-author]')?.value?.trim() || '';
-  const role = node.querySelector('[data-role]')?.value?.trim() || '';
+  const author = state.author.trim();
+  const role = state.role.trim();
   if (!author) {
     toast.show('Напишите, как вас зовут');
     node.querySelector('[data-author]')?.focus();
+    return;
+  }
+  if (!state.consent) {
+    toast.show('Подтвердите согласие на отправку видео');
+    node.querySelector('[data-consent]')?.focus();
     return;
   }
 
@@ -343,7 +363,13 @@ async function send_(node) {
   rerender(node);
 
   try {
-    await uploadReview(state.token, { blob: state.blob, author, role, duration: state.seconds });
+    await uploadReview(state.token, {
+      blob: state.blob,
+      author,
+      role,
+      duration: state.seconds,
+      consent: state.consent
+    });
     hapticSuccess();
     state.step = 'sent';
   } catch (err) {

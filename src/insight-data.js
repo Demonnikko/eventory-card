@@ -44,7 +44,9 @@ function post(payload) {
 
 export async function fetchInsight() {
   const card = await getCard();
-  if (!card.publishedSlug || !card.leadKey) return { tags: [], dialogs: [] };
+  if (!card.publishedSlug || !card.leadKey) {
+    return { summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0 }, tags: [], dialogs: [] };
+  }
   return request(
     `/api/card-insight?slug=${encodeURIComponent(card.publishedSlug)}&key=${encodeURIComponent(card.leadKey)}`
   );

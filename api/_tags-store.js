@@ -31,6 +31,7 @@ async function redis(command) {
 
 const TAGS_KEY = (slug) => `eventory:card:${slug}:tags`;
 const TAG_STATS_KEY = (slug, tag) => `eventory:card:${slug}:tag:${tag}`;
+const CARD_STATS_KEY = (slug) => `eventory:card:${slug}:stats`;
 const VISITOR_KEY = (slug, visitor) => `eventory:card:${slug}:visitor:${visitor}`;
 const DIALOG_KEY = (slug) => `eventory:card:${slug}:dialogs`;
 
@@ -88,9 +89,9 @@ export async function deleteTag(slug, id) {
 }
 
 // Статистика метки: открытия, уникальные посетители, переходы в контакты.
-export async function readTagStats(slug, tagId) {
+async function readStats(key) {
   if (!storeConfigured()) return { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
-  const raw = await redis(['HGETALL', TAG_STATS_KEY(slug, tagId)]);
+  const raw = await redis(['HGETALL', key]);
   const out = {};
   if (Array.isArray(raw)) {
     for (let i = 0; i < raw.length; i += 2) out[String(raw[i])] = Number(raw[i + 1] || 0);
@@ -105,12 +106,19 @@ export async function readTagStats(slug, tagId) {
   };
 }
 
+export function readTagStats(slug, tagId) {
+  return readStats(TAG_STATS_KEY(slug, tagId));
+}
+
+export function readCardStats(slug) {
+  return readStats(CARD_STATS_KEY(slug));
+}
+
 // Одно открытие визитки по метке. visitorId — случайный идентификатор,
 // который живёт в браузере гостя: он позволяет отличить «шесть открытий
 // одним человеком» от «шесть разных людей», не собирая ничего личного.
-export async function trackTagOpen(slug, tagId, visitorId, event = 'open') {
+async function trackStats(key, visitorId, event = 'open') {
   if (!storeConfigured()) return false;
-  const key = TAG_STATS_KEY(slug, tagId);
 
   if (event === 'contact') {
     await redis(['HINCRBY', key, 'contacts', '1']);
@@ -126,6 +134,14 @@ export async function trackTagOpen(slug, tagId, visitorId, event = 'open') {
   await redis(['HSET', key, 'lastAt', String(Date.now())]);
   await redis(['EXPIRE', key, String(YEAR)]);
   return true;
+}
+
+export function trackTagOpen(slug, tagId, visitorId, event = 'open') {
+  return trackStats(TAG_STATS_KEY(slug, tagId), visitorId, event);
+}
+
+export function trackCardOpen(slug, visitorId, event = 'open') {
+  return trackStats(CARD_STATS_KEY(slug), visitorId, event);
 }
 
 /* ─────────── Узнавание вернувшихся ─────────── */

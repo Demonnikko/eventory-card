@@ -5,8 +5,19 @@
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
-import { compressImage, BUSINESS_CARD_PROFESSIONS } from './shared/data/businessCard.js';
+import {
+  compressImage,
+  BUSINESS_CARD_PROFESSIONS,
+  BUSINESS_CARD_GALLERY_MAX_BYTES
+} from './shared/data/businessCard.js';
 import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST } from './card-data.js';
+import { createCardDraft } from './editor-draft.js';
+import {
+  BACKUP_MAX_BYTES,
+  createEncryptedBackup,
+  restoreEncryptedBackup,
+  downloadBackupFile
+} from './card-backup.js';
 import { activeUpsell, upsellHref, CRM_NAME } from './crm-upsell.js';
 
 const THEME_OPTIONS = [
@@ -21,6 +32,8 @@ const state = {
   busy: false,
   openSection: 'basics'
 };
+
+let draft = null;
 
 function field({ name, label, value, type = 'text', textarea = false, rows = 3, placeholder = '', maxlength = 0, hint = '' }) {
   const attrs = [
@@ -42,16 +55,18 @@ function field({ name, label, value, type = 'text', textarea = false, rows = 3, 
 
 function section({ id, title, sub, body }) {
   const open = state.openSection === id;
+  const bodyId = `ca-section-${id}`;
   return `
     <section class="ca-section${open ? ' is-open' : ''}" data-section="${escapeAttr(id)}">
-      <button class="ca-section-head" type="button" data-toggle-section="${escapeAttr(id)}">
+      <button class="ca-section-head" type="button" data-toggle-section="${escapeAttr(id)}"
+        aria-expanded="${open ? 'true' : 'false'}" aria-controls="${escapeAttr(bodyId)}">
         <span class="ca-section-titles">
           <span class="ca-section-title">${escapeHtml(title)}</span>
           ${sub ? `<span class="ca-section-sub">${escapeHtml(sub)}</span>` : ''}
         </span>
         <span class="ca-section-chevron" aria-hidden="true">${renderIcon('chevron-right')}</span>
       </button>
-      <div class="ca-section-body" ${open ? '' : 'hidden'}>${body}</div>
+      <div class="ca-section-body" id="${escapeAttr(bodyId)}" ${open ? '' : 'hidden'}>${body}</div>
     </section>
   `;
 }
@@ -107,12 +122,76 @@ function renderCover(card) {
         ? `<img class="ca-cover-img" src="${escapeAttr(card.coverPhoto)}" alt="" />`
         : '<div class="ca-cover-empty">Фото или обложка</div>'}
       <div class="ca-cover-actions">
-        <label class="ca-btn ca-btn--ghost">
-          ${card.coverPhoto ? 'Заменить фото' : 'Добавить фото'}
-          <input type="file" accept="image/*" hidden data-cover-input />
-        </label>
+        <button type="button" class="ca-btn ca-btn--ghost" data-cover-trigger>
+          ${card.coverPhoto ? 'Заменить фото' : 'Добавить фото'}</button>
+        <input type="file" accept="image/*" hidden data-cover-input />
         ${card.coverPhoto ? '<button type="button" class="ca-btn ca-btn--ghost" data-cover-remove>Убрать</button>' : ''}
       </div>
+    </div>
+  `;
+}
+
+function renderGallery(card) {
+  const photos = Array.isArray(card.galleryPhotos) ? card.galleryPhotos : [];
+  const captions = Array.isArray(card.galleryCaptions) ? card.galleryCaptions : [];
+  return `
+    <div class="ca-gallery-editor">
+      <div class="ca-editor-subhead">
+        <span>Галерея работ</span>
+        <span>${photos.length} из 6</span>
+      </div>
+      ${photos.length ? `
+        <div class="ca-gallery-list">
+          ${photos.map((photo, index) => `
+            <div class="ca-gallery-row">
+              <img src="${escapeAttr(photo)}" alt="Работа ${index + 1}" />
+              <input class="ca-input" type="text" maxlength="100"
+                value="${escapeAttr(captions[index] || '')}" placeholder="Подпись к работе"
+                aria-label="Подпись к работе ${index + 1}" data-gallery-caption="${index}" />
+              <button type="button" class="ca-icon-btn" aria-label="Удалить работу ${index + 1}"
+                data-gallery-remove="${index}">${renderIcon('trash')}</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<p class="ca-note">Добавьте лучшие работы — они появятся отдельной галереей на визитке.</p>'}
+      ${photos.length < 6 ? `
+        <button type="button" class="ca-btn ca-btn--ghost ca-gallery-add" data-gallery-trigger>
+          ${renderIcon('upload')} Добавить фото</button>
+        <input type="file" accept="image/*" multiple hidden data-gallery-input />
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderServicePackages(card) {
+  const packages = Array.isArray(card.servicePackages) ? card.servicePackages : [];
+  return `
+    <div class="ca-packages">
+      <div class="ca-editor-subhead">
+        <span>Пакеты услуг</span>
+        <span>${packages.length} из 3</span>
+      </div>
+      ${packages.map((item, index) => `
+        <div class="ca-package">
+          <div class="ca-package-head">
+            <span>Пакет ${index + 1}</span>
+            <button type="button" class="ca-icon-btn" aria-label="Удалить пакет ${index + 1}"
+              data-package-remove="${index}">${renderIcon('trash')}</button>
+          </div>
+          <input class="ca-input" type="text" maxlength="80" value="${escapeAttr(item.title || '')}"
+            placeholder="Название" aria-label="Название пакета ${index + 1}"
+            data-package-index="${index}" data-package-field="title" />
+          <input class="ca-input" type="text" maxlength="40" value="${escapeAttr(item.price || '')}"
+            placeholder="Цена" aria-label="Цена пакета ${index + 1}"
+            data-package-index="${index}" data-package-field="price" />
+          <textarea class="ca-input" rows="2" maxlength="180" placeholder="Что входит"
+            aria-label="Описание пакета ${index + 1}" data-package-index="${index}"
+            data-package-field="description">${escapeHtml(item.description || '')}</textarea>
+        </div>
+      `).join('')}
+      ${packages.length < 3
+        ? '<button type="button" class="ca-btn ca-btn--ghost ca-package-add" data-package-add>Добавить пакет</button>'
+        : ''}
     </div>
   `;
 }
@@ -147,6 +226,28 @@ function renderPublishBar(card) {
   `;
 }
 
+function renderBackup() {
+  return `
+    <div class="ca-backup">
+      <p class="ca-note">Файл позволяет восстановить визитку и управление опубликованной ссылкой на другом устройстве.</p>
+      <label class="ca-field">
+        <span class="ca-field-label">Пароль резервной копии</span>
+        <input class="ca-input" type="password" minlength="8" maxlength="120"
+          autocomplete="new-password" placeholder="Минимум 8 символов" data-backup-password />
+        <span class="ca-field-hint">Запомните пароль: без него файл невозможно расшифровать.</span>
+      </label>
+      <div class="ca-backup-actions">
+        <button type="button" class="ca-btn ca-btn--ghost" data-backup-export>${renderIcon('download')} Скачать копию</button>
+        <button type="button" class="ca-btn ca-btn--ghost" data-backup-import-trigger>
+          ${renderIcon('upload')} Восстановить</button>
+        <input type="file" accept=".eventory-card,application/json" hidden data-backup-import />
+      </div>
+      <p class="ca-backup-warning">Не передавайте файл и пароль вместе: копия содержит закрытый ключ владельца.</p>
+      <a class="ca-text-link" href="#/privacy">Как используются данные</a>
+    </div>
+  `;
+}
+
 function renderContent() {
   const card = state.card;
   if (!card) return '<div class="ca-loading">Загружаем визитку…</div>';
@@ -171,8 +272,8 @@ function renderContent() {
       ${section({
         id: 'look',
         title: 'Оформление',
-        sub: 'Фото и цвет',
-        body: `${renderCover(card)}${renderThemes(card)}`
+        sub: 'Фото, галерея и цвет',
+        body: `${renderCover(card)}${renderGallery(card)}${renderThemes(card)}`
       })}
 
       ${section({
@@ -195,6 +296,7 @@ function renderContent() {
           ${field({ name: 'bio', label: 'О себе', value: card.bio, textarea: true, rows: 5, maxlength: 800, placeholder: 'Коротко о вашем опыте' })}
           ${field({ name: 'services', label: 'Услуги', value: card.services, textarea: true, rows: 4, maxlength: 800, placeholder: 'Каждая услуга с новой строки' })}
           ${field({ name: 'priceFrom', label: 'Цена от', value: card.priceFrom, placeholder: '30 000 ₽', maxlength: 40 })}
+          ${renderServicePackages(card)}
           ${renderUpsell('quote')}
         `
       })}
@@ -210,13 +312,32 @@ function renderContent() {
         `
       })}
 
+      ${section({
+        id: 'backup',
+        title: 'Резервная копия',
+        sub: 'Перенос и восстановление',
+        body: renderBackup()
+      })}
+
       ${renderPublishBar(card)}
     </form>
   `;
 }
 
+function updateDraft(patch) {
+  state.card = draft.schedule(patch);
+  return state.card;
+}
+
 async function persist(patch) {
-  state.card = await saveCard({ ...state.card, ...patch });
+  state.card = await draft.persist(patch);
+  return state.card;
+}
+
+async function flushDraft() {
+  if (!draft) return state.card;
+  state.card = await draft.flush();
+  return state.card;
 }
 
 export const editor = {
@@ -227,8 +348,13 @@ export const editor = {
   },
   async mount(node) {
     state.card = await getCard();
+    draft = createCardDraft(state.card, { save: saveCard });
+    state.card = draft.card;
     node.innerHTML = renderContent();
     bind(node);
+  },
+  async unmount() {
+    await flushDraft();
   }
 };
 
@@ -243,16 +369,32 @@ function bind(node) {
 
   // Автосохранение: пользователь бесплатного продукта не должен думать
   // о кнопке «Сохранить» — карточка живёт локально и пишется сразу.
-  let saveTimer = null;
   form.addEventListener('input', (e) => {
     const el = e.target;
-    if (!el.name) return;
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      await persist({ [el.name]: el.value });
-      const bar = node.querySelector('.ca-progress');
-      if (bar) bar.outerHTML = renderProgress(state.card);
-    }, 350);
+    if (el.dataset.packageField) {
+      const index = Number(el.dataset.packageIndex);
+      const packages = state.card.servicePackages.map((item) => ({ ...item }));
+      packages[index] = { ...(packages[index] || {}), [el.dataset.packageField]: el.value };
+      updateDraft({ servicePackages: packages });
+    } else if (el.dataset.galleryCaption != null) {
+      const captions = [...state.card.galleryCaptions];
+      captions[Number(el.dataset.galleryCaption)] = el.value;
+      updateDraft({ galleryCaptions: captions });
+    } else if (el.name) {
+      updateDraft({ [el.name]: el.value });
+    } else {
+      return;
+    }
+    const bar = node.querySelector('.ca-progress');
+    if (bar) bar.outerHTML = renderProgress(state.card);
+  });
+
+  // Blur/change — естественная граница поля. Записываем сразу, чтобы даже
+  // закрытие вкладки сразу после ввода не оставляло значение только в таймере.
+  form.addEventListener('change', () => {
+    flushDraft().catch(() => {
+      toast.show('Не удалось сохранить изменение', { error: true });
+    });
   });
 
   node.querySelectorAll('[data-toggle-section]').forEach((btn) => {
@@ -280,6 +422,7 @@ function bind(node) {
 
   const coverInput = node.querySelector('[data-cover-input]');
   if (coverInput) {
+    node.querySelector('[data-cover-trigger]')?.addEventListener('click', () => coverInput.click());
     coverInput.addEventListener('change', async () => {
       const file = coverInput.files?.[0];
       if (!file) return;
@@ -301,12 +444,143 @@ function bind(node) {
     });
   }
 
+  const galleryInput = node.querySelector('[data-gallery-input]');
+  if (galleryInput) {
+    node.querySelector('[data-gallery-trigger]')?.addEventListener('click', () => galleryInput.click());
+    galleryInput.addEventListener('change', async () => {
+      const remaining = 6 - state.card.galleryPhotos.length;
+      const files = Array.from(galleryInput.files || []).slice(0, remaining);
+      if (!files.length) return;
+      galleryInput.disabled = true;
+      try {
+        const additions = [];
+        for (const file of files) {
+          additions.push(await compressImage(file, {
+            maxDim: 1000,
+            quality: 0.78,
+            maxBytes: BUSINESS_CARD_GALLERY_MAX_BYTES
+          }));
+        }
+        await persist({
+          galleryPhotos: [...state.card.galleryPhotos, ...additions],
+          galleryCaptions: [...state.card.galleryCaptions, ...additions.map(() => '')]
+        });
+        rerender(node);
+      } catch {
+        toast.show('Не удалось обработать одно из фото', { error: true });
+        galleryInput.disabled = false;
+      }
+    });
+  }
+
+  node.querySelectorAll('[data-gallery-remove]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const index = Number(btn.dataset.galleryRemove);
+      await persist({
+        galleryPhotos: state.card.galleryPhotos.filter((_, i) => i !== index),
+        galleryCaptions: state.card.galleryCaptions.filter((_, i) => i !== index)
+      });
+      rerender(node);
+    });
+  });
+
+  const packageAdd = node.querySelector('[data-package-add]');
+  if (packageAdd) {
+    packageAdd.addEventListener('click', async () => {
+      const number = state.card.servicePackages.length + 1;
+      await persist({
+        servicePackages: [...state.card.servicePackages, {
+          title: `Пакет ${number}`,
+          price: '',
+          description: ''
+        }]
+      });
+      rerender(node);
+    });
+  }
+
+  node.querySelectorAll('[data-package-remove]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const index = Number(btn.dataset.packageRemove);
+      await persist({ servicePackages: state.card.servicePackages.filter((_, i) => i !== index) });
+      rerender(node);
+    });
+  });
+
+  const backupPassword = node.querySelector('[data-backup-password]');
+  const backupExport = node.querySelector('[data-backup-export]');
+  if (backupExport && backupPassword) {
+    backupExport.addEventListener('click', async () => {
+      if (backupPassword.value.length < 8) {
+        toast.show('Придумайте пароль минимум из 8 символов');
+        backupPassword.focus();
+        return;
+      }
+      backupExport.disabled = true;
+      try {
+        await flushDraft();
+        const contents = await createEncryptedBackup(state.card, backupPassword.value);
+        downloadBackupFile(contents, state.card.name);
+        toast.show('Зашифрованная копия скачана', { ok: true });
+      } catch {
+        toast.show('Не удалось создать резервную копию', { error: true });
+      } finally {
+        backupExport.disabled = false;
+      }
+    });
+  }
+
+  const backupImport = node.querySelector('[data-backup-import]');
+  if (backupImport && backupPassword) {
+    node.querySelector('[data-backup-import-trigger]')?.addEventListener('click', () => backupImport.click());
+    backupImport.addEventListener('change', async () => {
+      const file = backupImport.files?.[0];
+      if (!file) return;
+      if (backupPassword.value.length < 8) {
+        toast.show('Введите пароль от резервной копии');
+        backupPassword.focus();
+        backupImport.value = '';
+        return;
+      }
+      if (file.size > BACKUP_MAX_BYTES) {
+        toast.show('Файл резервной копии слишком большой', { error: true });
+        backupImport.value = '';
+        return;
+      }
+      try {
+        const restored = await restoreEncryptedBackup(await file.text(), backupPassword.value);
+        if (!window.confirm('Заменить текущую визитку данными из резервной копии?')) return;
+        state.card = await saveCard(restored);
+        draft = createCardDraft(state.card, { save: saveCard });
+        rerender(node);
+        toast.show('Визитка восстановлена', { ok: true });
+      } catch (err) {
+        const message = err?.message === 'backup_password'
+          ? 'Неверный пароль или повреждённый файл'
+          : 'Не удалось прочитать резервную копию';
+        toast.show(message, { error: true });
+      } finally {
+        backupImport.value = '';
+      }
+    });
+  }
+
   const publishBtn = node.querySelector('[data-publish]');
   if (publishBtn) {
     publishBtn.addEventListener('click', async () => {
       if (state.busy) return;
+      try {
+        await flushDraft();
+      } catch {
+        toast.show('Не удалось сохранить визитку', { error: true });
+        return;
+      }
       if (!state.card.name) {
         toast.show('Добавьте имя — без него визитку не опубликовать');
+        return;
+      }
+      if (!state.card.phone && !state.card.telegram && !state.card.email) {
+        toast.show('Добавьте телефон, Telegram или email для связи');
         return;
       }
       state.busy = true;
@@ -316,9 +590,9 @@ function bind(node) {
         state.card = card;
         toast.show('Визитка опубликована');
       } catch (err) {
-        toast(err?.message === 'card_too_large'
+        toast.show(err?.message === 'card_too_large'
           ? 'Слишком тяжёлое фото — уменьшите его'
-          : 'Не удалось опубликовать. Попробуйте ещё раз');
+          : 'Не удалось опубликовать. Попробуйте ещё раз', { error: true });
       } finally {
         state.busy = false;
         rerender(node);
