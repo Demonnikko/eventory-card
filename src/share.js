@@ -238,9 +238,12 @@ function bindReviewActions(node) {
           toast.show('Ссылка скопирована — отправьте заказчику', { ok: true });
         }
       } catch (err) {
-        toast.show(err?.message === 'not_published'
+        const message = err?.message === 'not_published'
           ? 'Сначала опубликуйте визитку'
-          : 'Не удалось создать ссылку', { error: true });
+          : err?.message === 'invite_store_failed'
+            ? 'Ссылка не сохранилась — попробуйте ещё раз'
+            : 'Не удалось создать ссылку';
+        toast.show(message, { error: true });
       } finally {
         state.reviewsBusy = false;
         rerender(node);

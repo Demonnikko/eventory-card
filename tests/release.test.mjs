@@ -185,6 +185,52 @@ test('rate limit блокирует запросы сверх заданного
   }
 });
 
+test('ссылка на видеоотзыв выдаётся только после проверенной записи токена', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  const strings = new Map();
+  const setAttempts = new Map();
+
+  process.env.UPSTASH_REDIS_REST_URL = 'https://redis.test';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+
+  globalThis.fetch = async (_url, options) => {
+    const [op, key, value] = JSON.parse(options.body);
+    let result = null;
+
+    if (op === 'SET') {
+      const attempt = (setAttempts.get(key) || 0) + 1;
+      setAttempts.set(key, attempt);
+      const alwaysFails = key.includes('b'.repeat(32));
+      if (!alwaysFails && attempt > 1) {
+        strings.set(key, value);
+        result = 'OK';
+      }
+    } else if (op === 'GET') {
+      result = strings.get(key) || null;
+    }
+
+    return new Response(JSON.stringify({ result }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  };
+  console.error = () => {};
+
+  try {
+    const store = await import(`../api/_reviews-store.js?invite=${Date.now()}`);
+    assert.equal(await store.saveInvite('a'.repeat(32), 'demo-card'), true);
+    assert.equal(await store.readInvite('a'.repeat(32)), 'demo-card');
+    assert.equal(setAttempts.get(`eventory:card:invite:${'a'.repeat(32)}`), 2);
+
+    assert.equal(await store.saveInvite('b'.repeat(32), 'demo-card'), false);
+    assert.equal(setAttempts.get(`eventory:card:invite:${'b'.repeat(32)}`), 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
 test('релизные UI-контракты остаются включены', async () => {
   const [editor, preview, review, privacy, pwaUpdate, onboarding, present, cardCss, share, vite, html] = await Promise.all([
     readFile(new URL('../src/editor.js', import.meta.url), 'utf8'),
@@ -218,6 +264,7 @@ test('релизные UI-контракты остаются включены',
   assert.match(cardCss, /pr-sheen-pass/);
   assert.doesNotMatch(cardCss, /ca-present-sway|\.pr-screen\.is-flipped/);
   assert.match(share, /QR уже на карточке/);
+  assert.match(share, /invite_store_failed/);
   assert.match(html, /data-pwa-update-control/);
   assert.match(html, /onboarding\/illusionist-card\.webp/);
   assert.match(vite, /skipWaiting:\s*false/);
