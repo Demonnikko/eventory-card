@@ -115,8 +115,6 @@ export const DEFAULT_BUSINESS_CARD = {
   publishedAt: null
 };
 
-const THEMES = new Set(['gold', 'platinum', 'blue', 'graphite']);
-
 function clean(value, max = 240) {
   const text = String(value ?? '').trim();
   return text.length > max ? text.slice(0, max) : text;
@@ -208,7 +206,9 @@ export function createLeadKey() {
 }
 
 export function normalizeBusinessCard(input = {}) {
-  const theme = THEMES.has(String(input.theme || '')) ? String(input.theme) : DEFAULT_BUSINESS_CARD.theme;
+  // Один фирменный визуальный язык: тёплый графит и золото из иконки.
+  // Старые карточки с альтернативными темами автоматически обновляются.
+  const theme = DEFAULT_BUSINESS_CARD.theme;
   const professionIds = new Set(BUSINESS_CARD_PROFESSIONS.map((item) => item.id));
   const profession = professionIds.has(String(input.profession || '')) ? String(input.profession) : '';
   const leadKey = /^[a-f0-9]{32}$/i.test(String(input.leadKey || '')) ? String(input.leadKey).toLowerCase() : '';

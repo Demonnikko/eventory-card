@@ -8,13 +8,14 @@
 // золото тонкими акцентами. Появление разделов ставится через data-reveal,
 // анимацией управляет card-app.css.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
-import { renderIcon, renderBrandIcon, hasBrandIcon } from './shared/components/icons.js';
+import { renderIcon } from './shared/components/icons.js';
 import { businessCardTemplateUrl } from './shared/data/businessCard.js';
 import { renderReviewsSection } from './reviews-view.js';
 import { renderGreeting } from './card-ask.js';
 
 function contactIcon(name) {
-  return hasBrandIcon(name) ? renderBrandIcon(name) : renderIcon(name);
+  const unified = { telegram: 'share', website: 'externalLink' };
+  return renderIcon(unified[name] || name);
 }
 
 function telegramHref(value) {
