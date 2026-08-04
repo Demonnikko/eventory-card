@@ -10,7 +10,8 @@ async function request(url, options) {
   try {
     data = await res.json();
   } catch {
-    throw new Error('bad_response');
+    const mitigated = res.status === 403 || res.headers.get('x-vercel-mitigated');
+    throw new Error(mitigated ? 'security_checkpoint' : 'bad_response');
   }
   if (!res.ok || !data?.ok) throw new Error(data?.error || 'request_failed');
   return data;
@@ -73,23 +74,60 @@ export async function fetchInvite(token) {
   return data;
 }
 
-export async function uploadReview(token, { blob, author, role, duration, consent }) {
-  const video = await blobToDataUrl(blob);
-  const data = await request('/api/card-review', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'upload', invite: token, video, author, role, duration, consent: consent === true })
-  });
-  return data.review;
+export async function uploadReview(token, {
+  blob, slug, author, role, duration, consent, videoUrl = ''
+}) {
+  let uploadedUrl = videoUrl;
+  if (!uploadedUrl) uploadedUrl = await uploadReviewVideo(token, slug, blob);
+
+  try {
+    const data = await request('/api/card-review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'upload', invite: token, videoUrl: uploadedUrl,
+        author, role, duration, consent: consent === true
+      })
+    });
+    return data.review;
+  } catch (error) {
+    // Если ответ потерялся после загрузки, повторная кнопка не должна ещё раз
+    // гонять тот же ролик по мобильной сети.
+    error.videoUrl = uploadedUrl;
+    throw error;
+  }
 }
 
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('read_failed'));
-    reader.readAsDataURL(blob);
+async function uploadReviewVideo(token, slug, blob) {
+  if (!blob || !slug) throw new Error('invalid_video');
+  const contentType = String(blob.type || '').split(';')[0].toLowerCase();
+  if (contentType !== 'video/mp4' && contentType !== 'video/webm') throw new Error('invalid_video');
+
+  const bytes = new Uint8Array(9);
+  crypto.getRandomValues(bytes);
+  const id = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+  const ext = contentType === 'video/mp4' ? 'mp4' : 'webm';
+  const pathname = `reviews/${slug}/${id}.${ext}`;
+
+  const auth = await request('/api/card-review-upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invite: token, pathname, contentType, size: blob.size })
   });
+
+  const res = await fetch(auth.uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType,
+      'x-content-type': contentType,
+      'x-vercel-blob-access': 'public'
+    },
+    body: blob
+  });
+  let result = null;
+  try { result = await res.json(); } catch { /* код ошибки ниже */ }
+  if (!res.ok || !result?.url) throw new Error('upload_failed');
+  return result.url;
 }
 
 // Формат подбираем под браузер: Safari умеет mp4, остальные — webm.

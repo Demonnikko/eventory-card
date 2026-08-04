@@ -10,6 +10,10 @@ import {
   businessCardOnboardingTemplateUrl,
   normalizeBusinessCard
 } from '../src/shared/data/businessCard.js';
+import {
+  normalizeVideoContentType,
+  validReviewPathname
+} from '../api/_review-upload-policy.js';
 
 test('автосохранение не теряет быстро заполненные поля', async () => {
   const saved = [];
@@ -49,6 +53,16 @@ test('все старые цветовые темы переходят в еди
   for (const theme of ['gold', 'blue', 'platinum', 'graphite']) {
     assert.equal(normalizeBusinessCard({ theme }).theme, 'gold');
   }
+});
+
+test('прямая загрузка видео принимает только безопасный путь и формат', () => {
+  const slug = 'card1234';
+  assert.equal(normalizeVideoContentType('video/mp4;codecs=avc1'), 'video/mp4');
+  assert.equal(normalizeVideoContentType('video/webm;codecs=vp9'), 'video/webm');
+  assert.equal(normalizeVideoContentType('text/html'), '');
+  assert.equal(validReviewPathname('reviews/card1234/0123456789abcdef01.mp4', slug, 'video/mp4'), true);
+  assert.equal(validReviewPathname('reviews/other/0123456789abcdef01.mp4', slug, 'video/mp4'), false);
+  assert.equal(validReviewPathname('reviews/card1234/0123456789abcdef01.webm', slug, 'video/mp4'), false);
 });
 
 test('все фоны выбора профессии облегчены и готовы к предзагрузке', async () => {
@@ -238,11 +252,66 @@ test('ссылка на видеоотзыв выдаётся только по�
   }
 });
 
+test('видео уходит напрямую в Blob, а в API передаётся только ссылка', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  const videoUrl = 'https://demo.public.blob.vercel-storage.com/reviews/card1234/0123456789abcdef01.webm';
+
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url) === '/api/card-review-upload') {
+      return new Response(JSON.stringify({ ok: true, uploadUrl: 'https://blob-upload.test/presigned' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (String(url) === 'https://blob-upload.test/presigned') {
+      return new Response(JSON.stringify({ url: videoUrl }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (String(url) === '/api/card-review') {
+      return new Response(JSON.stringify({ ok: true, review: { id: 'review123' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    throw new Error(`unexpected_url:${url}`);
+  };
+
+  try {
+    const { uploadReview } = await import(`../src/reviews-data.js?direct=${Date.now()}`);
+    const review = await uploadReview('a'.repeat(32), {
+      blob: new Blob(['short-video'], { type: 'video/webm;codecs=vp8' }),
+      slug: 'card1234',
+      author: 'Заказчик',
+      role: 'Гость',
+      duration: 3,
+      consent: true
+    });
+
+    assert.equal(review.id, 'review123');
+    assert.deepEqual(calls.map((item) => item.url), [
+      '/api/card-review-upload',
+      'https://blob-upload.test/presigned',
+      '/api/card-review'
+    ]);
+    const finalizeBody = JSON.parse(calls[2].options.body);
+    assert.equal(finalizeBody.videoUrl, videoUrl);
+    assert.equal('video' in finalizeBody, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('релизные UI-контракты остаются включены', async () => {
-  const [editor, preview, review, privacy, pwaUpdate, onboarding, present, cardCss, share, cardView, publicCard, vite, html] = await Promise.all([
+  const [editor, preview, review, reviewsData, reviewUpload, privacy, pwaUpdate, onboarding, present, cardCss, share, cardView, publicCard, vite, vercel, html] = await Promise.all([
     readFile(new URL('../src/editor.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/preview.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/review-record.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/reviews-data.js', import.meta.url), 'utf8'),
+    readFile(new URL('../api/card-review-upload.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/privacy.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/pwa-update.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/onboarding.js', import.meta.url), 'utf8'),
@@ -252,6 +321,7 @@ test('релизные UI-контракты остаются включены',
     readFile(new URL('../src/card-view.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/public-card.js', import.meta.url), 'utf8'),
     readFile(new URL('../vite.config.js', import.meta.url), 'utf8'),
+    readFile(new URL('../vercel.json', import.meta.url), 'utf8'),
     readFile(new URL('../index.html', import.meta.url), 'utf8')
   ]);
 
@@ -260,6 +330,15 @@ test('релизные UI-контракты остаются включены',
   assert.match(editor, /data-gallery-input/);
   assert.match(editor, /data-package-add/);
   assert.match(review, /data-consent/);
+  assert.match(review, /videoBitsPerSecond:\s*900_000/);
+  assert.match(reviewsData, /\/api\/card-review-upload/);
+  assert.match(reviewsData, /x-vercel-blob-access/);
+  assert.doesNotMatch(reviewsData, /blobToDataUrl/);
+  assert.match(reviewUpload, /issueSignedToken/);
+  assert.match(reviewUpload, /maximumSizeInBytes:\s*MAX_VIDEO_BYTES/);
+  assert.match(reviewUpload, /metadata\s*&&\s*video\s*\?\s*200\s*:\s*503/);
+  assert.match(vercel, /connect-src[^\n]+https:\/\/vercel\.com/);
+  assert.match(vercel, /https:\/\/\*\.blob\.vercel-storage\.com/);
   assert.match(privacy, /случайный идентификатор/);
   assert.match(pwaUpdate, /registration\.update\(\)/);
   assert.match(pwaUpdate, /SKIP_WAITING/);

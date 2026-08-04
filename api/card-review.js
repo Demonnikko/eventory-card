@@ -20,6 +20,7 @@ import {
   readInvite,
   createInviteToken,
   uploadVideo,
+  verifyUploadedVideo,
   deleteVideo,
   MAX_VIDEO_BYTES
 } from './_reviews-store.js';
@@ -128,32 +129,54 @@ export default async function handler(req, res) {
     const slug = await readInvite(token);
     if (!slug) return fail(res, 404, 'invite_not_found');
 
-    const dataUrl = String(body.video || '');
-    const match = /^data:(video\/(webm|mp4)[^;]*);base64,(.+)$/.exec(dataUrl);
-    if (!match) return fail(res, 400, 'invalid_video');
-
-    const buffer = Buffer.from(match[3], 'base64');
-    if (!buffer.length) return fail(res, 400, 'invalid_video');
-    if (buffer.length > MAX_VIDEO_BYTES) return fail(res, 413, 'video_too_large');
     const author = String(body.author || '').trim().slice(0, 60);
     const duration = Number(body.duration);
     if (!author) return fail(res, 400, 'invalid_author');
     if (!Number.isFinite(duration) || duration < 2 || duration > 30) return fail(res, 400, 'invalid_duration');
 
     let videoUrl = '';
-    try {
-      videoUrl = await uploadVideo(slug, buffer, match[1]);
-    } catch {
-      return fail(res, 502, 'upload_failed');
+    const directUrl = String(body.videoUrl || '').trim();
+    if (directUrl) {
+      if (!await verifyUploadedVideo(slug, directUrl)) {
+        return fail(res, 400, 'video_verification_failed');
+      }
+      videoUrl = directUrl;
+    } else {
+      // Совместимость со старыми установленными PWA. Новые версии отправляют
+      // ролик прямо в Blob и не упираются в лимит тела Vercel Function.
+      const dataUrl = String(body.video || '');
+      const match = /^data:(video\/(webm|mp4)[^;]*);base64,(.+)$/.exec(dataUrl);
+      if (!match) return fail(res, 400, 'invalid_video');
+
+      const buffer = Buffer.from(match[3], 'base64');
+      if (!buffer.length) return fail(res, 400, 'invalid_video');
+      if (buffer.length > MAX_VIDEO_BYTES) return fail(res, 413, 'video_too_large');
+      try {
+        videoUrl = await uploadVideo(slug, buffer, match[1]);
+      } catch (error) {
+        console.error('[card-review:blob] legacy upload failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return fail(res, 502, 'upload_failed');
+      }
     }
 
-    const review = await addReview(slug, {
-      author,
-      role: body.role,
-      duration,
-      videoUrl,
-      consentAt: Date.now()
-    });
+    let review;
+    try {
+      review = await addReview(slug, {
+        author,
+        role: body.role,
+        duration,
+        videoUrl,
+        consentAt: Date.now()
+      });
+    } catch (error) {
+      console.error('[card-review:store] add failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      await deleteVideo(videoUrl);
+      return fail(res, 503, 'review_store_failed');
+    }
     if (!review) {
       await deleteVideo(videoUrl);
       return fail(res, 409, 'reviews_limit');

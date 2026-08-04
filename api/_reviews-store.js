@@ -10,7 +10,7 @@
 // в переменных окружения нет. SDK одинаково работает в обоих случаях —
 // и с классическим токеном, если его когда-нибудь добавят, и без него.
 import crypto from 'node:crypto';
-import { put, del } from '@vercel/blob';
+import { put, del, head } from '@vercel/blob';
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -20,7 +20,10 @@ const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 // BLOB_READ_WRITE_TOKEN — запасной путь, если хранилище подключат позже
 // классическим способом.
 export function blobConfigured() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_OIDC_TOKEN);
+  return Boolean(
+    process.env.BLOB_READ_WRITE_TOKEN
+    || (process.env.VERCEL_OIDC_TOKEN && process.env.BLOB_STORE_ID)
+  );
 }
 
 export function storeConfigured() {
@@ -136,7 +139,8 @@ export async function listReviews(slug, { approvedOnly = true } = {}) {
 }
 
 async function writeReviews(slug, items) {
-  await redis(['SET', KEY(slug), JSON.stringify(items.slice(0, MAX_REVIEWS))]);
+  const saved = await redis(['SET', KEY(slug), JSON.stringify(items.slice(0, MAX_REVIEWS))]);
+  return saved === 'OK';
 }
 
 // Больше десятка кружков никто не смотрит, а публичная страница тяжелеет.
@@ -147,7 +151,7 @@ export async function addReview(slug, review) {
   const all = await listReviews(slug, { approvedOnly: false });
   if (all.length >= MAX_REVIEWS) return null;
   const item = sanitizeReview({ ...review, approved: false });
-  await writeReviews(slug, [item, ...all]);
+  if (!await writeReviews(slug, [item, ...all])) throw new Error('review_store_failed');
   return item;
 }
 
@@ -158,7 +162,7 @@ export async function updateReview(slug, id, patch) {
   if (idx === -1) return null;
   const next = sanitizeReview({ ...all[idx], ...patch, id: all[idx].id });
   all[idx] = next;
-  await writeReviews(slug, all);
+  if (!await writeReviews(slug, all)) return null;
   return next;
 }
 
@@ -167,8 +171,7 @@ export async function deleteReview(slug, id) {
   const all = await listReviews(slug, { approvedOnly: false });
   const next = all.filter((r) => r.id !== id);
   if (next.length === all.length) return false;
-  await writeReviews(slug, next);
-  return true;
+  return writeReviews(slug, next);
 }
 
 /* ─────────── Blob ─────────── */
@@ -186,6 +189,41 @@ export async function uploadVideo(slug, buffer, contentType) {
     cacheControlMaxAge: 31536000
   });
   return blob.url;
+}
+
+// Клиент загружает ролик напрямую в Blob, а API получает только URL. Перед
+// сохранением метаданных убеждаемся, что это действительно наш свежий ролик,
+// лежащий в каталоге нужной визитки, а не произвольная внешняя ссылка.
+export async function verifyUploadedVideo(slug, value) {
+  let url;
+  let pathname;
+  try {
+    url = new URL(String(value || ''));
+    pathname = decodeURIComponent(url.pathname).replace(/^\/+/, '');
+  } catch {
+    return false;
+  }
+
+  if (url.protocol !== 'https:' || url.port || !url.hostname.endsWith('.public.blob.vercel-storage.com')) {
+    return false;
+  }
+  const prefix = `reviews/${slug}/`;
+  if (!pathname.startsWith(prefix)) return false;
+  if (!/^[a-f0-9]{18}\.(webm|mp4)$/i.test(pathname.slice(prefix.length))) return false;
+
+  try {
+    const metadata = await head(url.toString());
+    const storedPath = String(metadata.pathname || '').replace(/^\/+/, '');
+    return storedPath === pathname
+      && /^video\/(webm|mp4)(?:$|;)/i.test(String(metadata.contentType || ''))
+      && Number(metadata.size) > 0
+      && Number(metadata.size) <= MAX_VIDEO_BYTES;
+  } catch (error) {
+    console.error('[card-review:blob] verification failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return false;
+  }
 }
 
 export async function deleteVideo(url) {

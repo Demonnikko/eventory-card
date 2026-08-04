@@ -14,12 +14,14 @@ import {
 
 const state = {
   token: '',
+  targetSlug: '',
   target: null,      // чью визитку подтверждаем
   step: 'intro',     // intro → record → review → sent
   stream: null,
   recorder: null,
   chunks: [],
   blob: null,
+  uploadedUrl: '',
   seconds: 0,
   timer: 0,
   busy: false,
@@ -121,7 +123,7 @@ function renderReview() {
 
       <div class="rv-actions">
         <button type="button" class="rv-btn rv-btn--primary" data-send ${state.busy ? 'disabled' : ''}>
-          <span>${state.busy ? 'Отправляем…' : 'Отправить отзыв'}</span>
+          <span>${state.busy ? 'Загружаем видео…' : 'Отправить отзыв'}</span>
         </button>
         <button type="button" class="rv-btn rv-btn--plain" data-retake ${state.busy ? 'disabled' : ''}>
           Записать заново
@@ -179,9 +181,12 @@ export const reviewRecord = {
   },
   async mount(node, ctx = {}) {
     state.token = ctx.params?.id || '';
+    state.targetSlug = '';
+    state.target = null;
     state.step = 'intro';
     state.error = '';
     state.blob = null;
+    state.uploadedUrl = '';
     state.seconds = 0;
     state.author = '';
     state.role = '';
@@ -200,6 +205,7 @@ export const reviewRecord = {
 
     try {
       const data = await fetchInvite(state.token);
+      state.targetSlug = data.slug || '';
       state.target = data.card || null;
     } catch (err) {
       state.error = err?.message === 'invite_not_found'
@@ -241,6 +247,7 @@ function bind(node) {
   if (retake) {
     retake.addEventListener('click', () => {
       state.blob = null;
+      state.uploadedUrl = '';
       state.seconds = 0;
       state.step = 'record';
       rerender(node);
@@ -277,11 +284,17 @@ async function startCamera(node, { silent = false } = {}) {
 function startRecording(node) {
   if (!state.stream) return;
   const mimeType = pickMimeType();
+  const options = { videoBitsPerSecond: 900_000, audioBitsPerSecond: 64_000 };
+  if (mimeType) options.mimeType = mimeType;
   try {
-    state.recorder = new MediaRecorder(state.stream, mimeType ? { mimeType } : undefined);
+    state.recorder = new MediaRecorder(state.stream, options);
   } catch {
-    toast.show('Не удалось начать запись', { error: true });
-    return;
+    try {
+      state.recorder = new MediaRecorder(state.stream, mimeType ? { mimeType } : undefined);
+    } catch {
+      toast.show('Не удалось начать запись', { error: true });
+      return;
+    }
   }
 
   state.chunks = [];
@@ -365,11 +378,14 @@ async function send_(node) {
   try {
     await uploadReview(state.token, {
       blob: state.blob,
+      slug: state.targetSlug,
       author,
       role,
       duration: state.seconds,
-      consent: state.consent
+      consent: state.consent,
+      videoUrl: state.uploadedUrl
     });
+    state.uploadedUrl = '';
     hapticSuccess();
     state.step = 'sent';
   } catch (err) {
@@ -378,8 +394,16 @@ async function send_(node) {
       video_too_large: 'Видео слишком большое — запишите покороче',
       reviews_limit: 'У этого исполнителя уже максимум отзывов',
       invite_not_found: 'Ссылка устарела — попросите новую',
-      video_storage_not_configured: 'Приём видео временно недоступен'
+      video_storage_not_configured: 'Приём видео временно недоступен',
+      upload_authorization_failed: 'Хранилище видео временно недоступно',
+      upload_failed: 'Видео не загрузилось. Проверьте интернет и повторите',
+      video_verification_failed: 'Видео загрузилось не полностью — отправьте ещё раз',
+      review_store_failed: 'Видео принято, но отзыв не сохранился. Повторите отправку',
+      security_checkpoint: 'Защита сервера остановила запрос. Обновите страницу и повторите'
     };
+    state.uploadedUrl = ['security_checkpoint', 'bad_response', 'request_failed'].includes(err?.message)
+      ? (err?.videoUrl || state.uploadedUrl)
+      : '';
     toast.show(map[err?.message] || 'Не удалось отправить. Попробуйте ещё раз', { error: true });
   } finally {
     state.busy = false;
