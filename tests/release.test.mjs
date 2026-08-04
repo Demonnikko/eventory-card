@@ -7,7 +7,8 @@ import { renderAskBlock, resetAsk } from '../src/card-ask.js';
 import { createEncryptedBackup, restoreEncryptedBackup } from '../src/card-backup.js';
 import {
   BUSINESS_CARD_PROFESSIONS,
-  businessCardOnboardingTemplateUrl
+  businessCardOnboardingTemplateUrl,
+  normalizeBusinessCard
 } from '../src/shared/data/businessCard.js';
 
 test('автосохранение не теряет быстро заполненные поля', async () => {
@@ -42,6 +43,12 @@ test('шаблон профессии считается готовым офор
     profession: 'illusionist'
   });
   assert.equal(result.missing.some((item) => item.id === 'cover'), false);
+});
+
+test('все старые цветовые темы переходят в единую палитру визитки', () => {
+  for (const theme of ['gold', 'blue', 'platinum', 'graphite']) {
+    assert.equal(normalizeBusinessCard({ theme }).theme, 'gold');
+  }
 });
 
 test('все фоны выбора профессии облегчены и готовы к предзагрузке', async () => {
@@ -232,7 +239,7 @@ test('ссылка на видеоотзыв выдаётся только по�
 });
 
 test('релизные UI-контракты остаются включены', async () => {
-  const [editor, preview, review, privacy, pwaUpdate, onboarding, present, cardCss, share, vite, html] = await Promise.all([
+  const [editor, preview, review, privacy, pwaUpdate, onboarding, present, cardCss, share, cardView, publicCard, vite, html] = await Promise.all([
     readFile(new URL('../src/editor.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/preview.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/review-record.js', import.meta.url), 'utf8'),
@@ -242,6 +249,8 @@ test('релизные UI-контракты остаются включены',
     readFile(new URL('../src/present.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/card-app.css', import.meta.url), 'utf8'),
     readFile(new URL('../src/share.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/card-view.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/public-card.js', import.meta.url), 'utf8'),
     readFile(new URL('../vite.config.js', import.meta.url), 'utf8'),
     readFile(new URL('../index.html', import.meta.url), 'utf8')
   ]);
@@ -265,7 +274,15 @@ test('релизные UI-контракты остаются включены',
   assert.doesNotMatch(cardCss, /ca-present-sway|\.pr-screen\.is-flipped/);
   assert.match(share, /QR уже на карточке/);
   assert.match(share, /invite_store_failed/);
+  assert.doesNotMatch(editor, /THEME_OPTIONS|renderThemes|data-theme/);
+  assert.doesNotMatch(cardView, /renderBrandIcon|hasBrandIcon/);
+  assert.match(publicCard, /by Eventory/);
+  assert.doesNotMatch(onboarding, /by Eventory/);
+  assert.match(cardCss, /--bg:\s*#050403/);
+  assert.doesNotMatch(cardCss, /#5d93ff|#6cc8a1|#e26b6b|#7ea8ff|#8edcba|#2d6e52/i);
   assert.match(html, /data-pwa-update-control/);
+  assert.match(html, /class="ca-header-mark" src="\/icon-192\.png"/);
+  assert.doesNotMatch(html, /by Eventory/);
   assert.match(html, /onboarding\/illusionist-card\.webp/);
   assert.match(vite, /skipWaiting:\s*false/);
   assert.match(vite, /business-card-templates\/onboarding\/\*\.webp/);

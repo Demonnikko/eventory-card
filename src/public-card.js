@@ -2,14 +2,13 @@
 //
 // Единственный экран, который видят посторонние люди, поэтому здесь:
 // ненавязчивая подпись о CRM внизу и никакого интерфейса владельца.
-import { escapeHtml } from './shared/lib/html.js';
 import { renderCardView, cleanupRevealHints } from './card-view.js';
 import { bindReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { renderAskBlock, bindAsk, resetAsk } from './card-ask.js';
 import { downloadVCard } from './vcard.js';
 import { trackOpen, greetReturning, readTagFromUrl } from './insight-data.js';
-import { CRM_NAME, upsellHref, activeUpsell } from './crm-upsell.js';
+import { upsellHref } from './crm-upsell.js';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
@@ -37,12 +36,10 @@ function writeCache(slug, card) {
 // Подпись под визиткой. Это единственная реклама на публичной странице:
 // клиент пришёл смотреть человека, а не наш продукт.
 function renderFooter() {
-  const point = activeUpsell('public');
   return `
     <footer class="cp-footer">
-      ${point ? `<a class="cp-footer-link" href="${upsellHref('public')}" target="_blank" rel="noopener">
-        Визитка сделана бесплатно · ${escapeHtml(CRM_NAME)}</a>` : ''}
-      <a class="cp-footer-link" href="/#/privacy" target="_blank" rel="noopener">Данные и конфиденциальность</a>
+      <a class="cp-footer-brand" href="${upsellHref('public')}" target="_blank" rel="noopener">by Eventory</a>
+      <a class="cp-footer-privacy" href="/#/privacy" target="_blank" rel="noopener">Конфиденциальность</a>
     </footer>
   `;
 }

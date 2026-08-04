@@ -20,13 +20,6 @@ import {
 } from './card-backup.js';
 import { activeUpsell, upsellHref, CRM_NAME } from './crm-upsell.js';
 
-const THEME_OPTIONS = [
-  { id: 'gold', label: 'Золото' },
-  { id: 'blue', label: 'Синий' },
-  { id: 'platinum', label: 'Платина' },
-  { id: 'graphite', label: 'Графит' }
-];
-
 const state = {
   card: null,
   busy: false,
@@ -99,19 +92,6 @@ function renderUpsell(pointId) {
       <span class="ca-upsell-text">${escapeHtml(point.text)}</span>
       <span class="ca-upsell-cta">${escapeHtml(point.cta)} ${renderIcon('chevron-right')}</span>
     </a>
-  `;
-}
-
-function renderThemes(card) {
-  return `
-    <div class="ca-themes">
-      ${THEME_OPTIONS.map((t) => `
-        <button type="button" class="ca-theme ca-theme--${t.id}${card.theme === t.id ? ' is-active' : ''}" data-theme="${escapeAttr(t.id)}">
-          <span class="ca-theme-swatch" aria-hidden="true"></span>
-          <span class="ca-theme-label">${escapeHtml(t.label)}</span>
-        </button>
-      `).join('')}
-    </div>
   `;
 }
 
@@ -272,8 +252,8 @@ function renderContent() {
       ${section({
         id: 'look',
         title: 'Оформление',
-        sub: 'Фото, галерея и цвет',
-        body: `${renderCover(card)}${renderGallery(card)}${renderThemes(card)}`
+        sub: 'Фото и галерея',
+        body: `${renderCover(card)}${renderGallery(card)}`
       })}
 
       ${section({
@@ -401,13 +381,6 @@ function bind(node) {
     btn.addEventListener('click', () => {
       const id = btn.dataset.toggleSection;
       state.openSection = state.openSection === id ? '' : id;
-      rerender(node);
-    });
-  });
-
-  node.querySelectorAll('[data-theme]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      await persist({ theme: btn.dataset.theme });
       rerender(node);
     });
   });
