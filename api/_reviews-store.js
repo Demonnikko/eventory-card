@@ -220,13 +220,18 @@ export async function verifyUploadedVideo(slug, value) {
     try {
       const metadata = await head(url.toString());
       const storedPath = String(metadata.pathname || '').replace(/^\/+/, '');
-      if (
-        storedPath === pathname
+      const ok = storedPath === pathname
         && /^video\/(webm|mp4)(?:$|;)/i.test(String(metadata.contentType || ''))
         && Number(metadata.size) > 0
-        && Number(metadata.size) <= MAX_VIDEO_BYTES
-      ) {
-        return true;
+        && Number(metadata.size) <= MAX_VIDEO_BYTES;
+      if (ok) return true;
+      if (i === delays.length - 1) {
+        console.error('[card-review:blob] metadata mismatch', {
+          expectedPath: pathname,
+          storedPath,
+          contentType: metadata.contentType,
+          size: metadata.size
+        });
       }
     } catch (error) {
       if (i === delays.length - 1) {
