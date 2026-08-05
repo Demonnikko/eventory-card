@@ -211,19 +211,32 @@ export async function verifyUploadedVideo(slug, value) {
   if (!pathname.startsWith(prefix)) return false;
   if (!/^[a-f0-9]{18}\.(webm|mp4)$/i.test(pathname.slice(prefix.length))) return false;
 
-  try {
-    const metadata = await head(url.toString());
-    const storedPath = String(metadata.pathname || '').replace(/^\/+/, '');
-    return storedPath === pathname
-      && /^video\/(webm|mp4)(?:$|;)/i.test(String(metadata.contentType || ''))
-      && Number(metadata.size) > 0
-      && Number(metadata.size) <= MAX_VIDEO_BYTES;
-  } catch (error) {
-    console.error('[card-review:blob] verification failed', {
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return false;
+  // head() может не увидеть блоб сразу после клиентского PUT — хранилище
+  // отдаёт метаданные с небольшой задержкой согласованности. Пара коротких
+  // повторов дешевле, чем заставлять человека переснимать ролик.
+  const delays = [0, 400, 900];
+  for (let i = 0; i < delays.length; i += 1) {
+    if (delays[i]) await new Promise((resolve) => setTimeout(resolve, delays[i]));
+    try {
+      const metadata = await head(url.toString());
+      const storedPath = String(metadata.pathname || '').replace(/^\/+/, '');
+      if (
+        storedPath === pathname
+        && /^video\/(webm|mp4)(?:$|;)/i.test(String(metadata.contentType || ''))
+        && Number(metadata.size) > 0
+        && Number(metadata.size) <= MAX_VIDEO_BYTES
+      ) {
+        return true;
+      }
+    } catch (error) {
+      if (i === delays.length - 1) {
+        console.error('[card-review:blob] verification failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
   }
+  return false;
 }
 
 export async function deleteVideo(url) {
