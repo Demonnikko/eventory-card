@@ -357,7 +357,7 @@ test('релизные UI-контракты остаются включены',
   assert.doesNotMatch(cardView, /renderBrandIcon|hasBrandIcon/);
   assert.match(publicCard, /by Eventory/);
   assert.doesNotMatch(onboarding, /by Eventory/);
-  assert.match(cardCss, /--bg:\s*#050403/);
+  assert.match(cardCss, /--bg:\s*#060607/);
   assert.doesNotMatch(cardCss, /#5d93ff|#6cc8a1|#e26b6b|#7ea8ff|#8edcba|#2d6e52/i);
   assert.match(html, /data-pwa-update-control/);
   assert.match(html, /class="ca-header-mark" src="\/icon-192\.png"/);
