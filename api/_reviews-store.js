@@ -204,12 +204,24 @@ export async function verifyUploadedVideo(slug, value) {
     return false;
   }
 
-  if (url.protocol !== 'https:' || url.port || !url.hostname.endsWith('.public.blob.vercel-storage.com')) {
+  // Хост проверяем так же, как это делает сам @vercel/blob: любой поддомен
+  // хранилища. Приватный стор отдаёт `*.private.blob…`, публичный —
+  // `*.public.blob…`, и жёсткая привязка к одному из них отвергала бы
+  // законный ролик ещё до обращения к хранилищу. Подлинность ссылки
+  // обеспечивают проверки пути и метаданных ниже.
+  if (url.protocol !== 'https:' || url.port || !url.hostname.endsWith('.blob.vercel-storage.com')) {
+    console.error('[card-review:blob] rejected url', { host: url.hostname, protocol: url.protocol });
     return false;
   }
   const prefix = `reviews/${slug}/`;
-  if (!pathname.startsWith(prefix)) return false;
-  if (!/^[a-f0-9]{18}\.(webm|mp4)$/i.test(pathname.slice(prefix.length))) return false;
+  if (!pathname.startsWith(prefix)) {
+    console.error('[card-review:blob] rejected path', { pathname, expectedPrefix: prefix });
+    return false;
+  }
+  if (!/^[a-f0-9]{18}\.(webm|mp4)$/i.test(pathname.slice(prefix.length))) {
+    console.error('[card-review:blob] rejected filename', { name: pathname.slice(prefix.length) });
+    return false;
+  }
 
   // head() может не увидеть блоб сразу после клиентского PUT — хранилище
   // отдаёт метаданные с небольшой задержкой согласованности. Пара коротких
