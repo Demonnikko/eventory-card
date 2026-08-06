@@ -2982,6 +2982,22 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 
 .ca-review.is-approved { border-color: var(--accent-border); }
 
+/* Превью — кнопка: тап разворачивает отзыв во весь экран со звуком. */
+.ca-review-thumb-btn {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ca-review-thumb-btn:active { transform: scale(0.94); }
+
 .ca-review-thumb {
   width: 52px;
   height: 52px;
@@ -2989,7 +3005,23 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   object-fit: cover;
   background: var(--surface-3);
   transform: scaleX(-1);
+  display: block;
 }
+
+/* Значок «играть»: без него кружок читается как аватар, а не как видео. */
+.ca-review-thumb-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text);
+  background: rgba(6, 6, 7, 0.42);
+  opacity: 0.92;
+  transition: opacity 0.2s var(--ease);
+}
+
+.ca-review-thumb-btn:active .ca-review-thumb-play { opacity: 1; }
 
 .ca-review-info {
   display: flex;

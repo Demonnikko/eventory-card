@@ -44,7 +44,9 @@ export function renderReviewsSection(reviews) {
 
 // Модалка просмотра — создаётся по требованию, чтобы не держать в DOM
 // тяжёлое видео до первого тапа.
-function openViewer(reviews, startId) {
+// Экспортируется ещё и для экрана «Поделиться»: владелец должен посмотреть
+// присланный отзыв целиком, прежде чем решать, публиковать ли его.
+export function openViewer(reviews, startId) {
   let index = Math.max(0, reviews.findIndex((r) => r.id === startId));
 
   const overlay = document.createElement('div');
