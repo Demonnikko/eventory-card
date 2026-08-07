@@ -103,7 +103,7 @@ function renderReview() {
     <div class="rv-step">
       <div class="rv-stage">
         <div class="rv-ring is-done">
-          <video class="rv-video" playsinline loop autoplay controls data-playback></video>
+          <video class="rv-video rv-video--playback" playsinline loop autoplay controls data-playback></video>
         </div>
       </div>
 

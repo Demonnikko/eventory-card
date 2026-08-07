@@ -335,7 +335,9 @@ test('релизные UI-контракты остаются включены',
   assert.match(reviewsData, /x-vercel-blob-access/);
   assert.doesNotMatch(reviewsData, /blobToDataUrl/);
   assert.match(reviewUpload, /issueSignedToken/);
-  assert.match(reviewUpload, /maximumSizeInBytes:\s*MAX_VIDEO_BYTES/);
+  // Лимит по-прежнему уходит в подпись, но зависит от типа: ролик или обложка.
+  assert.match(reviewUpload, /maximumSizeInBytes:\s*maxBytes/);
+  assert.match(reviewUpload, /MAX_POSTER_BYTES\s*:\s*MAX_VIDEO_BYTES/);
   assert.match(reviewUpload, /metadata\s*&&\s*video\s*\?\s*200\s*:\s*503/);
   assert.match(vercel, /connect-src[^\n]+https:\/\/vercel\.com/);
   assert.match(vercel, /https:\/\/\*\.blob\.vercel-storage\.com/);

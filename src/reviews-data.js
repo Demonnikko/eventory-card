@@ -74,18 +74,78 @@ export async function fetchInvite(token) {
   return data;
 }
 
+// Обложка кружка. Без неё браузер показывает пустой прямоугольник (кадр
+// декодируется только при воспроизведении), и на визитке вместо лица
+// человека висят инициалы. Берём кадр на полусекунде: на нулевой кадр
+// часто приходится моргание или ещё не наведённая камера.
+async function grabPoster(blob) {
+  if (!blob) return null;
+  const url = URL.createObjectURL(blob);
+  const video = document.createElement('video');
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  video.src = url;
+
+  try {
+    await new Promise((resolve, reject) => {
+      const fail = () => reject(new Error('poster_decode_failed'));
+      video.onloadeddata = resolve;
+      video.onerror = fail;
+      setTimeout(fail, 4000);
+    });
+
+    if (video.duration && Number.isFinite(video.duration)) {
+      const target = Math.min(0.5, video.duration / 2);
+      await new Promise((resolve) => {
+        video.onseeked = resolve;
+        video.onerror = resolve;
+        video.currentTime = target;
+        setTimeout(resolve, 2000);
+      });
+    }
+
+    const side = Math.min(video.videoWidth, video.videoHeight) || 0;
+    if (!side) return null;
+
+    // Квадрат по центру: кружок всё равно обрежет края, а файл меньше.
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = Math.min(side, 480);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(
+      video,
+      (video.videoWidth - side) / 2, (video.videoHeight - side) / 2, side, side,
+      0, 0, canvas.width, canvas.height
+    );
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  } catch {
+    return null;
+  } finally {
+    video.src = '';
+    URL.revokeObjectURL(url);
+  }
+}
+
 export async function uploadReview(token, {
   blob, slug, author, role, duration, consent, videoUrl = ''
 }) {
   let uploadedUrl = videoUrl;
   if (!uploadedUrl) uploadedUrl = await uploadReviewVideo(token, slug, blob);
 
+  // Обложка — украшение: если снять или загрузить не вышло, отзыв всё равно
+  // должен уйти. Поэтому ошибки здесь глушим намеренно.
+  let posterUrl = '';
+  try {
+    const poster = await grabPoster(blob);
+    if (poster) posterUrl = await uploadReviewVideo(token, slug, poster);
+  } catch { /* отзыв важнее обложки */ }
+
   try {
     const data = await request('/api/card-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'upload', invite: token, videoUrl: uploadedUrl,
+        action: 'upload', invite: token, videoUrl: uploadedUrl, posterUrl,
         author, role, duration, consent: consent === true
       })
     });
@@ -98,15 +158,21 @@ export async function uploadReview(token, {
   }
 }
 
+const EXT_BY_TYPE = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'image/jpeg': 'jpg'
+};
+
 async function uploadReviewVideo(token, slug, blob) {
   if (!blob || !slug) throw new Error('invalid_video');
   const contentType = String(blob.type || '').split(';')[0].toLowerCase();
-  if (contentType !== 'video/mp4' && contentType !== 'video/webm') throw new Error('invalid_video');
+  const ext = EXT_BY_TYPE[contentType];
+  if (!ext) throw new Error('invalid_video');
 
   const bytes = new Uint8Array(9);
   crypto.getRandomValues(bytes);
   const id = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
-  const ext = contentType === 'video/mp4' ? 'mp4' : 'webm';
   const pathname = `reviews/${slug}/${id}.${ext}`;
 
   const auth = await request('/api/card-review-upload', {

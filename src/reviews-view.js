@@ -123,6 +123,17 @@ export function bindReviews(node, reviews) {
   node.querySelectorAll('[data-reel]').forEach((btn) => {
     const video = btn.querySelector('.cp-reel-video');
 
+    // У отзывов, записанных до появления обложек, poster нет: с preload
+    // «metadata» браузер не декодирует ни одного кадра, и кружок остаётся
+    // прозрачным — сквозь него видны инициалы. Перемотка на полсекунды
+    // заставляет показать настоящий кадр, не запуская воспроизведение.
+    if (video && !video.getAttribute('poster')) {
+      video.addEventListener('loadedmetadata', () => {
+        if (!video.duration || !Number.isFinite(video.duration)) return;
+        try { video.currentTime = Math.min(0.5, video.duration / 2); } catch { /* не критично */ }
+      }, { once: true });
+    }
+
     // Превью оживает при появлении в кадре — лента «дышит», но звука нет
     // и трафик тратится только на видимые кружки.
     if (video && 'IntersectionObserver' in window) {

@@ -2461,8 +2461,6 @@ body[data-route='present']::before {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Фронтальная камера пишет зеркально — возвращаем как в жизни */
-  transform: scaleX(-1);
 }
 
 /* Пока видео не загрузилось — инициалы, а не пустой круг */
@@ -2570,11 +2568,14 @@ body[data-route='present']::before {
   to { opacity: 1; transform: none; }
 }
 
+/* Готовый файл уже содержит картинку в правильную сторону: зеркалить нужно
+   только живое превью во время записи, чтобы человек видел себя как в
+   зеркале. Отражать плеер нельзя — вместе с кадром переворачивались бы и
+   элементы управления браузера. */
 .cp-viewer-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1);
   background: #000;
 }
 
@@ -2717,6 +2718,10 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   transform: scaleX(-1);
   background: #000;
 }
+
+/* Просмотр уже записанного: файл содержит нормальную картинку, а отражение
+   перевернуло бы вместе с ней и элементы управления браузера. */
+.rv-video--playback { transform: none; }
 
 /* Таймер-обводка по краю кружка */
 .rv-progress {
@@ -3004,7 +3009,6 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   border-radius: 50%;
   object-fit: cover;
   background: var(--surface-3);
-  transform: scaleX(-1);
   display: block;
 }
 

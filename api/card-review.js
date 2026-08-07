@@ -161,6 +161,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // Обложка необязательна: без неё кружок покажет инициалы, как раньше.
+    // Поэтому непрошедшую проверку просто отбрасываем, а не валим отзыв.
+    let posterUrl = '';
+    const directPoster = String(body.posterUrl || '').trim();
+    if (directPoster && await verifyUploadedVideo(slug, directPoster, 'poster')) {
+      posterUrl = directPoster;
+    }
+
     let review;
     try {
       review = await addReview(slug, {
@@ -168,6 +176,7 @@ export default async function handler(req, res) {
         role: body.role,
         duration,
         videoUrl,
+        posterUrl,
         consentAt: Date.now()
       });
     } catch (error) {

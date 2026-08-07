@@ -53,7 +53,8 @@ function renderReviewsBlock() {
             <div class="ca-review${r.approved ? ' is-approved' : ''}">
               <button type="button" class="ca-review-thumb-btn" data-review-play="${escapeAttr(r.id)}"
                 aria-label="Посмотреть отзыв${r.author ? `: ${escapeAttr(r.author)}` : ''}">
-                <video class="ca-review-thumb" src="${escapeAttr(r.videoUrl)}" muted playsinline preload="metadata"></video>
+                <video class="ca-review-thumb" src="${escapeAttr(r.videoUrl)}" muted playsinline preload="metadata"
+                  ${r.posterUrl ? `poster="${escapeAttr(r.posterUrl)}"` : ''}></video>
                 <span class="ca-review-thumb-play" aria-hidden="true">${renderIcon('chevron-right')}</span>
               </button>
               <div class="ca-review-info">
@@ -258,6 +259,16 @@ function bindReviewActions(node) {
 
   // Отзыв нужно посмотреть до публикации: на визитку идут чужие слова.
   node.querySelectorAll('[data-review-play]').forEach((btn) => {
+    // Без обложки браузер не декодирует кадр и кружок остаётся пустым —
+    // перематываем на полсекунды, чтобы показать лицо, а не чёрный круг.
+    const video = btn.querySelector('.ca-review-thumb');
+    if (video && !video.getAttribute('poster')) {
+      video.addEventListener('loadedmetadata', () => {
+        if (!video.duration || !Number.isFinite(video.duration)) return;
+        try { video.currentTime = Math.min(0.5, video.duration / 2); } catch { /* не критично */ }
+      }, { once: true });
+    }
+
     btn.addEventListener('click', () => {
       openViewer(state.reviews, btn.dataset.reviewPlay);
     });

@@ -177,6 +177,7 @@ export async function deleteReview(slug, id) {
 /* ─────────── Blob ─────────── */
 
 export const MAX_VIDEO_BYTES = 12 * 1024 * 1024; // ~30 секунд кружка
+export const MAX_POSTER_BYTES = 512 * 1024; // один кадр в JPEG
 
 export async function uploadVideo(slug, buffer, contentType) {
   if (!blobConfigured()) throw new Error('blob_not_configured');
@@ -194,7 +195,12 @@ export async function uploadVideo(slug, buffer, contentType) {
 // Клиент загружает ролик напрямую в Blob, а API получает только URL. Перед
 // сохранением метаданных убеждаемся, что это действительно наш свежий ролик,
 // лежащий в каталоге нужной визитки, а не произвольная внешняя ссылка.
-export async function verifyUploadedVideo(slug, value) {
+export async function verifyUploadedVideo(slug, value, kind = 'video') {
+  const poster = kind === 'poster';
+  const namePattern = poster ? /^[a-f0-9]{18}\.jpg$/i : /^[a-f0-9]{18}\.(webm|mp4)$/i;
+  const typePattern = poster ? /^image\/jpeg(?:$|;)/i : /^video\/(webm|mp4)(?:$|;)/i;
+  const maxBytes = poster ? MAX_POSTER_BYTES : MAX_VIDEO_BYTES;
+
   let url;
   let pathname;
   try {
@@ -218,8 +224,8 @@ export async function verifyUploadedVideo(slug, value) {
     console.error('[card-review:blob] rejected path', { pathname, expectedPrefix: prefix });
     return false;
   }
-  if (!/^[a-f0-9]{18}\.(webm|mp4)$/i.test(pathname.slice(prefix.length))) {
-    console.error('[card-review:blob] rejected filename', { name: pathname.slice(prefix.length) });
+  if (!namePattern.test(pathname.slice(prefix.length))) {
+    console.error('[card-review:blob] rejected filename', { name: pathname.slice(prefix.length), kind });
     return false;
   }
 
@@ -233,9 +239,9 @@ export async function verifyUploadedVideo(slug, value) {
       const metadata = await head(url.toString());
       const storedPath = String(metadata.pathname || '').replace(/^\/+/, '');
       const ok = storedPath === pathname
-        && /^video\/(webm|mp4)(?:$|;)/i.test(String(metadata.contentType || ''))
+        && typePattern.test(String(metadata.contentType || ''))
         && Number(metadata.size) > 0
-        && Number(metadata.size) <= MAX_VIDEO_BYTES;
+        && Number(metadata.size) <= maxBytes;
       if (ok) return true;
       if (i === delays.length - 1) {
         console.error('[card-review:blob] metadata mismatch', {

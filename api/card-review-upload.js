@@ -6,10 +6,11 @@ import {
   storeConfigured,
   blobConfigured,
   readInvite,
-  MAX_VIDEO_BYTES
+  MAX_VIDEO_BYTES,
+  MAX_POSTER_BYTES
 } from './_reviews-store.js';
 import { enforceRateLimit } from './_rate-limit.js';
-import { normalizeVideoContentType, validReviewPathname } from './_review-upload-policy.js';
+import { normalizeUploadContentType, validReviewPathname } from './_review-upload-policy.js';
 
 function fail(res, status, error) {
   return res.status(status).json({ ok: false, error });
@@ -51,12 +52,14 @@ export default async function handler(req, res) {
   const slug = await readInvite(invite);
   if (!slug) return fail(res, 404, 'invite_not_found');
 
-  const contentType = normalizeVideoContentType(body.contentType);
+  const contentType = normalizeUploadContentType(body.contentType);
   const size = Number(body.size);
   const pathname = String(body.pathname || '').trim();
   if (!contentType) return fail(res, 400, 'invalid_video');
   if (!Number.isFinite(size) || size <= 0) return fail(res, 400, 'invalid_video');
-  if (size > MAX_VIDEO_BYTES) return fail(res, 413, 'video_too_large');
+  // Обложка — один кадр, ей хватает доли лимита ролика.
+  const maxBytes = contentType === 'image/jpeg' ? MAX_POSTER_BYTES : MAX_VIDEO_BYTES;
+  if (size > maxBytes) return fail(res, 413, 'video_too_large');
   if (!validReviewPathname(pathname, slug, contentType)) return fail(res, 400, 'invalid_video_path');
 
   const validUntil = Date.now() + 5 * 60 * 1000;
@@ -65,14 +68,14 @@ export default async function handler(req, res) {
       pathname,
       operations: ['put'],
       allowedContentTypes: [contentType],
-      maximumSizeInBytes: MAX_VIDEO_BYTES,
+      maximumSizeInBytes: maxBytes,
       validUntil
     });
     const { presignedUrl } = await presignUrl(signedToken, {
       operation: 'put',
       pathname,
       allowedContentTypes: [contentType],
-      maximumSizeInBytes: MAX_VIDEO_BYTES,
+      maximumSizeInBytes: maxBytes,
       validUntil,
       addRandomSuffix: false,
       allowOverwrite: false,
