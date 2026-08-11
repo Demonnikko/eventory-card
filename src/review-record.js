@@ -7,6 +7,7 @@ import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 import { hapticLight, hapticSuccess, hapticError } from './shared/lib/haptic.js';
+import { genitiveFullName, dativeFullName } from './shared/lib/declension.js';
 import {
   fetchInvite, uploadReview, pickMimeType, recordingSupported,
   MAX_DURATION, MIN_DURATION
@@ -45,20 +46,24 @@ function stopStream() {
 /* ─────────── Экраны ─────────── */
 
 function renderIntro() {
-  const name = state.target?.name || 'исполнителя';
+  const name = state.target?.name || '';
+  // «Видеоотзыв для Дмитрия Костюка» — несклонённое имя в этом месте
+  // сразу выдаёт шаблон и читается как ошибка.
+  const forWhom = name ? genitiveFullName(name) : 'исполнителя';
+  const whoSees = name || 'исполнитель';
   return `
     <div class="rv-step">
       <div class="rv-ring rv-ring--idle" aria-hidden="true">
         <span class="rv-ring-icon">${renderIcon('user')}</span>
       </div>
-      <h1 class="rv-title">Видеоотзыв<br />для ${escapeHtml(name)}</h1>
+      <h1 class="rv-title">Видеоотзыв<br />для ${escapeHtml(forWhom)}</h1>
       <p class="rv-lead">Запишите короткое видео — до ${MAX_DURATION} секунд.
         Расскажите, что понравилось в работе.</p>
       <div class="rv-actions">
         <button type="button" class="rv-btn rv-btn--primary" data-start>
           <span>Включить камеру</span>
         </button>
-        <p class="rv-fineprint">Видео увидит ${escapeHtml(name)} и посетители визитки</p>
+        <p class="rv-fineprint">Видео увидит ${escapeHtml(whoSees)} и посетители визитки</p>
       </div>
     </div>
   `;
@@ -134,7 +139,8 @@ function renderReview() {
 }
 
 function renderSent() {
-  const name = state.target?.name || 'исполнителю';
+  const raw = state.target?.name || '';
+  const name = raw ? dativeFullName(raw) : 'исполнителю';
   return `
     <div class="rv-step rv-step--sent">
       <div class="rv-ring is-sent" aria-hidden="true">

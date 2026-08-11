@@ -38,9 +38,19 @@ function reveal(delayStep = 1) {
   return `data-reveal style="--reveal-order:${revealIndex}"`;
 }
 
+// Номер для wa.me — только цифры, ведущий 8 в России меняем на 7.
+function whatsappHref(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 11 && digits[0] === '8') digits = `7${digits.slice(1)}`;
+  return `https://wa.me/${digits}`;
+}
+
 function renderContacts(card) {
   const items = [];
   if (card.phone) items.push({ icon: 'phone', label: 'Позвонить', href: `tel:${String(card.phone).replace(/\s/g, '')}` });
+  const wa = whatsappHref(card.phone);
+  if (wa) items.push({ icon: 'whatsapp', label: 'WhatsApp', href: wa });
   const tg = telegramHref(card.telegram);
   if (tg) items.push({ icon: 'telegram', label: 'Telegram', href: tg });
   if (card.email) items.push({ icon: 'note', label: 'Написать', href: `mailto:${card.email}` });

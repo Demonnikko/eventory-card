@@ -368,5 +368,7 @@ test('релизные UI-контракты остаются включены',
   assert.match(vite, /skipWaiting:\s*false/);
   assert.match(vite, /business-card-templates\/onboarding\/\*\.webp/);
   assert.match(vite, /eventory-card-templates-v1/);
-  assert.doesNotMatch(html, /user-scalable\s*=\s*no|maximum-scale\s*=\s*1/);
+  // Ощущение приложения: двойной тап и щипок не зумят страницу.
+  assert.match(html, /user-scalable\s*=\s*no/);
+  assert.match(html, /maximum-scale\s*=\s*1/);
 });
