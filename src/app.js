@@ -14,8 +14,8 @@ import { renderIcon } from './shared/components/icons.js';
 const TABS = [
   { id: 'editor', label: 'Визитка', icon: 'edit' },
   { id: 'share', label: 'Поделиться', icon: 'share' },
-  { id: 'insight', label: 'Отклик', icon: 'list' },
-  { id: 'preview', label: 'Просмотр', icon: 'search' }
+  { id: 'insight', label: 'Отклик', icon: 'pulse' },
+  { id: 'preview', label: 'Просмотр', icon: 'eye' }
 ];
 
 const VIEWS = {
@@ -109,6 +109,16 @@ export function mountApp() {
         onDone: () => route()
       });
     }
+
+    // Проявление — только здесь, на смене маршрута. Класс висит на #app и
+    // снимается по окончании анимации, поэтому внутренние перерисовки экранов
+    // (editor rerender, обновление превью) уже ничего не запускают и не мигают.
+    app.classList.remove('ca-screen-enter');
+    void app.offsetWidth; // рестарт анимации, если маршруты сменились быстро
+    app.classList.add('ca-screen-enter');
+    const clearEnter = () => app.classList.remove('ca-screen-enter');
+    app.addEventListener('animationend', clearEnter, { once: true });
+    setTimeout(clearEnter, 600); // страховка, если animationend не придёт
 
     const chromeless = id === 'card-public' || id === 'onboarding'
       || id === 'present' || id === 'review-record' || id === 'privacy';

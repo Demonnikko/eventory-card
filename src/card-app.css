@@ -116,8 +116,11 @@ body::before {
   padding: 16px 16px 28px;
 }
 
-/* Смена экрана — короткое проявление, чтобы переход не «щёлкал» */
-#app > * { animation: ca-screen-in 0.42s var(--ease-soft) both; }
+/* Проявление играет ТОЛЬКО при смене экрана — класс навешивает роутер.
+   Раньше анимация висела на «#app > *» и повторялась при каждой внутренней
+   перерисовке (сохранение, автосейв, обновление статистики): экран каждый
+   раз гас и всплывал, и это читалось как постоянное «моргание/обновление». */
+#app.ca-screen-enter { animation: ca-screen-in 0.42s var(--ease-soft) both; }
 
 @keyframes ca-screen-in {
   from { opacity: 0; transform: translateY(8px); }
@@ -125,7 +128,7 @@ body::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #app > *, .ca-progress, .ca-section-body, .cp-page { animation: none !important; }
+  #app.ca-screen-enter, .ca-progress, .ca-section-body, .cp-page { animation: none !important; }
   .ca-publish-dot::after { animation: none; opacity: 0; }
 }
 
