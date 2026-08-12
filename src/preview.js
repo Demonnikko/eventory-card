@@ -4,7 +4,7 @@
 // иначе человек публикует отзыв и не находит его ни на одном экране.
 import { getCard } from './card-data.js';
 import { renderCardView, cleanupRevealHints } from './card-view.js';
-import { bindReviews } from './reviews-view.js';
+import { injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 
 const state = { card: null, reviews: [] };
@@ -41,8 +41,7 @@ export const preview = {
     const reviews = await fetchReviews(state.card.publishedSlug);
     if (!reviews.length) return;
     state.reviews = reviews;
-    node.innerHTML = renderContent();
-    cleanupRevealHints(node);
-    bindReviews(node, state.reviews);
+    // Точечно добавляем отзывы в готовую карточку — без перерисовки экрана.
+    injectReviews(node, reviews);
   }
 };

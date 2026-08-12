@@ -181,3 +181,32 @@ export function bindReviews(node, reviews) {
     btn.addEventListener('click', () => openViewer(reviews, btn.dataset.reel));
   });
 }
+
+// Отзывы приходят с сети позже карточки. Раньше их появление перерисовывало
+// весь #app заново (node.innerHTML = ...) — карточка мигала. Здесь вставляем
+// ТОЛЬКО секцию отзывов в уже отрисованную карточку, ничего больше не трогая:
+// экран не мигает, отзывы просто «доезжают» на своё место.
+export function injectReviews(node, reviews) {
+  if (!Array.isArray(reviews) || !reviews.length) return;
+  const card = node.querySelector('.cp-card');
+  if (!card) return;
+  // Уже вставлено (например, повторный вызов) — не дублируем.
+  if (card.querySelector('[data-reviews]')) return;
+
+  const html = renderReviewsSection(reviews);
+  if (!html) return;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html.trim();
+  const section = tpl.content.firstElementChild;
+  if (!section) return;
+
+  // Место как в card-view.js: перед ценой, иначе перед CTA/сохранением,
+  // иначе просто в конец карточки.
+  const anchor = card.querySelector('.cp-price')
+    || card.querySelector('.cp-cta')
+    || card.querySelector('.cp-save');
+  if (anchor) card.insertBefore(section, anchor);
+  else card.appendChild(section);
+
+  bindReviews(node, reviews);
+}

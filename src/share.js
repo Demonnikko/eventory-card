@@ -164,15 +164,23 @@ export const share = {
     if (state.card.publishedSlug) {
       try {
         state.reviews = await fetchOwnReviews();
-        if (state.reviews.length) rerender(node);
+        if (state.reviews.length) refreshReviewsBlock(node);
       } catch { /* нет отзывов или нет сети — блок останется пустым */ }
     }
   }
 };
 
-function rerender(node) {
-  node.innerHTML = renderContent();
-  bind(node);
+// Обновляем ТОЛЬКО секцию отзывов, не перерисовывая весь экран: раньше
+// полный node.innerHTML заново рисовал QR, ссылку и кнопки — переход
+// «подтягивался» рывком. Теперь заменяется одна секция и её обработчики.
+function refreshReviewsBlock(node) {
+  const current = node.querySelector('.ca-reviews');
+  if (!current) return;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = renderReviewsBlock().trim();
+  const fresh = tpl.content.firstElementChild;
+  if (fresh) current.replaceWith(fresh);
+  bindReviewActions(node);
 }
 
 function bind(node) {
@@ -233,7 +241,7 @@ function bindReviewActions(node) {
         return;
       }
       state.reviewsBusy = true;
-      rerender(node);
+      refreshReviewsBlock(node);
       try {
         const url = await createInvite();
         const text = `Оставьте, пожалуйста, короткий видеоотзыв: ${url}`;
@@ -252,7 +260,7 @@ function bindReviewActions(node) {
         toast.show(message, { error: true });
       } finally {
         state.reviewsBusy = false;
-        rerender(node);
+        refreshReviewsBlock(node);
       }
     });
   }
@@ -283,7 +291,7 @@ function bindReviewActions(node) {
         await approveReview(id, next);
         const item = state.reviews.find((r) => r.id === id);
         if (item) item.approved = next;
-        rerender(node);
+        refreshReviewsBlock(node);
         toast.show(next ? 'Отзыв на визитке' : 'Отзыв скрыт', { ok: true });
       } catch {
         btn.disabled = false;
@@ -301,7 +309,7 @@ function bindReviewActions(node) {
       try {
         await removeReview(id);
         state.reviews = state.reviews.filter((r) => r.id !== id);
-        rerender(node);
+        refreshReviewsBlock(node);
         toast.show('Отзыв удалён');
       } catch (err) {
         btn.disabled = false;

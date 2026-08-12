@@ -3,7 +3,7 @@
 // Единственный экран, который видят посторонние люди, поэтому здесь:
 // ненавязчивая подпись о CRM внизу и никакого интерфейса владельца.
 import { renderCardView, cleanupRevealHints } from './card-view.js';
-import { bindReviews } from './reviews-view.js';
+import { bindReviews, injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { renderAskBlock, bindAsk, resetAsk } from './card-ask.js';
 import { downloadVCard } from './vcard.js';
@@ -136,15 +136,21 @@ export const publicCard = {
       greetReturning(slug)
     ]);
 
-    if (reviews.length || greeting) {
-      state.reviews = reviews;
-      state.greeting = greeting;
+    state.reviews = reviews;
+    state.greeting = greeting;
+
+    if (greeting) {
+      // Узнавание вставляется в шапку — проще перерисовать карточку целиком.
+      // Случай редкий (только вернувшийся гость), мигание здесь не мешает.
       node.innerHTML = renderContent();
+      bindReviews(node, state.reviews);
+      cleanupRevealHints(node);
+    } else if (reviews.length) {
+      // Обычный случай: точечно добавляем отзывы, не перерисовывая визитку.
+      injectReviews(node, reviews);
     }
 
-    bindReviews(node, state.reviews);
     bindAsk(node, { slug, tagId: state.tagId });
-    cleanupRevealHints(node);
 
     // Переход в контакты — отдельный сигнал: он показывает, что визитка
     // сработала, а не просто открылась.
