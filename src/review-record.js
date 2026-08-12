@@ -79,7 +79,7 @@ function renderRecord() {
     <div class="rv-step rv-step--record">
       <div class="rv-stage">
         <div class="rv-ring${recording ? ' is-recording' : ''}">
-          <video class="rv-video" playsinline muted autoplay data-preview></video>
+          <video class="rv-video rv-video--preview" playsinline muted autoplay data-preview></video>
           <svg class="rv-progress" viewBox="0 0 100 100" aria-hidden="true">
             <circle class="rv-progress-track" cx="50" cy="50" r="48" />
             <circle class="rv-progress-bar" cx="50" cy="50" r="48"
