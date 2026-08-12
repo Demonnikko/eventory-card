@@ -2569,11 +2569,6 @@ body[data-route='present']::before {
 .cp-viewer-stage {
   width: min(78vw, 360px);
   aspect-ratio: 1;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow:
-    0 0 0 2px rgba(217, 203, 176, 0.5),
-    0 30px 70px -30px rgba(0, 0, 0, 1);
   animation: cp-viewer-pop 0.45s var(--ease-soft) both;
 }
 
@@ -2582,15 +2577,78 @@ body[data-route='present']::before {
   to { opacity: 1; transform: none; }
 }
 
-/* Готовый файл уже содержит картинку в правильную сторону: зеркалить нужно
-   только живое превью во время записи, чтобы человек видел себя как в
-   зеркале. Отражать плеер нельзя — вместе с кадром переворачивались бы и
-   элементы управления браузера. */
+/* Круглый плеер без нативных controls: тап = пуск/пауза, прогресс — тонкой
+   дугой по краю круга (как в сторис). Нативная полоса в круглой маске
+   обрезалась и выглядела сломанной. */
+.cp-viewer-player {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .cp-viewer-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
   background: #000;
+  box-shadow:
+    0 0 0 2px rgba(217, 203, 176, 0.5),
+    0 30px 70px -30px rgba(0, 0, 0, 1);
+}
+
+/* Кольцо прогресса поверх круга — не обрезается маской видео. */
+.cp-viewer-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.cp-viewer-ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1.5;
+}
+
+.cp-viewer-ring-bar {
+  fill: none;
+  stroke: var(--accent, #d9cbb0);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.15s linear;
+}
+
+/* Иконка play в центре — видна только на паузе. */
+.cp-viewer-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(10, 10, 12, 0.5);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  pointer-events: none;
+  transition: opacity 0.25s var(--ease-soft), transform 0.25s var(--ease-soft);
+}
+
+.cp-viewer-play .ui-icon { width: 30px; height: 30px; margin-left: 3px; }
+
+.cp-viewer-player.is-playing .cp-viewer-play {
+  opacity: 0;
+  transform: scale(0.7);
 }
 
 .cp-viewer-meta {
@@ -2715,6 +2773,34 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 }
 
 .rv-ring.is-done { box-shadow: 0 0 0 2px var(--accent-border), 0 26px 60px -26px rgba(0, 0, 0, 0.95); }
+
+/* Предпросмотр записи — кликабельный круг: тап пускает/ставит на паузу. */
+.rv-ring--play {
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rv-play-icon {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(10, 10, 12, 0.5);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  pointer-events: none;
+  transition: opacity 0.25s var(--ease-soft), transform 0.25s var(--ease-soft);
+}
+
+.rv-play-icon .ui-icon { width: 28px; height: 28px; margin-left: 3px; }
+
+.rv-ring--play.is-playing .rv-play-icon { opacity: 0; transform: scale(0.7); }
 
 .rv-ring.is-sent {
   width: 108px;

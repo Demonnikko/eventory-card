@@ -107,9 +107,10 @@ function renderReview() {
   return `
     <div class="rv-step">
       <div class="rv-stage">
-        <div class="rv-ring is-done">
-          <video class="rv-video rv-video--playback" playsinline loop autoplay controls data-playback></video>
-        </div>
+        <button type="button" class="rv-ring is-done rv-ring--play" data-playback-toggle aria-label="Пуск/пауза">
+          <video class="rv-video rv-video--playback" playsinline loop autoplay data-playback></video>
+          <span class="rv-play-icon" data-playicon aria-hidden="true">${renderIcon('play')}</span>
+        </button>
       </div>
 
       <p class="rv-timer">${formatTime(state.seconds)}</p>
@@ -235,6 +236,18 @@ function rerender(node) {
   if (preview && state.stream) preview.srcObject = state.stream;
   const playback = node.querySelector('[data-playback]');
   if (playback && state.blob) playback.src = URL.createObjectURL(state.blob);
+
+  // Круглый предпросмотр без нативных controls: тап = пуск/пауза,
+  // иконка play видна только на паузе (нативная полоса обрезалась кругом).
+  const playToggle = node.querySelector('[data-playback-toggle]');
+  if (playToggle && playback) {
+    playToggle.addEventListener('click', () => {
+      if (playback.paused) playback.play().catch(() => {});
+      else playback.pause();
+    });
+    playback.addEventListener('play', () => playToggle.classList.add('is-playing'));
+    playback.addEventListener('pause', () => playToggle.classList.remove('is-playing'));
+  }
 }
 
 function bind(node) {

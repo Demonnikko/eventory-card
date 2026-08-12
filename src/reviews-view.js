@@ -51,10 +51,20 @@ export function openViewer(reviews, startId) {
 
   const overlay = document.createElement('div');
   overlay.className = 'cp-viewer';
+  // Кольцо прогресса по краю круга: длина окружности при r=49 в системе 100×100.
+  const RING = 2 * Math.PI * 49;
   overlay.innerHTML = `
     <button type="button" class="cp-viewer-close" aria-label="Закрыть">${renderIcon('x')}</button>
     <div class="cp-viewer-stage">
-      <video class="cp-viewer-video" playsinline autoplay controls></video>
+      <button type="button" class="cp-viewer-player" data-player aria-label="Пуск/пауза">
+        <video class="cp-viewer-video" playsinline autoplay></video>
+        <svg class="cp-viewer-ring" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="cp-viewer-ring-track" cx="50" cy="50" r="49" />
+          <circle class="cp-viewer-ring-bar" cx="50" cy="50" r="49"
+            style="stroke-dasharray:${RING};stroke-dashoffset:${RING}" />
+        </svg>
+        <span class="cp-viewer-play" data-playicon aria-hidden="true">${renderIcon('play')}</span>
+      </button>
     </div>
     <div class="cp-viewer-meta">
       <span class="cp-viewer-name"></span>
@@ -70,15 +80,28 @@ export function openViewer(reviews, startId) {
   document.body.style.overflow = 'hidden';
 
   const video = overlay.querySelector('.cp-viewer-video');
+  const player = overlay.querySelector('[data-player]');
+  const ringBar = overlay.querySelector('.cp-viewer-ring-bar');
   const nameEl = overlay.querySelector('.cp-viewer-name');
   const roleEl = overlay.querySelector('.cp-viewer-role');
   const countEl = overlay.querySelector('.cp-viewer-count');
   const prevBtn = overlay.querySelector('[data-prev]');
   const nextBtn = overlay.querySelector('[data-next]');
 
+  // Кольцо-прогресс по краю круга: дуга открывается по мере воспроизведения.
+  function paintRing() {
+    if (!video.duration || !Number.isFinite(video.duration)) return;
+    ringBar.style.strokeDashoffset = `${RING * (1 - video.currentTime / video.duration)}`;
+  }
+  video.addEventListener('timeupdate', paintRing);
+  // Иконка play видна только на паузе — как в сторис.
+  video.addEventListener('play', () => player.classList.add('is-playing'));
+  video.addEventListener('pause', () => player.classList.remove('is-playing'));
+
   function show(i) {
     index = (i + reviews.length) % reviews.length;
     const r = reviews[index];
+    ringBar.style.strokeDashoffset = `${RING}`;
     video.src = r.videoUrl;
     video.play().catch(() => { /* автовоспроизведение могли запретить */ });
     nameEl.textContent = r.author || '';
@@ -88,6 +111,12 @@ export function openViewer(reviews, startId) {
     prevBtn.hidden = single;
     nextBtn.hidden = single;
   }
+
+  // Тап по кругу — пуск/пауза.
+  player.addEventListener('click', () => {
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
+  });
 
   function close() {
     video.pause();
