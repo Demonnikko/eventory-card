@@ -20,8 +20,8 @@ const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 // с префиксом CARD_MEDIA_, чтобы не конфликтовать со старым приватным
 // card-reviews (голые BLOB_*). Поэтому нигде не полагаемся на дефолт SDK —
 // авторизуем каждый вызов явно этим стором.
-const CARD_MEDIA_TOKEN = process.env.CARD_MEDIA_BLOB_READ_WRITE_TOKEN;
-const CARD_MEDIA_STORE_ID = process.env.CARD_MEDIA_BLOB_STORE_ID;
+const CARD_MEDIA_TOKEN = process.env.CARD_MEDIA_READ_WRITE_TOKEN;
+const CARD_MEDIA_STORE_ID = process.env.CARD_MEDIA_STORE_ID;
 const OIDC_TOKEN = process.env.VERCEL_OIDC_TOKEN;
 
 // Опции авторизации для put/head/del. Приоритет — классический read-write
