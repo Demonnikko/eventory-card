@@ -15,15 +15,28 @@ import { put, del, head } from '@vercel/blob';
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-// OIDC-токен, которым Vercel сам подписывает каждый запрос функции,
-// присутствует всегда на Vercel-рантайме проекта, подключённого к Blob.
-// BLOB_READ_WRITE_TOKEN — запасной путь, если хранилище подключат позже
-// классическим способом.
+// Видео лежат в отдельном ПУБЛИЧНОМ сторе card-media: его блобы читаются по
+// прямому URL без подписи, поэтому клиент видит ролик без 403. Стор подключён
+// с префиксом CARD_MEDIA_, чтобы не конфликтовать со старым приватным
+// card-reviews (голые BLOB_*). Поэтому нигде не полагаемся на дефолт SDK —
+// авторизуем каждый вызов явно этим стором.
+const CARD_MEDIA_TOKEN = process.env.CARD_MEDIA_BLOB_READ_WRITE_TOKEN;
+const CARD_MEDIA_STORE_ID = process.env.CARD_MEDIA_BLOB_STORE_ID;
+const OIDC_TOKEN = process.env.VERCEL_OIDC_TOKEN;
+
+// Опции авторизации для put/head/del. Приоритет — классический read-write
+// токен; если галочку токена при подключении не ставили, работает связка
+// OIDC + storeId (её Vercel даёт на рантайме всегда).
+export function blobAuth() {
+  if (CARD_MEDIA_TOKEN) return { token: CARD_MEDIA_TOKEN };
+  if (OIDC_TOKEN && CARD_MEDIA_STORE_ID) {
+    return { oidcToken: OIDC_TOKEN, storeId: CARD_MEDIA_STORE_ID };
+  }
+  return {};
+}
+
 export function blobConfigured() {
-  return Boolean(
-    process.env.BLOB_READ_WRITE_TOKEN
-    || (process.env.VERCEL_OIDC_TOKEN && process.env.BLOB_STORE_ID)
-  );
+  return Boolean(CARD_MEDIA_TOKEN || (OIDC_TOKEN && CARD_MEDIA_STORE_ID));
 }
 
 export function storeConfigured() {
@@ -187,7 +200,8 @@ export async function uploadVideo(slug, buffer, contentType) {
     access: 'public',
     contentType,
     addRandomSuffix: true,
-    cacheControlMaxAge: 31536000
+    cacheControlMaxAge: 31536000,
+    ...blobAuth()
   });
   return blob.url;
 }
@@ -236,7 +250,7 @@ export async function verifyUploadedVideo(slug, value, kind = 'video') {
   for (let i = 0; i < delays.length; i += 1) {
     if (delays[i]) await new Promise((resolve) => setTimeout(resolve, delays[i]));
     try {
-      const metadata = await head(url.toString());
+      const metadata = await head(url.toString(), blobAuth());
       const storedPath = String(metadata.pathname || '').replace(/^\/+/, '');
       const ok = storedPath === pathname
         && typePattern.test(String(metadata.contentType || ''))
@@ -266,7 +280,7 @@ export async function deleteVideo(url) {
   if (!url) return true;
   if (!blobConfigured()) return false;
   try {
-    await del(url);
+    await del(url, blobAuth());
     return true;
   } catch {
     return false;

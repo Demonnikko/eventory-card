@@ -5,6 +5,7 @@ import { issueSignedToken, presignUrl } from '@vercel/blob';
 import {
   storeConfigured,
   blobConfigured,
+  blobAuth,
   readInvite,
   MAX_VIDEO_BYTES,
   MAX_POSTER_BYTES
@@ -69,7 +70,8 @@ export default async function handler(req, res) {
       operations: ['put'],
       allowedContentTypes: [contentType],
       maximumSizeInBytes: maxBytes,
-      validUntil
+      validUntil,
+      ...blobAuth()
     });
     const { presignedUrl } = await presignUrl(signedToken, {
       operation: 'put',
