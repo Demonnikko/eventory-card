@@ -95,22 +95,56 @@ function genitivePatronymic(name) {
   return name;
 }
 
-// «Дмитрий Костюк» → «Дмитрия Костюка». Порядок слов сохраняем как есть:
-// человек сам решил, писать ли фамилию первой.
+// Отчество — по суффиксу, однозначно.
+function isPatronymic(word) {
+  return /(ович|евич|ьич|овна|евна|ична|инична)$/i.test(word);
+}
+
+// Фамилия — по характерным окончаниям. Люди пишут имя как «Фамилия Имя»
+// не реже, чем «Имя Фамилия», поэтому роль слова определяем по нему самому,
+// а не по позиции: иначе «Дмитрий» из «Костюк Дмитрий» склонялся бы как
+// фамилия и превращался в «Дмитрого».
+function looksLikeSurname(word) {
+  const lower = word.toLowerCase();
+  // Фамилии-прилагательные (Толстой, Достоевский) — но не имена на -ий/-ей
+  // (Дмитрий, Сергей, Андрей), которые тоже кончаются на «й».
+  if (/(ской|ская|цкой|цкая|стой|стая)$/.test(lower)) return true;
+  return /(ов|ев|ёв|ин|ын|ова|ева|ёва|ина|ына|ский|ская|цкий|цкая|ко|енко|ук|юк|ян|дзе|швили|ач|як)$/.test(lower)
+    && !/(ович|евич|овна|евна)$/.test(lower); // не спутать с отчеством
+}
+
+// Классифицируем слова: одно из них — имя, остальные — фамилия/отчество.
+// Имя — слово, которое НЕ похоже на фамилию и не отчество; если такого нет,
+// именем считаем первое (лучше склонить хоть как-то, чем никак).
+function roleOf(parts) {
+  const roles = parts.map((p) => {
+    if (isPatronymic(p)) return 'patronymic';
+    if (looksLikeSurname(p)) return 'surname';
+    return 'firstname';
+  });
+  // Гарантируем ровно одно имя: если ни одного — назначаем первое слово.
+  if (!roles.includes('firstname')) roles[0] = 'firstname';
+  return roles;
+}
+
+// «Дмитрий Костюк» и «Костюк Дмитрий» → «Дмитрия Костюка». Порядок слов
+// сохраняем как ввёл человек, но роль каждого слова (имя/фамилия/отчество)
+// определяем по самому слову.
 export function genitiveFullName(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
 
   const parts = raw.split(/\s+/);
-  // Одно слово — скорее всего имя.
   if (parts.length === 1) return genitiveFirstName(parts[0]);
 
-  const female = isFemaleByName(parts[0]) || isFemaleName(parts[0])
+  const roles = roleOf(parts);
+  const nameWord = parts[roles.indexOf('firstname')];
+  const female = isFemaleByName(nameWord) || isFemaleName(nameWord)
     || parts.some((p) => /(на|ова|ева|ёва|ина|ына|ская|цкая)$/i.test(p));
 
   return parts.map((part, i) => {
-    if (i === 0) return genitiveFirstName(part);
-    if (/(ович|евич|ьич|овна|евна|ична|инична)$/i.test(part)) return genitivePatronymic(part);
+    if (roles[i] === 'firstname') return genitiveFirstName(part);
+    if (roles[i] === 'patronymic') return genitivePatronymic(part);
     return genitiveLastName(part, female);
   }).join(' ');
 }
@@ -159,13 +193,21 @@ export function dativeFullName(value) {
   if (!raw) return '';
 
   const parts = raw.split(/\s+/);
-  const female = isFemaleByName(parts[0]) || isFemaleName(parts[0])
+  if (parts.length === 1) return dativeWord(parts[0], isFemaleByName(parts[0]) || isFemaleName(parts[0]), true);
+
+  const roles = roleOf(parts);
+  const nameWord = parts[roles.indexOf('firstname')];
+  const female = isFemaleByName(nameWord) || isFemaleName(nameWord)
     || parts.some((p) => /(на|ова|ева|ёва|ина|ына|ская|цкая)$/i.test(p));
 
   return parts.map((part, i) => {
     // Отчество: Сергеевич → Сергеевичу, Владимировна → Владимировне
-    if (/(ович|евич|ьич)$/i.test(part)) return part + 'у';
-    if (/(овна|евна|ична|инична)$/i.test(part)) return part.slice(0, -1) + 'е';
-    return dativeWord(part, female, i === 0);
+    if (roles[i] === 'patronymic') {
+      if (/(ович|евич|ьич)$/i.test(part)) return part + 'у';
+      return part.slice(0, -1) + 'е';
+    }
+    // isFirst=true только для настоящего имени — от него зависит выбор
+    // правила для слов на -ий/-ой (имя Дмитрий → Дмитрию, а не как фамилия).
+    return dativeWord(part, female, roles[i] === 'firstname');
   }).join(' ');
 }
