@@ -99,7 +99,15 @@ export function mountApp() {
     }
     currentView = view;
 
-    app.innerHTML = typeof view.render === 'function' ? view.render() : '';
+    // Против моргания при переключении вкладок: раньше роутер сначала рисовал
+    // пустой каркас через render() (≈«Загрузка…»), а mount() затем грузил
+    // данные из IndexedDB и перерисовывал #app ЗАНОВО — две замены DOM подряд,
+    // и промежуточный пустой кадр читался как мигание/обновление.
+    //
+    // Теперь: если у экрана есть async mount(), он сам заполняет #app за один
+    // проход уже готовыми данными. Предыдущий экран остаётся видимым те
+    // считанные миллисекунды, что читается getCard() — без пустого кадра.
+    // render() зовём только для экранов без mount() (статичные вроде privacy).
     if (typeof view.mount === 'function') {
       await view.mount(app, {
         routeId: id,
@@ -108,9 +116,9 @@ export function mountApp() {
         // хэш и так '#/editor', hashchange бы не сработал.
         onDone: () => route()
       });
+    } else {
+      app.innerHTML = typeof view.render === 'function' ? view.render() : '';
     }
-    // Переключение вкладок — мгновенное, как в нативном приложении.
-    // Проявление экрана здесь раньше читалось как «моргание при переходе».
 
     const chromeless = id === 'card-public' || id === 'onboarding'
       || id === 'present' || id === 'review-record' || id === 'privacy';

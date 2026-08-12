@@ -35,6 +35,7 @@ export const privacy = {
     `;
   },
   mount(node) {
+    node.innerHTML = this.render();
     document.title = 'Данные и конфиденциальность — Визитка';
     node.querySelector('[data-privacy-back]')?.addEventListener('click', () => {
       if (history.length > 1) history.back();
