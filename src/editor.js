@@ -381,7 +381,18 @@ function bind(node) {
     btn.addEventListener('click', () => {
       const id = btn.dataset.toggleSection;
       state.openSection = state.openSection === id ? '' : id;
-      rerender(node);
+      // Раньше переключение секции перерисовывало ВСЮ форму (node.innerHTML):
+      // она мигала, скролл прыгал, галерея с фото пересоздавалась ради
+      // открытия текстовой секции. Теперь просто показываем/прячем тела
+      // секций — форма остаётся на месте.
+      node.querySelectorAll('.ca-section').forEach((sec) => {
+        const open = sec.dataset.section === state.openSection;
+        sec.classList.toggle('is-open', open);
+        const body = sec.querySelector('.ca-section-body');
+        if (body) body.hidden = !open;
+        const head = sec.querySelector('[data-toggle-section]');
+        if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
     });
   });
 
