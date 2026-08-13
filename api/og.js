@@ -9,7 +9,22 @@
 // index.html, подставляет в <head> og-теги конкретной визитки (имя, роль,
 // фото) и отдаёт всем — и боту, и браузеру. Браузеру теги не мешают: SPA
 // поверх отрисуется как раньше.
-import { readPublicCard, normalizeSlug } from './_card-access.js';
+import { normalizeSlug } from './_card-access.js';
+
+// Данные визитки берём из того же эндпоинта, что и клиент: /api/card-get
+// проксируется в основной проект, где лежит карточка. Свой Redis у проекта
+// визитки может указывать на другую базу, поэтому напрямую в него не лезем —
+// иначе og-теги получают только заглушку, а не имя владельца.
+async function fetchCard(origin, slug) {
+  try {
+    const res = await fetch(`${origin}/api/card-get?slug=${encodeURIComponent(slug)}`);
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return data?.ok && data.card ? data.card : null;
+  } catch {
+    return null;
+  }
+}
 
 function escapeAttr(value) {
   return String(value ?? '')
@@ -84,9 +99,7 @@ export default async function handler(req, res) {
   }
 
   let card = null;
-  if (slug) {
-    try { card = await readPublicCard(slug); } catch { /* нет данных — общие теги */ }
-  }
+  if (slug) card = await fetchCard(origin, slug);
 
   const meta = buildMetaTags(card, origin, slug);
 
