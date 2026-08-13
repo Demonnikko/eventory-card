@@ -241,8 +241,9 @@ export const onboarding = {
 
     node.innerHTML = renderContent();
     bind(node, ctx);
-    // Четыре самых частых варианта браузер уже начал грузить из <head>.
-    // Здесь догреваем весь компактный набор — до шага выбора обычно всё готово.
+    // Предзагружаем весь компактный набор шаблонов сразу при входе в
+    // онбординг — до шага выбора профессии всё готово. В <head> их больше
+    // нет: там они грузились и на публичной визитке, где не нужны.
     preloadAllTemplates('high');
     if (state.profession) preloadFullTemplate(state.profession);
   }
