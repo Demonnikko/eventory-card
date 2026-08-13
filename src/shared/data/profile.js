@@ -64,6 +64,19 @@ export function normalizeVk(raw) {
   return `https://vk.com/${v}`;
 }
 
+// MAX — российский мессенджер. Профиль: max.ru/u/<username>. Принимаем
+// полную ссылку, домен без протокола и голый username.
+export function normalizeMax(raw) {
+  let v = String(raw ?? '').trim();
+  if (!v) return '';
+  v = v.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+  v = v.replace(/^max\.ru\/(u\/)?/i, '');
+  v = v.replace(/^@/, '');
+  v = v.replace(/\/+$/, '');
+  if (!v) return '';
+  return `https://max.ru/u/${v}`;
+}
+
 export function vkLabel(raw) {
   const href = normalizeVk(raw);
   if (!href) return '';

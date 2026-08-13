@@ -8,19 +8,40 @@
 // золото тонкими акцентами. Появление разделов ставится через data-reveal,
 // анимацией управляет card-app.css.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
-import { renderIcon } from './shared/components/icons.js';
+import { renderIcon, renderBrandIcon, hasBrandIcon } from './shared/components/icons.js';
 import { businessCardTemplateUrl } from './shared/data/businessCard.js';
 import { renderReviewsSection } from './reviews-view.js';
 import { renderGreeting } from './card-ask.js';
 
+// Мессенджеры и соцсети — фирменными цветными иконками из public/icons/brands.
+// Раньше Telegram подменялся на стрелку «поделиться» — выглядело чужеродно.
 function contactIcon(name) {
-  const unified = { telegram: 'share', website: 'externalLink' };
+  if (hasBrandIcon(name)) return renderBrandIcon(name);
+  const unified = { website: 'externalLink' };
   return renderIcon(unified[name] || name);
 }
 
 function telegramHref(value) {
   const handle = String(value || '').replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '');
   return handle ? `https://t.me/${encodeURIComponent(handle)}` : '';
+}
+
+// ВКонтакте: принимаем и полную ссылку, и короткое имя (id/vk.com/…).
+function vkHref(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const handle = raw.replace(/^@/, '').replace(/^vk\.com\//i, '');
+  return handle ? `https://vk.com/${encodeURIComponent(handle)}` : '';
+}
+
+// MAX (российский мессенджер): ссылка вида max.ru/u/<username> или полная.
+function maxHref(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const handle = raw.replace(/^@/, '').replace(/^max\.ru\/(u\/)?/i, '');
+  return handle ? `https://max.ru/u/${encodeURIComponent(handle)}` : '';
 }
 
 // Инициалы — подпись на «печати» в шапке, когда обложки нет.
@@ -50,21 +71,15 @@ function formatPrice(value) {
   return raw;
 }
 
-// Номер для wa.me — только цифры, ведущий 8 в России меняем на 7.
-function whatsappHref(phone) {
-  let digits = String(phone || '').replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.length === 11 && digits[0] === '8') digits = `7${digits.slice(1)}`;
-  return `https://wa.me/${digits}`;
-}
-
 function renderContacts(card) {
   const items = [];
   if (card.phone) items.push({ icon: 'phone', label: 'Позвонить', href: `tel:${String(card.phone).replace(/\s/g, '')}` });
-  const wa = whatsappHref(card.phone);
-  if (wa) items.push({ icon: 'whatsapp', label: 'WhatsApp', href: wa });
   const tg = telegramHref(card.telegram);
   if (tg) items.push({ icon: 'telegram', label: 'Telegram', href: tg });
+  const vk = vkHref(card.vk);
+  if (vk) items.push({ icon: 'vk', label: 'ВКонтакте', href: vk });
+  const max = maxHref(card.max);
+  if (max) items.push({ icon: 'max', label: 'MAX', href: max });
   if (card.email) items.push({ icon: 'note', label: 'Написать', href: `mailto:${card.email}` });
   if (card.website) items.push({ icon: 'website', label: 'Сайт', href: card.website });
   if (!items.length) return '';

@@ -263,6 +263,8 @@ function renderContent() {
         body: `
           ${field({ name: 'phone', label: 'Телефон', value: card.phone, type: 'tel', placeholder: '+7 900 000-00-00' })}
           ${field({ name: 'telegram', label: 'Telegram', value: card.telegram, placeholder: '@username' })}
+          ${field({ name: 'vk', label: 'ВКонтакте', value: card.vk, placeholder: 'vk.com/username' })}
+          ${field({ name: 'max', label: 'MAX', value: card.max, placeholder: 'max.ru/u/username' })}
           ${field({ name: 'email', label: 'Email', value: card.email, type: 'email', placeholder: 'mail@example.com' })}
           ${field({ name: 'website', label: 'Сайт или соцсеть', value: card.website, placeholder: 'https://' })}
         `

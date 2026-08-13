@@ -1,4 +1,4 @@
-import { normalizePhone, normalizeTelegram, normalizeVk } from './profile.js';
+import { normalizePhone, normalizeTelegram, normalizeVk, normalizeMax } from './profile.js';
 
 // Собрать занятость по месяцам из событий (последние 3 + следующие 9 месяцев = 12 плиток)
 
@@ -89,6 +89,7 @@ export const DEFAULT_BUSINESS_CARD = {
   email: '',
   telegram: '',
   vk: '',
+  max: '',
   website: '',
   portfolioUrl: '',
   videoUrl: '',
@@ -230,6 +231,7 @@ export function normalizeBusinessCard(input = {}) {
     email: cleanEmail(input.email),
     telegram: normalizeTelegram(input.telegram),
     vk: normalizeVk(input.vk),
+    max: normalizeMax(input.max),
     website: cleanUrl(input.website),
     portfolioUrl: cleanUrl(input.portfolioUrl),
     videoUrl: cleanUrl(input.videoUrl),
@@ -278,6 +280,7 @@ export function publicCardPayload(card, scheduleGrid = null) {
     email: c.email,
     telegram: c.telegram,
     vk: c.vk,
+    max: c.max,
     website: c.website,
     portfolioUrl: c.portfolioUrl,
     videoUrl: c.videoUrl,
@@ -551,11 +554,8 @@ export function buildVCard(card) {
     const tg = String(c.telegram).replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '');
     lines.push(`URL;TYPE=Telegram:https://t.me/${esc(tg)}`);
   }
-  if (c.phone) {
-    let wa = String(c.phone).replace(/\D/g, '');
-    if (wa.length === 11 && wa[0] === '8') wa = `7${wa.slice(1)}`;
-    if (wa) lines.push(`URL;TYPE=WhatsApp:https://wa.me/${wa}`);
-  }
+  if (c.vk) lines.push(`URL;TYPE=VK:${esc(String(c.vk))}`);
+  if (c.max) lines.push(`URL;TYPE=MAX:${esc(String(c.max))}`);
   if (c.city) lines.push(`ADR;TYPE=WORK:;;${esc(c.city)};;;;`);
   if (c.bio) lines.push(`NOTE:${esc(c.bio)}`);
   lines.push('END:VCARD');

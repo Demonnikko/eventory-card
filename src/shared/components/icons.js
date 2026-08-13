@@ -43,7 +43,7 @@ const ICONS = {
 
 /** Файлы в public/icons/brands/{name}.svg — см. scripts/sync-brand-icons.mjs */
 export const BRAND_ICON_FILES = new Set([
-  'instagram', 'telegram', 'whatsapp', 'vk', 'youtube', 'tiktok',
+  'instagram', 'telegram', 'whatsapp', 'vk', 'max', 'youtube', 'tiktok',
   'linkedin', 'behance', 'dribbble', 'threads', 'twitter', 'website'
 ]);
 

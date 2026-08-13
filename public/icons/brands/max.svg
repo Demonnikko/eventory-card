@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="max">
+  <defs>
+    <linearGradient id="maxg" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3F8CFF"/>
+      <stop offset="1" stop-color="#6A5CFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="6" fill="url(#maxg)"/>
+  <path fill="#fff" d="M6 17V7.6c0-.66.8-.99 1.27-.52L12 11.8l4.73-4.72c.47-.47 1.27-.14 1.27.52V17h-2.4v-5.3l-2.75 2.74a1.2 1.2 0 0 1-1.7 0L8.4 11.7V17z"/>
+</svg>
