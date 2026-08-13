@@ -1501,6 +1501,7 @@ body[data-route='onboarding']::before {
 .ob-step {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   width: 100%;
   min-height: 100dvh;
   padding: calc(env(safe-area-inset-top) + 26px) 20px calc(env(safe-area-inset-bottom) + 22px);
@@ -1830,8 +1831,10 @@ body[data-route='onboarding']::before {
 
 /* ===== Действия ===== */
 .ob-actions {
-  margin-top: auto;
-  padding-top: 26px;
+  /* Раньше margin-top:auto прижимал кнопку к низу — над ней зияла пустота.
+     Теперь весь блок (карточка + текст + кнопка) центрируется как единая
+     группа через justify-content:center у .ob-step. */
+  padding-top: 30px;
   display: flex;
   flex-direction: column;
   gap: 10px;
