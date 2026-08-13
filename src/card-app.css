@@ -935,7 +935,12 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 .cp-hero-media {
   position: relative;
   margin: 0 -24px 26px;
-  height: 260px;
+  /* Портретная пропорция вместо жёстких 260px: вертикальное фото (артист,
+     мага, ведущий) помещается лицом целиком, а не срезается по макушке.
+     Ограничиваем высоту, чтобы фото не занимало весь первый экран и имя
+     оставалось видно без скролла. */
+  aspect-ratio: 3 / 4;
+  max-height: 60vh;
   overflow: hidden;
 }
 
@@ -943,7 +948,8 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scale(1.06);
+  /* При обрезке сохраняем верх кадра — лицо, а режем снизу (плечи, фон). */
+  object-position: center 20%;
   animation: cp-cover-settle 1.6s var(--ease-soft) both;
 }
 
@@ -1262,8 +1268,8 @@ a.cp-cta-btn:active { transform: scale(0.985); box-shadow: 0 8px 20px -14px rgba
 }
 
 @keyframes cp-cover-settle {
-  from { transform: scale(1.14); }
-  to { transform: scale(1.06); }
+  from { transform: scale(1.08); }
+  to { transform: scale(1); }
 }
 
 @keyframes cp-sheen {
@@ -1357,7 +1363,7 @@ body[data-route='card-public'] #app {
     animation: none !important;
   }
   .cp-cta-sheen { display: none; }
-  .cp-hero-img { transform: scale(1.02); }
+  .cp-hero-img { transform: none; }
 }
 
 /* ===== Таббар ===== */
