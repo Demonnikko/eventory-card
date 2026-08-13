@@ -216,12 +216,11 @@ export default async function handler(req, res) {
     const all = await listReviews(slug, { approvedOnly: false });
     const target = all.find((r) => r.id === id);
     if (!target) return fail(res, 404, 'review_not_found');
-    // Сначала удаляем публичный Blob и только затем метаданные. Иначе при
-    // временной ошибке хранилища ссылка на видео осталась бы жить без записи,
-    // которую владелец мог бы удалить повторно.
-    if (target.videoUrl && !await deleteVideo(target.videoUrl)) {
-      return fail(res, 502, 'video_delete_failed');
-    }
+    // Пытаемся удалить файл видео, но НЕ блокируем этим удаление отзыва:
+    // старые ролики лежат в другом сторе, файл мог быть уже стёрт — и тогда
+    // отзыв стал бы неудаляемым. Метаданные удаляем всегда; осиротевший
+    // файл в Blob — меньшее зло, чем отзыв, который владелец не может убрать.
+    if (target.videoUrl) await deleteVideo(target.videoUrl);
     const removed = await deleteReview(slug, id);
     if (!removed) return fail(res, 404, 'review_not_found');
     return res.status(200).json({ ok: true });

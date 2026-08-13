@@ -276,13 +276,31 @@ export async function verifyUploadedVideo(slug, value, kind = 'video') {
   return false;
 }
 
+// Авторизация СТАРОГО приватного стора card-reviews (голые BLOB_*). Видео,
+// записанные до перехода на публичный card-media, лежат именно там, поэтому
+// удалять их нужно его токеном, а не токеном нового стора.
+function legacyBlobAuth() {
+  if (process.env.BLOB_READ_WRITE_TOKEN) return { token: process.env.BLOB_READ_WRITE_TOKEN };
+  if (process.env.VERCEL_OIDC_TOKEN && process.env.BLOB_STORE_ID) {
+    return { oidcToken: process.env.VERCEL_OIDC_TOKEN, storeId: process.env.BLOB_STORE_ID };
+  }
+  return null;
+}
+
 export async function deleteVideo(url) {
   if (!url) return true;
-  if (!blobConfigured()) return false;
-  try {
-    await del(url, blobAuth());
-    return true;
-  } catch {
-    return false;
+
+  // Пробуем удалить обоими сторами: файл лежит либо в новом card-media,
+  // либо в старом card-reviews, а по URL это не всегда однозначно.
+  const attempts = [blobAuth(), legacyBlobAuth()].filter(Boolean);
+  for (const auth of attempts) {
+    try {
+      await del(url, auth);
+      return true; // успех хотя бы в одном сторе — файл удалён
+    } catch { /* пробуем следующий стор */ }
   }
+  // Файл удалить не удалось (уже стёрт, недоступен или чужой стор). Не
+  // блокируем этим удаление самого отзыва — осиротевший файл в Blob лучше,
+  // чем отзыв, который владелец не может убрать с визитки.
+  return false;
 }
