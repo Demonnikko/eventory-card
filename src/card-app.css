@@ -1336,8 +1336,15 @@ body[data-route='card-public'] .ca-header { display: none; }
    выглядит обрезанным. Даём safe-area сверху и щедрый отступ снизу, чтобы
    контент гарантированно доскроллился из-под браузерного хрома. */
 body[data-route='card-public'] #app {
-  padding-top: calc(env(safe-area-inset-top) + 16px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 40px);
+  /* Шире и ближе к краям экрана: боковые поля тоньше, чем в приложении
+     владельца, — визитка занимает почти всю ширину телефона. Верхний и
+     нижний отступ учитывают чёлку и панели браузера, чтобы контент не
+     прятался под них и доскроллился до конца. */
+  max-width: 560px;
+  padding-left: max(env(safe-area-inset-left), 10px);
+  padding-right: max(env(safe-area-inset-right), 10px);
+  padding-top: calc(env(safe-area-inset-top) + 14px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 48px);
 }
 
 /* Уважаем системную настройку: движение выключается полностью */
