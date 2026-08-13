@@ -2,8 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/api/((?!card-review|card-insight).*)",
+      "source": "/api/((?!card-review|card-insight|og).*)",
       "destination": "https://eventory-mvp.vercel.app/api/$1"
+    },
+    {
+      "source": "/v/:slug",
+      "destination": "/api/og?slug=:slug"
     },
     {
       "source": "/((?!api/).*)",
