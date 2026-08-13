@@ -2504,13 +2504,21 @@ body[data-route='present']::before {
   object-fit: cover;
 }
 
-/* Пока видео не загрузилось — инициалы, а не пустой круг */
+/* Видео не загрузилось (медленная сеть, недоступное хранилище) — вместо
+   голой буквы показываем аккуратную заглушку: мягкий градиент в круге и
+   инициал шампанью. Кружок выглядит задуманным, а не сломанным. */
 .cp-reel-fallback {
   position: absolute;
+  inset: 0;
   z-index: 0;
+  display: grid;
+  place-items: center;
   font-family: var(--display);
-  font-size: 26px;
-  color: var(--muted-2);
+  font-size: 30px;
+  color: rgba(224, 213, 190, 0.62);
+  background:
+    radial-gradient(circle at 34% 28%, rgba(217, 203, 176, 0.14), transparent 60%),
+    linear-gradient(160deg, #232326, #17171a);
 }
 
 .cp-reel-play {
