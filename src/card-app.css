@@ -1330,6 +1330,16 @@ a.cp-cta-btn:active { transform: scale(0.985); box-shadow: 0 8px 20px -14px rgba
 body[data-route='card-public'] { padding-bottom: env(safe-area-inset-bottom); }
 body[data-route='card-public'] .ca-header { display: none; }
 
+/* Публичную визитку открывают в обычном браузере (не PWA), где сверху
+   адресная строка и чёлка, а снизу — панель навигации Safari. Без запаса
+   первый экран прячется под чёлку, а футер упирается в нижнюю панель и
+   выглядит обрезанным. Даём safe-area сверху и щедрый отступ снизу, чтобы
+   контент гарантированно доскроллился из-под браузерного хрома. */
+body[data-route='card-public'] #app {
+  padding-top: calc(env(safe-area-inset-top) + 16px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 40px);
+}
+
 /* Уважаем системную настройку: движение выключается полностью */
 @media (prefers-reduced-motion: reduce) {
   [data-reveal],
