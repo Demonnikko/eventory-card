@@ -76,3 +76,41 @@ export function renderBrandIcon(name, { className = '', size = 20 } = {}) {
   const cls = ['ui-icon', 'brand-icon', 'brand-icon-img', className].filter(Boolean).join(' ');
   return `<img class="${cls}" src="${src}" width="${size}" height="${size}" alt="" decoding="async" loading="lazy" />`;
 }
+
+// Дуотон-иконки таб-бара: мягкая подложка (bg) + чёткий глиф (fg). Оба слоя
+// красятся одним currentColor — подложка через opacity, глиф целиком, —
+// поэтому активная вкладка (color: accent) целиком «подсвечивается» шампанью,
+// а неактивная остаётся приглушённой. Один цвет управляет обоими слоями.
+const TAB_ICONS = {
+  // Визитка — карточка человека
+  card: {
+    bg: `<rect x="2" y="4" width="20" height="16" rx="4" />`,
+    fg: `<circle cx="8" cy="11" r="2.4" /><rect x="13" y="9.1" width="6" height="1.8" rx=".9" /><rect x="13" y="13" width="6" height="1.8" rx=".9" /><path d="M4.8 17c.6-1.5 1.9-2.2 3.2-2.2s2.6.7 3.2 2.2c.15.4-.15.7-.5.7H5.3c-.35 0-.65-.3-.5-.7" />`
+  },
+  // Поделиться — QR-код
+  qr: {
+    bg: `<rect x="3" y="3" width="18" height="18" rx="4" />`,
+    fg: `<rect x="6" y="6" width="4" height="4" rx="1" /><rect x="14" y="6" width="4" height="4" rx="1" /><rect x="6" y="14" width="4" height="4" rx="1" /><rect x="14" y="14" width="4" height="4" rx="1" />`
+  },
+  // Отклик — пульс/активность
+  pulse: {
+    bg: `<circle cx="12" cy="12" r="10" />`,
+    fg: `<path d="M6 12h2.2l1.4-3.4a.7.7 0 0 1 1.3.05l2 5.6 1.1-2.6a.7.7 0 0 1 .64-.42H18a.7.7 0 0 1 0 1.4h-1.8l-1.7 4a.7.7 0 0 1-1.3-.03l-2-5.6-.9 2.2a.7.7 0 0 1-.65.43H6a.7.7 0 0 1 0-1.4" />`
+  },
+  // Просмотр — глаз
+  eye: {
+    bg: `<path d="M2.5 12C4.5 8 8 6 12 6s7.5 2 9.5 6c-2 4-5.5 6-9.5 6s-7.5-2-9.5-6" />`,
+    fg: `<circle cx="12" cy="12" r="3.2" />`
+  }
+};
+
+export function renderTabIcon(name, { size = 24 } = {}) {
+  const icon = TAB_ICONS[name];
+  if (!icon) return renderIcon(name);
+  return `
+    <svg class="ui-icon tab-icon" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="currentColor" opacity="0.24">${icon.bg}</g>
+      <g fill="currentColor">${icon.fg}</g>
+    </svg>
+  `;
+}

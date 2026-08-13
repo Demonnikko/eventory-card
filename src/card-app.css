@@ -1009,10 +1009,17 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 /* ===== Контакты ===== */
 .cp-contacts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  /* Минимум 88px на кнопку: при 5–6 контактах (телефон, Telegram, ВК, MAX,
+     почта, сайт) они переносятся на второй ряд, а не схлопываются в узкую
+     нечитаемую полосу. При 2–3 контактах ряд остаётся одним. */
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
   gap: 10px;
   padding: 30px 24px 4px;
 }
+
+/* Фирменная цветная иконка соцсети — крупнее монохромной: у неё внутри
+   свой скруглённый фон, ей нужен размер, чтобы читаться. */
+.cp-contact .brand-icon { width: 26px; height: 26px; display: block; border-radius: 7px; }
 
 .cp-contact {
   display: flex;
@@ -1404,6 +1411,12 @@ body[data-route='card-public'] #app {
 }
 
 .ca-tab .ui-icon { transition: transform 0.4s var(--ease); }
+
+/* Дуотон-подложка иконки: у активной вкладки светится заметнее, у неактивной
+   почти растворяется — так переключение читается как «подсветка» раздела. */
+.tab-icon g[opacity] { transition: opacity 0.35s var(--ease); }
+.ca-tab.is-active .tab-icon g[opacity] { opacity: 0.32 !important; }
+.ca-tab:not(.is-active) .tab-icon g[opacity] { opacity: 0.16; }
 
 .ca-tab.is-active { color: var(--accent); }
 .ca-tab.is-active .ui-icon { transform: translateY(-1px); }

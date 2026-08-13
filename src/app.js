@@ -8,11 +8,11 @@
 // бандле. isOnboarded читает localStorage — держим статически, чтобы
 // parseRoute оставался синхронным и не ждал загрузки чанка онбординга.
 import { isOnboarded } from './onboarding.js';
-import { renderIcon } from './shared/components/icons.js';
+import { renderTabIcon } from './shared/components/icons.js';
 
 const TABS = [
-  { id: 'editor', label: 'Визитка', icon: 'edit' },
-  { id: 'share', label: 'Поделиться', icon: 'share' },
+  { id: 'editor', label: 'Визитка', icon: 'card' },
+  { id: 'share', label: 'Поделиться', icon: 'qr' },
   { id: 'insight', label: 'Отклик', icon: 'pulse' },
   { id: 'preview', label: 'Просмотр', icon: 'eye' }
 ];
@@ -71,7 +71,7 @@ function renderTabbar(activeId) {
   return TABS.map((tab) => `
     <button type="button" role="tab" aria-selected="${tab.id === activeId ? 'true' : 'false'}"
       class="ca-tab${tab.id === activeId ? ' is-active' : ''}" data-tab="${tab.id}">
-      ${renderIcon(tab.icon)}
+      ${renderTabIcon(tab.icon)}
       <span>${tab.label}</span>
     </button>
   `).join('');
