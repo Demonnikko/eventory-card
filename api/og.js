@@ -60,10 +60,12 @@ function buildMetaTags(card, origin, slug) {
   const description = card?.tagline
     || (metaParts.length ? metaParts.join(' · ') : 'Контакты, услуги и связь за пару секунд.');
   const url = `${origin}/v/${encodeURIComponent(slug)}`;
-  // Обложка — если есть; иначе фирменная заглушка бренда.
-  const image = card?.coverPhoto
-    ? (String(card.coverPhoto).startsWith('http') ? card.coverPhoto : `${origin}${card.coverPhoto}`)
-    : `${origin}/og-default.png`;
+  // og:image обязан быть публичным HTTP-URL: мессенджеры не принимают
+  // data-URI (обложка часто хранится именно так) и не тянут относительные
+  // пути. Реальный http(s)-адрес берём как есть, всё остальное — на
+  // фирменную заглушку бренда.
+  const cover = String(card?.coverPhoto || '');
+  const image = /^https?:\/\//.test(cover) ? cover : `${origin}/og-default.png`;
 
   const title = card?.role ? `${name} — ${card.role}` : name;
 
