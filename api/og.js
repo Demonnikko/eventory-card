@@ -16,13 +16,23 @@ import { normalizeSlug } from './_card-access.js';
 // визитки может указывать на другую базу, поэтому напрямую в него не лезем —
 // иначе og-теги получают только заглушку, а не имя владельца.
 async function fetchCard(origin, slug) {
+  // Жёсткий таймаут: card-get проксируется в другой проект и читает Redis —
+  // цепочка из нескольких прыжков. Если она задержится, НЕЛЬЗЯ держать из-за
+  // og-тегов весь HTML и весь запуск приложения. Не успели за 2с — отдаём
+  // страницу с базовыми тегами, имя догонит в кэше при следующем заходе.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2000);
   try {
-    const res = await fetch(`${origin}/api/card-get?slug=${encodeURIComponent(slug)}`);
+    const res = await fetch(`${origin}/api/card-get?slug=${encodeURIComponent(slug)}`, {
+      signal: ctrl.signal
+    });
     if (!res.ok) return null;
     const data = await res.json().catch(() => null);
     return data?.ok && data.card ? data.card : null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

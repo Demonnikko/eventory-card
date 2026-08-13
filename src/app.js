@@ -1,14 +1,13 @@
 // Роутер и оболочка PWA-визитки.
 // Экранов немного, поэтому вместо общего роутера CRM здесь свой минимальный.
-import { editor } from './editor.js';
-import { share } from './share.js';
-import { preview } from './preview.js';
-import { publicCard } from './public-card.js';
-import { onboarding, isOnboarded } from './onboarding.js';
-import { present } from './present.js';
-import { reviewRecord } from './review-record.js';
-import { insight } from './insight.js';
-import { privacy } from './privacy.js';
+//
+// Каждый экран грузится ЛЕНИВО (import() по требованию): открыв визитку,
+// клиент тянет только код публичной карточки — без редактора, записи видео
+// и аналитики, которые ему не нужны. Vite режет их на отдельные чанки, и
+// первый экран стартует заметно быстрее, чем когда весь код лежал в одном
+// бандле. isOnboarded читает localStorage — держим статически, чтобы
+// parseRoute оставался синхронным и не ждал загрузки чанка онбординга.
+import { isOnboarded } from './onboarding.js';
 import { renderIcon } from './shared/components/icons.js';
 
 const TABS = [
@@ -18,16 +17,18 @@ const TABS = [
   { id: 'preview', label: 'Просмотр', icon: 'eye' }
 ];
 
-const VIEWS = {
-  editor,
-  share,
-  preview,
-  insight,
-  privacy,
-  onboarding,
-  present,
-  'review-record': reviewRecord,
-  'card-public': publicCard
+// Загрузчики экранов. Функция вызывается только когда на экран переходят,
+// и возвращает нужный view из динамически подгруженного модуля.
+const VIEW_LOADERS = {
+  editor: () => import('./editor.js').then((m) => m.editor),
+  share: () => import('./share.js').then((m) => m.share),
+  preview: () => import('./preview.js').then((m) => m.preview),
+  insight: () => import('./insight.js').then((m) => m.insight),
+  privacy: () => import('./privacy.js').then((m) => m.privacy),
+  onboarding: () => import('./onboarding.js').then((m) => m.onboarding),
+  present: () => import('./present.js').then((m) => m.present),
+  'review-record': () => import('./review-record.js').then((m) => m.reviewRecord),
+  'card-public': () => import('./public-card.js').then((m) => m.publicCard)
 };
 
 function parseRoute() {
@@ -54,7 +55,7 @@ function parseRoute() {
     return { id: 'review-record', params: { id: decodeURIComponent(parts[1]) } };
   }
   const id = parts[0] || 'editor';
-  const resolved = VIEWS[id] ? id : 'editor';
+  const resolved = VIEW_LOADERS[id] ? id : 'editor';
 
   // Первый вход — показываем приветствие. Клиента, пришедшего по публичной
   // ссылке, оно не касается: ветка /v/<slug> отработала выше.
@@ -83,7 +84,9 @@ export function mountApp() {
 
   async function route() {
     const { id, params } = parseRoute();
-    const view = VIEWS[id];
+    // Лениво подгружаем код нужного экрана. Оболочка (шапка, фон) уже на
+    // месте, предыдущий экран виден те миллисекунды, что грузится чанк.
+    const view = await VIEW_LOADERS[id]();
     document.body.dataset.route = id;
     if (view.title) {
       document.title = id === 'editor' ? 'Визитка' : `${view.title} — Визитка`;
