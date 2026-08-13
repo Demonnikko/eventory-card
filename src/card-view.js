@@ -38,6 +38,18 @@ function reveal(delayStep = 1) {
   return `data-reveal style="--reveal-order:${revealIndex}"`;
 }
 
+// Цена — свободное поле: «15000», «от 20к», «договорная». Если это чистое
+// число, разбиваем на разряды неразрывными пробелами и добавляем ₽:
+// «15000» → «15 000 ₽». Текст оставляем как есть, чтобы не сломать «договорная».
+function formatPrice(value) {
+  const raw = String(value || '').trim();
+  const digits = raw.replace(/\s/g, '');
+  if (/^\d+$/.test(digits) && digits.length >= 3) {
+    return `${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₽`;
+  }
+  return raw;
+}
+
 // Номер для wa.me — только цифры, ведущий 8 в России меняем на 7.
 function whatsappHref(phone) {
   let digits = String(phone || '').replace(/\D/g, '');
@@ -196,7 +208,7 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
       ${card.priceFrom ? `
         <section class="cp-block cp-price" ${reveal()}>
           <span class="cp-price-label">Стоимость от</span>
-          <span class="cp-price-value">${escapeHtml(card.priceFrom)}</span>
+          <span class="cp-price-value">${escapeHtml(formatPrice(card.priceFrom))}</span>
         </section>
       ` : ''}
 

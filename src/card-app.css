@@ -1133,7 +1133,9 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 
 .cp-gallery-item img {
   width: 100%;
-  aspect-ratio: 1;
+  /* 4:5 вместо квадрата: афиши (вертикальные постеры) обрезаются меньше,
+     а горизонтальные фото с площадок остаются читаемыми. */
+  aspect-ratio: 4 / 5;
   object-fit: cover;
   display: block;
   transition: transform 0.8s var(--ease-soft);
@@ -1271,7 +1273,9 @@ a.cp-cta-btn:active { transform: scale(0.985); box-shadow: 0 8px 20px -14px rgba
 
 /* ===== Публичная страница ===== */
 .cp-page {
-  padding-bottom: 8px;
+  /* На айфоне снизу «домашняя полоса»: без safe-area футер
+     «by Eventory / Конфиденциальность» уезжает под неё и обрезается. */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
   animation: cp-page-in 0.7s var(--ease-soft) both;
 }
 
