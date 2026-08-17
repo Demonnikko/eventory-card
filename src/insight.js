@@ -9,7 +9,7 @@ import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
 import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
 import { getCard } from './card-data.js';
-import { fetchInsight, createTag, deleteTag, markDialogsRead, taggedUrl } from './insight-data.js';
+import { fetchInsight, createTag, deleteTag, markDialogsRead, markLeadsRead, taggedUrl } from './insight-data.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 const state = {
@@ -17,6 +17,7 @@ const state = {
   summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0 },
   tags: [],
   dialogs: [],
+  leads: [],
   loading: true,
   busy: false,
   form: false,       // открыта форма новой метки
@@ -140,6 +141,50 @@ function renderForm() {
   `;
 }
 
+/* ─────────── Заявки «Узнать цену» ─────────── */
+
+// Заявки — горячие лиды, поэтому стоят выше вопросов. Контакт клиента («кто
+// это») — это Pro: показываем факт заявки, имя и дату бесплатно, а контакт
+// размываем под замок «Открыть в Eventory Pro». Пока это UX-барьер; реальную
+// серверную защиту (не отдавать contact без Pro) навесим шагом 2 — сейчас
+// контакт ещё приходит с сервера, blur лишь визуальный.
+function renderLeads() {
+  if (!state.leads.length) return '';
+  const unread = state.leads.filter((l) => !l.read).length;
+
+  return `
+    <section class="in-section">
+      <div class="in-section-head">
+        <span class="in-section-title">Заявки на цену</span>
+        ${unread ? `<span class="in-badge in-badge--hot">${unread}</span>` : ''}
+      </div>
+      <p class="in-section-sub">Клиенты хотят узнать стоимость. Контакт открывается в Eventory Pro.</p>
+
+      <div class="in-leads">
+        ${state.leads.slice(0, 20).map((l) => `
+          <div class="in-lead${l.read ? '' : ' is-new'}">
+            <div class="in-lead-top">
+              <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}</span>
+              ${l.eventDate ? `<span class="in-lead-date">${escapeHtml(formatEventDate(l.eventDate))}</span>` : ''}
+            </div>
+            <div class="in-lead-contact-lock">
+              <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>
+              <span class="in-lead-lock">${renderIcon('wallet')} Открыть в Eventory Pro</span>
+            </div>
+            <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <a class="in-lead-pro" href="${escapeAttr(upsellHref('leads'))}" target="_blank" rel="noopener">
+        ${renderIcon('wallet')}
+        <span>Узнать, кто оставил заявку — в Eventory Pro</span>
+        ${renderIcon('chevron-right')}
+      </a>
+    </section>
+  `;
+}
+
 /* ─────────── Диалоги ─────────── */
 
 function renderDialogs() {
@@ -219,6 +264,8 @@ function renderContent() {
         </div>
       ` : ''}
 
+      ${renderLeads()}
+
       <section class="in-section">
         <div class="in-section-head">
           <span class="in-section-title">Мероприятия</span>
@@ -254,6 +301,7 @@ export const insight = {
     state.summary = { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
     state.tags = [];
     state.dialogs = [];
+    state.leads = [];
     state.card = await getCard();
 
     node.innerHTML = renderContent();
@@ -264,8 +312,10 @@ export const insight = {
         state.summary = data.summary || state.summary;
         state.tags = data.tags || [];
         state.dialogs = data.dialogs || [];
+        state.leads = data.leads || [];
         // Владелец увидел вопросы — снимаем пометку «новое».
         if (state.dialogs.some((d) => !d.read)) markDialogsRead().catch(() => {});
+        if (state.leads.some((l) => !l.read)) markLeadsRead().catch(() => {});
       } catch { /* нет сети — покажем пустой экран, без ошибки на весь экран */ }
     }
 
