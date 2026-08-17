@@ -192,4 +192,24 @@ export function mountApp() {
 
   window.addEventListener('hashchange', route);
   route();
+
+  // Пока человек смотрит на первый экран, в фоне подгружаем код остальных
+  // вкладок. Тогда переключение — мгновенное: чанк уже в памяти, import()
+  // не идёт за ним по сети. Делаем в простое, чтобы не мешать первому экрану.
+  prefetchTabs();
+}
+
+// Тихо прогревает чанки вкладок в фоне. Ошибки глушим: префетч — ускорение,
+// а не обязанность; если чанк не догрузился, обычный import() возьмёт его.
+function prefetchTabs() {
+  const warm = () => {
+    ['editor', 'share', 'insight', 'preview'].forEach((id) => {
+      VIEW_LOADERS[id]?.().catch(() => { /* префетч не критичен */ });
+    });
+  };
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(warm, { timeout: 2000 });
+  } else {
+    setTimeout(warm, 800);
+  }
 }

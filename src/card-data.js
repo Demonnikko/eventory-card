@@ -25,7 +25,13 @@ export function cardPublicUrl(slug) {
   return `${origin}/v/${encodeURIComponent(cleanSlug)}`;
 }
 
+// Карточка одна на все вкладки. Держим её в памяти, чтобы переключение
+// вкладок не читало IndexedDB каждый раз — переходы становятся мгновенными.
+// Кэш обновляется при каждом сохранении, поэтому не устаревает.
+let cardCache = null;
+
 export async function getCard() {
+  if (cardCache) return cardCache;
   const stored = await getRecord(CARD_ID);
   // Если IndexedDB очистилась, поднимаем карточку из localStorage-зеркала.
   const source = stored || mirrorRead() || DEFAULT_BUSINESS_CARD;
@@ -33,6 +39,7 @@ export async function getCard() {
   if (!normalized.leadKey) {
     return saveCard({ ...normalized, leadKey: createLeadKey() });
   }
+  cardCache = normalized;
   return normalized;
 }
 
@@ -40,6 +47,7 @@ export async function saveCard(card) {
   const normalized = normalizeBusinessCard(card);
   await putRecord(normalized);
   mirrorSave(normalized);
+  cardCache = normalized;
   return normalized;
 }
 
