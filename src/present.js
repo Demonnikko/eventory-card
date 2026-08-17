@@ -111,24 +111,24 @@ function renderContent() {
   const url = card.publishedSlug ? cardPublicUrl(card.publishedSlug) : '';
   // Витрина: приложение открылось сразу визиткой для показа клиенту. Карточка
   // повёрнута крупно на весь экран, видимой кнопки выхода нет — клиент видит
-  // только визитку. Владелец выходит долгим удержанием левого верхнего угла.
+  // только визитку. Владелец выходит долгим удержанием ЦЕНТРА карточки (2 сек):
+  // край экрана на iOS перехватывают системные жесты, а центр — нет, и палец
+  // до него всегда дотянется. Клиент карточку не держит, случайно не выйдет.
   const kiosk = card.kioskMode === true;
 
   return `
     <div class="pr-screen${kiosk ? ' pr-screen--kiosk' : ''}" data-present ${kiosk ? 'data-kiosk' : ''}>
-      ${kiosk ? `
-        <button type="button" class="pr-escape" data-escape aria-label="Выйти в настройки">
-          <span class="pr-escape-ring" aria-hidden="true"></span>
-        </button>
-      ` : `
+      ${kiosk ? '' : `
         <button type="button" class="pr-exit" data-exit aria-label="Закрыть">
           ${renderIcon('x')}
         </button>
       `}
 
       <div class="pr-stage">
-        <div class="pr-card" data-card aria-label="Визитка с QR-кодом">
+        <div class="pr-card${kiosk ? ' pr-card--hold' : ''}" data-card
+          ${kiosk ? 'data-escape' : ''} aria-label="Визитка с QR-кодом">
           ${renderCard(card, url)}
+          ${kiosk ? '<span class="pr-hold-ring" data-hold-ring aria-hidden="true"></span>' : ''}
         </div>
       </div>
 
@@ -175,10 +175,14 @@ function bind(node) {
     });
   }
 
-  // Витрина: выход в настройки — долгое удержание угла (2 сек). Видимой
-  // кнопки нет, клиент угол не трогает. Кольцо-индикатор заполняется, пока
-  // держишь, — чтобы владелец чувствовал прогресс и не гадал, сработало ли.
-  if (escape) bindEscape(escape);
+  // Витрина: выход в настройки — долгое удержание карточки (2 сек). В этом
+  // режиме увеличение QR по тапу отключено, чтобы не мешать удержанию: клиент
+  // сканирует код, а не тыкает в него. Поэтому дальше QR-диалог не подключаем.
+  if (escape) {
+    const ring = node.querySelector('[data-hold-ring]');
+    bindEscape(escape, ring);
+    return;
+  }
 
   if (!qrOpen || !dialog || !qrClose) return;
 
@@ -219,23 +223,37 @@ function bind(node) {
   });
 }
 
-// Время удержания угла до выхода из витрины. Достаточно долго, чтобы случайное
-// касание не выкинуло из показа при клиенте, но не утомительно для владельца.
+// Время удержания карточки до выхода из витрины. Достаточно долго, чтобы
+// случайное касание не выкинуло из показа при клиенте, но не утомительно.
 const ESCAPE_HOLD_MS = 2000;
 
-function bindEscape(escape) {
+// Выход из витрины по долгому удержанию карточки. На iOS Safari в PWA
+// pointer-события для касаний срабатывают ненадёжно, поэтому слушаем и touch-,
+// и pointer-события, а от двойного старта защищаемся флагом holding.
+function bindEscape(escape, ring) {
   let timer = null;
+  let holding = false;
 
   const cancel = () => {
+    holding = false;
     if (timer) { clearTimeout(timer); timer = null; }
     escape.classList.remove('is-charging');
   };
 
   const start = (event) => {
-    // Только основная кнопка/касание; правый клик и мультитач игнорируем.
-    if (event.button && event.button !== 0) return;
-    cancel();
+    // Правый клик и мультитач игнорируем; повторный старт не перезапускаем.
+    if (event.type === 'pointerdown' && event.button && event.button !== 0) return;
+    if (holding) return;
+    // Гасим системный скролл/свайп, иначе iOS прервёт удержание.
+    if (event.cancelable) event.preventDefault();
+    holding = true;
     escape.classList.add('is-charging');
+    if (ring) {
+      // Перезапуск CSS-анимации кольца: сбрасываем и включаем заново.
+      ring.style.animation = 'none';
+      void ring.offsetWidth;
+      ring.style.animation = '';
+    }
     timer = window.setTimeout(() => {
       cancel();
       hapticLight();
@@ -245,8 +263,11 @@ function bindEscape(escape) {
 
   escape.addEventListener('pointerdown', start);
   escape.addEventListener('pointerup', cancel);
-  escape.addEventListener('pointerleave', cancel);
   escape.addEventListener('pointercancel', cancel);
-  // Контекстное меню по долгому тапу на мобильном мешает удержанию — гасим.
+  escape.addEventListener('pointerleave', cancel);
+  escape.addEventListener('touchstart', start, { passive: false });
+  escape.addEventListener('touchend', cancel);
+  escape.addEventListener('touchcancel', cancel);
+  // Долгий тап на мобильном вызывает контекстное меню/выделение — гасим.
   escape.addEventListener('contextmenu', (event) => event.preventDefault());
 }

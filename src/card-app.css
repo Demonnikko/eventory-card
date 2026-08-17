@@ -2021,47 +2021,54 @@ body[data-route='present']::before {
   max-width: 96dvh;
 }
 
-/* Скрытая зона выхода — левый верхний угол физического экрана. В повёрнутой
-   раскладке это правый верхний угол карточки, но зону кладём на экран, а не
-   на карточку, чтобы палец находил её по краю телефона. Прозрачная. */
-.pr-escape {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 20;
-  width: 68px;
-  height: 68px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
+/* Карточка повёрнута — её визуальная ширина = высота экрана (dvh). Размеры
+   текста внутри считаем от dvh, иначе vw берёт узкую сторону телефона и текст
+   выходит крошечным. Коэффициенты крупнее, чтобы имя читалось издалека. */
+.pr-screen--kiosk .pr-name { font-size: clamp(30px, 8.2dvh, 62px); }
+.pr-screen--kiosk .pr-surname { font-size: clamp(18px, 4.8dvh, 34px); }
+.pr-screen--kiosk .pr-meta {
+  margin-top: 12px;
+  font-size: clamp(11px, 2.7dvh, 17px);
+  letter-spacing: 0.24em;
+}
+
+/* Вся карточка — зона удержания для выхода (data-escape). Центр экрана iOS не
+   перехватывает системными жестами, палец до него всегда дотянется. */
+.pr-card--hold {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-/* Кольцо-прогресс: пока держишь угол, дуга заполняется за 2 сек — владелец
-   видит и чувствует, что выход «заряжается», и не гадает, сработало ли. */
-.pr-escape-ring {
+/* Кольцо-прогресс по центру карточки: пока держишь, дуга заполняется за 2 сек —
+   владелец видит и чувствует, что выход «заряжается». Клиент карточку не
+   держит, поэтому кольца не увидит. */
+.pr-hold-ring {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 26px;
-  height: 26px;
+  top: 50%;
+  left: 50%;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
   border-radius: 50%;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   opacity: 0;
+  pointer-events: none;
+  z-index: 6;
   transition: opacity 0.2s var(--ease);
 }
 
-.pr-escape.is-charging .pr-escape-ring {
+.pr-card--hold.is-charging .pr-hold-ring {
   opacity: 1;
-  border-color: rgba(232, 166, 74, 0.25);
+  border-color: rgba(232, 166, 74, 0.28);
   border-top-color: var(--accent);
-  animation: pr-escape-spin 2s linear both;
+  background: rgba(8, 8, 10, 0.35);
+  animation: pr-hold-spin 2s linear both;
 }
 
-@keyframes pr-escape-spin {
+@keyframes pr-hold-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(1080deg); }
 }
