@@ -7,7 +7,7 @@ import { qrSvg } from './shared/data/qr.js';
 import { getCard, cardPublicUrl } from './card-data.js';
 import { downloadVCard } from './vcard.js';
 import { fetchOwnReviews, createInvite, approveReview, removeReview } from './reviews-data.js';
-import { openViewer } from './reviews-view.js';
+import { openViewer, proxiedVideo } from './reviews-view.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 const state = { card: null, reviews: [], reviewsBusy: false };
@@ -53,7 +53,7 @@ function renderReviewsBlock() {
             <div class="ca-review${r.approved ? ' is-approved' : ''}">
               <button type="button" class="ca-review-thumb-btn" data-review-play="${escapeAttr(r.id)}"
                 aria-label="Посмотреть отзыв${r.author ? `: ${escapeAttr(r.author)}` : ''}">
-                <video class="ca-review-thumb" src="${escapeAttr(r.videoUrl)}" muted playsinline preload="metadata"
+                <video class="ca-review-thumb" src="${escapeAttr(proxiedVideo(r.videoUrl))}" muted playsinline preload="metadata"
                   ${r.posterUrl ? `poster="${escapeAttr(r.posterUrl)}"` : ''}></video>
                 <span class="ca-review-thumb-play" aria-hidden="true">${renderIcon('chevron-right')}</span>
               </button>

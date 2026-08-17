@@ -51,7 +51,77 @@ async function readBody(req) {
   }
 }
 
+// Пускаем через прокси только реальные адреса Blob — иначе функция стала бы
+// открытым прокси, через который можно гонять любой трафик за счёт аккаунта.
+function allowedBlobUrl(raw) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:') return null;
+  if (!url.hostname.endsWith('.blob.vercel-storage.com')) return null;
+  return url;
+}
+
+// Видео отзывов лежит в Vercel Blob и отдаётся с blob.vercel-storage.com —
+// этот домен заблокирован в РФ, без VPN кружки не грузятся. Стримим файл
+// через домен визитки (он не заблокирован), пробрасывая Range для перемотки.
+// Живёт внутри card-review, потому что только этот путь исключён из rewrite
+// на основной проект в vercel.json — отдельная функция /api/blob уехала бы
+// туда и вернула 404.
+async function proxyVideo(req, res, rawUrl) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', 'GET, HEAD');
+    return fail(res, 405, 'method_not_allowed');
+  }
+  const target = allowedBlobUrl(rawUrl);
+  if (!target) return fail(res, 400, 'bad_url');
+
+  const headers = {};
+  if (req.headers.range) headers.range = req.headers.range;
+
+  let upstream;
+  try {
+    upstream = await fetch(target.href, { headers });
+  } catch {
+    return fail(res, 502, 'upstream_unreachable');
+  }
+  if (!upstream.ok && upstream.status !== 206) {
+    return fail(res, upstream.status, 'upstream_error');
+  }
+
+  res.status(upstream.status);
+  const pass = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified'];
+  for (const name of pass) {
+    const value = upstream.headers.get(name);
+    if (value) res.setHeader(name, value);
+  }
+  // Имя файла со случайным суффиксом — контент неизменяем, кэшируем надолго.
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+
+  if (req.method === 'HEAD' || !upstream.body) return res.end();
+
+  const reader = upstream.body.getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(Buffer.from(value));
+    }
+  } catch {
+    // Клиент закрыл вкладку на середине — это не ошибка сервера.
+  }
+  return res.end();
+}
+
 export default async function handler(req, res) {
+  // Прокси видео не зависит от хранилища отзывов — обслуживаем до проверки store.
+  if (req.method === 'GET' && req.query?.video) {
+    return proxyVideo(req, res, String(req.query.video));
+  }
+
   if (!storeConfigured()) return fail(res, 503, 'store_not_configured');
 
   /* ─────────── Чтение ─────────── */

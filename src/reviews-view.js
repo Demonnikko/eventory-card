@@ -13,30 +13,82 @@ function initials(name) {
   return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
+// Видео в Blob отдаётся с blob.vercel-storage.com — этот домен заблокирован
+// в РФ, поэтому гоним файл через свой прокси (ветка ?video в card-review).
+// Локальные превью (blob:/data:) и уже завёрнутые ссылки оставляем как есть.
+export function proxiedVideo(url) {
+  const src = String(url || '');
+  if (!src.includes('.blob.vercel-storage.com')) return src;
+  return `/api/card-review?video=${encodeURIComponent(src)}`;
+}
+
+// Сколько отзывов показываем крупными «героями» перед тем, как остальные
+// уходят в компактный хвост. Четыре — максимум, который на экране iPhone
+// ещё помещается витриной, не превращаясь в безликую ленту.
+const HERO_COUNT = 4;
+
+function reelMarkup(r, i, small) {
+  return `
+    <button type="button" class="cp-reel${small ? ' cp-reel--sm' : ''}" role="listitem"
+      data-reel="${escapeAttr(r.id)}"
+      style="--reel-order:${i}">
+      <span class="cp-reel-ring" aria-hidden="true"></span>
+      <span class="cp-reel-media">
+        <video class="cp-reel-video"
+          src="${escapeAttr(proxiedVideo(r.videoUrl))}"
+          muted loop playsinline preload="metadata"
+          ${r.posterUrl ? `poster="${escapeAttr(r.posterUrl)}"` : ''}></video>
+        <span class="cp-reel-fallback">${escapeHtml(initials(r.author))}</span>
+        <span class="cp-reel-play" aria-hidden="true">${renderIcon('chevron-right')}</span>
+      </span>
+      <span class="cp-reel-name">${escapeHtml(r.author || '')}</span>
+      ${r.role ? `<span class="cp-reel-role">${escapeHtml(r.role)}</span>` : ''}
+    </button>
+  `;
+}
+
+// «Ещё 1 отзыв / 2 отзыва / 5 отзывов» — русское склонение по числу хвоста.
+function tailLabel(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  let word = 'отзывов';
+  if (mod10 === 1 && mod100 !== 11) word = 'отзыв';
+  else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'отзыва';
+  return `Ещё ${n} ${word}`;
+}
+
 export function renderReviewsSection(reviews) {
   if (!Array.isArray(reviews) || !reviews.length) return '';
+
+  // Мало отзывов — показываем всех крупно, без деления.
+  if (reviews.length <= HERO_COUNT) {
+    return `
+    <section class="cp-block cp-reviews" data-reviews>
+      <h2 class="cp-block-title">Отзывы</h2>
+      <div class="cp-reels" role="list">
+        ${reviews.map((r, i) => reelMarkup(r, i, false)).join('')}
+      </div>
+    </section>
+  `;
+  }
+
+  // Много — первые четыре героями, остальные компактным хвостом со счётчиком,
+  // чтобы клиент сразу видел общий объём отзывов.
+  const heroes = reviews.slice(0, HERO_COUNT);
+  const tail = reviews.slice(HERO_COUNT);
 
   return `
     <section class="cp-block cp-reviews" data-reviews>
       <h2 class="cp-block-title">Отзывы</h2>
       <div class="cp-reels" role="list">
-        ${reviews.map((r, i) => `
-          <button type="button" class="cp-reel" role="listitem"
-            data-reel="${escapeAttr(r.id)}"
-            style="--reel-order:${i}">
-            <span class="cp-reel-ring" aria-hidden="true"></span>
-            <span class="cp-reel-media">
-              <video class="cp-reel-video"
-                src="${escapeAttr(r.videoUrl)}"
-                muted loop playsinline preload="metadata"
-                ${r.posterUrl ? `poster="${escapeAttr(r.posterUrl)}"` : ''}></video>
-              <span class="cp-reel-fallback">${escapeHtml(initials(r.author))}</span>
-              <span class="cp-reel-play" aria-hidden="true">${renderIcon('chevron-right')}</span>
-            </span>
-            <span class="cp-reel-name">${escapeHtml(r.author || '')}</span>
-            ${r.role ? `<span class="cp-reel-role">${escapeHtml(r.role)}</span>` : ''}
-          </button>
-        `).join('')}
+        ${heroes.map((r, i) => reelMarkup(r, i, false)).join('')}
+      </div>
+      <div class="cp-reels-divider">
+        <span class="cp-reels-divider-label">${escapeHtml(tailLabel(tail.length))}</span>
+        <span class="cp-reels-divider-line" aria-hidden="true"></span>
+      </div>
+      <div class="cp-reels cp-reels--tail" role="list">
+        ${tail.map((r, i) => reelMarkup(r, HERO_COUNT + i, true)).join('')}
       </div>
     </section>
   `;
@@ -102,7 +154,7 @@ export function openViewer(reviews, startId) {
     index = (i + reviews.length) % reviews.length;
     const r = reviews[index];
     ringBar.style.strokeDashoffset = `${RING}`;
-    video.src = r.videoUrl;
+    video.src = proxiedVideo(r.videoUrl);
     video.play().catch(() => { /* автовоспроизведение могли запретить */ });
     nameEl.textContent = r.author || '';
     roleEl.textContent = r.role || '';

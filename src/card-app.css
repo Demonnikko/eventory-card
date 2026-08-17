@@ -2463,6 +2463,31 @@ body[data-route='present']::before {
 
 .cp-reels::-webkit-scrollbar { display: none; }
 
+/* Хвост — вторая лента, без верхнего отступа под сжатое кольцо */
+.cp-reels--tail { padding-top: 0; }
+
+/* Разделитель между героями и хвостом со счётчиком остальных отзывов */
+.cp-reels-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 12px;
+}
+
+.cp-reels-divider-label {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  white-space: nowrap;
+}
+
+.cp-reels-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .cp-reel {
   flex: 0 0 auto;
   scroll-snap-align: start;
@@ -2575,6 +2600,20 @@ body[data-route='present']::before {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Хвост: те же кружки, но мельче и без подписей — только лица массой */
+.cp-reel--sm { width: 56px; }
+.cp-reel--sm .cp-reel-media { width: 56px; height: 56px; }
+.cp-reel--sm .cp-reel-ring {
+  top: -2px;
+  width: 60px;
+  height: 60px;
+  opacity: 0.7;
+}
+.cp-reel--sm .cp-reel-fallback { font-size: 16px; }
+.cp-reel--sm .cp-reel-name,
+.cp-reel--sm .cp-reel-role,
+.cp-reel--sm .cp-reel-play { display: none; }
 
 /* ===== Просмотр отзыва ===== */
 .cp-viewer {
