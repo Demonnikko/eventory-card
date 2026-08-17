@@ -4,7 +4,7 @@ import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
-import { getCard, cardPublicUrl } from './card-data.js';
+import { getCard, saveCard, cardPublicUrl } from './card-data.js';
 import { downloadVCard } from './vcard.js';
 import { fetchOwnReviews, createInvite, approveReview, removeReview } from './reviews-data.js';
 import { openViewer, proxiedVideo } from './reviews-view.js';
@@ -116,6 +116,16 @@ function renderContent() {
         ${renderIcon('chevron-right')}
       </a>
 
+      <button type="button" class="ca-kiosk" role="switch"
+        aria-checked="${state.card?.kioskMode ? 'true' : 'false'}"
+        data-kiosk-toggle>
+        <span class="ca-kiosk-copy">
+          <span class="ca-kiosk-title">Режим витрины</span>
+          <span class="ca-kiosk-text">Приложение открывается сразу визиткой с QR. Выход — долгое удержание левого верхнего угла.</span>
+        </span>
+        <span class="ca-kiosk-switch" aria-hidden="true"><span class="ca-kiosk-knob"></span></span>
+      </button>
+
       <div class="ca-qr-card">
         <div class="ca-qr">${qrSvg(url, { className: 'ca-qr-svg', title: 'QR-код визитки' })}</div>
         <p class="ca-qr-hint">Покажите этот код — визитка откроется на телефоне клиента</p>
@@ -184,6 +194,27 @@ function refreshReviewsBlock(node) {
 }
 
 function bind(node) {
+  const kioskToggle = node.querySelector('[data-kiosk-toggle]');
+  if (kioskToggle) {
+    kioskToggle.addEventListener('click', async () => {
+      const next = kioskToggle.getAttribute('aria-checked') !== 'true';
+      // Обновляем вид сразу — сохранение в фоне, экран не должен «залипать».
+      kioskToggle.setAttribute('aria-checked', next ? 'true' : 'false');
+      state.card = { ...state.card, kioskMode: next };
+      try {
+        await saveCard(state.card);
+        toast.show(next
+          ? 'Витрина включена — иконка открывает визитку'
+          : 'Витрина выключена', { ok: true });
+      } catch {
+        // Откатываем переключатель, если сохранить не удалось.
+        kioskToggle.setAttribute('aria-checked', next ? 'false' : 'true');
+        state.card = { ...state.card, kioskMode: !next };
+        toast.show('Не удалось сохранить настройку');
+      }
+    });
+  }
+
   const copyBtn = node.querySelector('[data-copy]');
   if (copyBtn) {
     copyBtn.addEventListener('click', async () => {

@@ -112,6 +112,7 @@ export const DEFAULT_BUSINESS_CARD = {
   crmModeSynced: false,   // локальный маркер миграции старых публикаций
   leadKey: '',
   showSchedule: false,   // показывать график занятости на публичной визитке
+  kioskMode: false,      // режим витрины: иконка открывает сразу present с QR
   publishedSlug: '',
   publishedAt: null
 };
@@ -256,6 +257,7 @@ export function normalizeBusinessCard(input = {}) {
     crmModeSynced: input.crmModeSynced === true,
     leadKey,
     showSchedule: input.showSchedule === true,
+    kioskMode: input.kioskMode === true,
     publishedSlug: /^[a-z0-9_-]{6,32}$/i.test(String(input.publishedSlug || '')) ? String(input.publishedSlug) : '',
     publishedAt: Number.isFinite(Number(input.publishedAt)) ? Number(input.publishedAt) : null
   };

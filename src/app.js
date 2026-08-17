@@ -8,7 +8,19 @@
 // бандле. isOnboarded читает localStorage — держим статически, чтобы
 // parseRoute оставался синхронным и не ждал загрузки чанка онбординга.
 import { isOnboarded } from './onboarding.js';
+import { mirrorRead } from './store.js';
 import { renderTabIcon } from './shared/components/icons.js';
+
+// Режим витрины читаем синхронно из localStorage-зеркала карточки: parseRoute
+// обязан оставаться синхронным (не ждать IndexedDB), а зеркало пишется при
+// каждом сохранении карточки. Нет зеркала — режим выключен.
+function isKioskMode() {
+  try {
+    return mirrorRead()?.kioskMode === true;
+  } catch {
+    return false;
+  }
+}
 
 const TABS = [
   { id: 'editor', label: 'Визитка', icon: 'card' },
@@ -56,6 +68,16 @@ function parseRoute() {
   }
   const id = parts[0] || 'editor';
   const resolved = VIEW_LOADERS[id] ? id : 'editor';
+
+  // Режим витрины: приложение открылось на стартовом экране (пустой хэш или
+  // editor) — сразу показываем визитку с QR, минуя редактор. Явный переход на
+  // другой экран (#/editor, #/share) не перехватываем: так владелец выходит из
+  // витрины долгим удержанием угла (present уводит на #/share) и попадает в
+  // настройки, а не обратно в витрину.
+  const atStart = !parts.length || parts[0] === 'editor';
+  if (atStart && isOnboarded() && isKioskMode()) {
+    return { id: 'present', params: {} };
+  }
 
   // Первый вход — показываем приветствие. Клиента, пришедшего по публичной
   // ссылке, оно не касается: ветка /v/<slug> отработала выше.

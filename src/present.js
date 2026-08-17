@@ -109,12 +109,22 @@ function renderContent() {
   if (!card) return '<div class="pr-loading"></div>';
 
   const url = card.publishedSlug ? cardPublicUrl(card.publishedSlug) : '';
+  // Витрина: приложение открылось сразу визиткой для показа клиенту. Карточка
+  // повёрнута крупно на весь экран, видимой кнопки выхода нет — клиент видит
+  // только визитку. Владелец выходит долгим удержанием левого верхнего угла.
+  const kiosk = card.kioskMode === true;
 
   return `
-    <div class="pr-screen" data-present>
-      <button type="button" class="pr-exit" data-exit aria-label="Закрыть">
-        ${renderIcon('x')}
-      </button>
+    <div class="pr-screen${kiosk ? ' pr-screen--kiosk' : ''}" data-present ${kiosk ? 'data-kiosk' : ''}>
+      ${kiosk ? `
+        <button type="button" class="pr-escape" data-escape aria-label="Выйти в настройки">
+          <span class="pr-escape-ring" aria-hidden="true"></span>
+        </button>
+      ` : `
+        <button type="button" class="pr-exit" data-exit aria-label="Закрыть">
+          ${renderIcon('x')}
+        </button>
+      `}
 
       <div class="pr-stage">
         <div class="pr-card" data-card aria-label="Визитка с QR-кодом">
@@ -122,14 +132,16 @@ function renderContent() {
         </div>
       </div>
 
-      <p class="pr-hint">
-        ${url ? 'QR уже на визитке · коснитесь, чтобы увеличить' : 'QR появится здесь после публикации визитки'}
-      </p>
+      ${kiosk ? '' : `
+        <p class="pr-hint">
+          ${url ? 'QR уже на визитке · коснитесь, чтобы увеличить' : 'QR появится здесь после публикации визитки'}
+        </p>
 
-      <p class="pr-rotate">
-        ${renderIcon('navigation')}
-        <span>В горизонтальном положении визитка станет крупнее</span>
-      </p>
+        <p class="pr-rotate">
+          ${renderIcon('navigation')}
+          <span>В горизонтальном положении визитка станет крупнее</span>
+        </p>
+      `}
 
       ${renderQrDialog(url)}
     </div>
@@ -151,6 +163,7 @@ export const present = {
 
 function bind(node) {
   const exit = node.querySelector('[data-exit]');
+  const escape = node.querySelector('[data-escape]');
   const qrOpen = node.querySelector('[data-qr-open]');
   const dialog = node.querySelector('[data-qr-dialog]');
   const qrClose = node.querySelector('[data-qr-close]');
@@ -161,6 +174,11 @@ function bind(node) {
       window.location.hash = '#/share';
     });
   }
+
+  // Витрина: выход в настройки — долгое удержание угла (2 сек). Видимой
+  // кнопки нет, клиент угол не трогает. Кольцо-индикатор заполняется, пока
+  // держишь, — чтобы владелец чувствовал прогресс и не гадал, сработало ли.
+  if (escape) bindEscape(escape);
 
   if (!qrOpen || !dialog || !qrClose) return;
 
@@ -199,4 +217,36 @@ function bind(node) {
       qrClose.focus({ preventScroll: true });
     }
   });
+}
+
+// Время удержания угла до выхода из витрины. Достаточно долго, чтобы случайное
+// касание не выкинуло из показа при клиенте, но не утомительно для владельца.
+const ESCAPE_HOLD_MS = 2000;
+
+function bindEscape(escape) {
+  let timer = null;
+
+  const cancel = () => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    escape.classList.remove('is-charging');
+  };
+
+  const start = (event) => {
+    // Только основная кнопка/касание; правый клик и мультитач игнорируем.
+    if (event.button && event.button !== 0) return;
+    cancel();
+    escape.classList.add('is-charging');
+    timer = window.setTimeout(() => {
+      cancel();
+      hapticLight();
+      window.location.hash = '#/share';
+    }, ESCAPE_HOLD_MS);
+  };
+
+  escape.addEventListener('pointerdown', start);
+  escape.addEventListener('pointerup', cancel);
+  escape.addEventListener('pointerleave', cancel);
+  escape.addEventListener('pointercancel', cancel);
+  // Контекстное меню по долгому тапу на мобильном мешает удержанию — гасим.
+  escape.addEventListener('contextmenu', (event) => event.preventDefault());
 }
