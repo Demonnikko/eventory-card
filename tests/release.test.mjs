@@ -356,7 +356,10 @@ test('релизные UI-контракты остаются включены',
   assert.match(share, /QR уже на карточке/);
   assert.match(share, /invite_store_failed/);
   assert.doesNotMatch(editor, /THEME_OPTIONS|renderThemes|data-theme/);
-  assert.doesNotMatch(cardView, /renderBrandIcon|hasBrandIcon/);
+  // Мессенджеры и соцсети в карточке — фирменными цветными иконками
+  // (Telegram/VK/MAX). Раньше их тут не было и тест это запрещал; иконки
+  // вернули осознанно, поэтому теперь проверяем обратное — что они на месте.
+  assert.match(cardView, /renderBrandIcon|hasBrandIcon/);
   assert.match(publicCard, /by Eventory/);
   assert.doesNotMatch(onboarding, /by Eventory/);
   assert.match(cardCss, /--bg:\s*#060607/);
@@ -364,7 +367,11 @@ test('релизные UI-контракты остаются включены',
   assert.match(html, /data-pwa-update-control/);
   assert.match(html, /class="ca-header-mark" src="\/icon-192\.png"/);
   assert.doesNotMatch(html, /by Eventory/);
-  assert.match(html, /onboarding\/illusionist-card\.webp/);
+  // Шаблоны онбординга осознанно НЕ preload'им в HTML (v1.6.2): они нужны
+  // только на первом входе владельца, а грузились на каждой странице, включая
+  // публичную визитку (~230 КБ впустую). Онбординг сам предзагружает их из JS.
+  // Тест защищает эту оптимизацию — preload'а в index.html быть не должно.
+  assert.doesNotMatch(html, /onboarding\/illusionist-card\.webp/);
   assert.match(vite, /skipWaiting:\s*false/);
   assert.match(vite, /business-card-templates\/onboarding\/\*\.webp/);
   assert.match(vite, /eventory-card-templates-v1/);
