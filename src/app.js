@@ -77,6 +77,19 @@ function renderTabbar(activeId) {
   `).join('');
 }
 
+// Переставляет золотую метку на нужную вкладку, не перерисовывая таббар
+// целиком. Вызывается синхронно по клику — до ленивой загрузки экрана,
+// поэтому индикатор едет одновременно с нажатием, а не в конце перехода.
+function markActiveTab(tabbar, activeId) {
+  const buttons = tabbar.querySelectorAll('[data-tab]');
+  if (!buttons.length) return;
+  buttons.forEach((btn) => {
+    const active = btn.dataset.tab === activeId;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+}
+
 export function mountApp() {
   const app = document.getElementById('app');
   const tabbar = document.getElementById('tabbar');
@@ -84,6 +97,12 @@ export function mountApp() {
 
   async function route() {
     const { id, params } = parseRoute();
+    // Метку активной вкладки переставляем ДО ленивой загрузки экрана — тогда
+    // при навигации через хэш (кнопки браузера, программный переход)
+    // индикатор едет сразу, а не в конце перехода. На уже отрисованном
+    // таббаре это мгновенно; на первом заходе он ещё пуст — markActiveTab
+    // просто ничего не делает, а полный renderTabbar случится ниже.
+    markActiveTab(tabbar, id);
     // Лениво подгружаем код нужного экрана. Оболочка (шапка, фон) уже на
     // месте, предыдущий экран виден те миллисекунды, что грузится чанк.
     const view = await VIEW_LOADERS[id]();
@@ -125,7 +144,17 @@ export function mountApp() {
 
     const chromeless = id === 'card-public' || id === 'onboarding'
       || id === 'present' || id === 'review-record' || id === 'privacy';
-    tabbar.innerHTML = chromeless ? '' : renderTabbar(id);
+    if (chromeless) {
+      tabbar.innerHTML = '';
+    } else if (!tabbar.querySelector('[data-tab]')) {
+      // Таббар пуст (первый заход или возврат с полноэкранного экрана) —
+      // рисуем кнопки. Между обычными вкладками разметка одинаковая, поэтому
+      // НЕ пересоздаём её: активную метку уже переставил markActiveTab, а
+      // повторный innerHTML заново проигрывал бы анимацию полоски.
+      tabbar.innerHTML = renderTabbar(id);
+    } else {
+      markActiveTab(tabbar, id);
+    }
     tabbar.hidden = chromeless;
     window.scrollTo(0, 0);
   }
@@ -133,6 +162,9 @@ export function mountApp() {
   tabbar.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
+    // Метку переставляем сразу по клику — не дожидаясь, пока догрузится чанк
+    // экрана и данные. Иначе индикатор «прыгал» уже после перехода.
+    markActiveTab(tabbar, btn.dataset.tab);
     window.location.hash = `#/${btn.dataset.tab}`;
   });
 
