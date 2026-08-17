@@ -188,7 +188,7 @@ function renderHero(card) {
 // вторым аргументом и вставляются перед ценой, ближе к решению написать.
 // greeting — узнавание вернувшегося гостя, ask — блок быстрых вопросов.
 // Оба грузятся отдельно от карточки, поэтому приходят параметрами.
-export function renderCardView(card, { interactive = true, reviews = [], greeting = null, ask = '' } = {}) {
+export function renderCardView(card, { interactive = true, reviews = [], greeting = null, ask = '', priceRequest = '' } = {}) {
   revealIndex = 0;
 
   const ctaHref = telegramHref(card.telegram)
@@ -226,6 +226,8 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
           <span class="cp-price-value">${escapeHtml(formatPrice(card.priceFrom))}</span>
         </section>
       ` : ''}
+
+      ${priceRequest}
 
       ${ask}
 

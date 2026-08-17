@@ -13,7 +13,8 @@ import {
   storeConfigured,
   listTags, saveTag, deleteTag, readTagStats,
   readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
-  saveDialog, listDialogs, markDialogsRead
+  saveDialog, listDialogs, markDialogsRead,
+  saveLead, listLeads, markLeadsRead
 } from './_tags-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
@@ -112,11 +113,15 @@ export default async function handler(req, res) {
       stats: await readTagStats(slug, tag.id)
     })));
 
+    // ШАГ 2 (Pro-барьер): для не-Pro владельца здесь нужно будет отдавать
+    // заявки без поля contact — «кто это» открывается только по подписке.
+    // Сейчас копим и показываем полностью.
     return res.status(200).json({
       ok: true,
       summary: await readCardStats(slug),
       tags: withStats,
-      dialogs: await listDialogs(slug)
+      dialogs: await listDialogs(slug),
+      leads: await listLeads(slug)
     });
   }
 
@@ -131,9 +136,11 @@ export default async function handler(req, res) {
     track: { limit: 180, windowSeconds: 60 },
     greet: { limit: 60, windowSeconds: 60 },
     ask: { limit: 8, windowSeconds: 3600 },
+    lead: { limit: 8, windowSeconds: 3600 },
     'tag-create': { limit: 30, windowSeconds: 3600 },
     'tag-delete': { limit: 30, windowSeconds: 3600 },
-    'dialogs-read': { limit: 120, windowSeconds: 60 }
+    'dialogs-read': { limit: 120, windowSeconds: 60 },
+    'leads-read': { limit: 120, windowSeconds: 60 }
   };
   const rule = limits[action];
   if (rule && !await enforceRateLimit(req, res, {
@@ -220,6 +227,39 @@ export default async function handler(req, res) {
       tagId: /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim()) ? String(body.tag).trim().toLowerCase() : ''
     });
     return res.status(200).json({ ok: true, answer: answer.text, kind: answer.kind });
+  }
+
+  /* ─────────── Заявка «Узнать цену» от гостя ─────────── */
+  if (action === 'lead') {
+    const data = await readPublicCard(slug);
+    if (!data) return fail(res, 404, 'card_not_found');
+
+    const name = String(body.name || '').trim().slice(0, 80);
+    if (!name) return fail(res, 400, 'empty_name');
+    const contact = String(body.contact || '').trim().slice(0, 120);
+    if (!contact) return fail(res, 400, 'empty_contact');
+    // Тот же формат, что для вопросов: телефон, @username или email.
+    if (!/(@[a-z0-9_]{5,32}|\+?[0-9][0-9()\s-]{6,}|[^\s@]+@[^\s@]+\.[^\s@]+)/i.test(contact)) {
+      return fail(res, 400, 'invalid_contact');
+    }
+    // Дата события — необязательна: кто торопится, отправляет без неё.
+    const eventDate = String(body.eventDate || '').trim().slice(0, 20);
+
+    await saveLead(slug, {
+      name,
+      contact,
+      eventDate,
+      tagId: /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim()) ? String(body.tag).trim().toLowerCase() : ''
+    });
+    return res.status(200).json({ ok: true });
+  }
+
+  /* ─────────── Владелец прочитал заявки ─────────── */
+  if (action === 'leads-read') {
+    const owner = await assertOwner(slug, String(body.key || ''));
+    if (!owner) return fail(res, 403, 'forbidden');
+    await markLeadsRead(slug);
+    return res.status(200).json({ ok: true });
   }
 
   /* ─────────── Владелец прочитал диалоги ─────────── */

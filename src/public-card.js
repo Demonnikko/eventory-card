@@ -6,6 +6,7 @@ import { renderCardView, cleanupRevealHints } from './card-view.js';
 import { bindReviews, injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { renderAskBlock, bindAsk, resetAsk } from './card-ask.js';
+import { renderPriceRequest, bindPriceRequest, resetPriceRequest } from './price-request.js';
 import { downloadVCard } from './vcard.js';
 import { trackOpen, greetReturning, readTagFromUrl } from './insight-data.js';
 import { upsellHref } from './crm-upsell.js';
@@ -60,6 +61,7 @@ function renderContent() {
     interactive: true,
     reviews: state.reviews,
     greeting: state.greeting,
+    priceRequest: renderPriceRequest(state.card),
     ask: renderAskBlock(state.card)
   })}${renderFooter()}</div>`;
 }
@@ -87,6 +89,7 @@ export const publicCard = {
     // Метка события из адреса: по ней считаем, с какого мероприятия гость.
     state.tagId = readTagFromUrl();
     resetAsk();
+    resetPriceRequest();
 
     if (!slug) {
       state.loading = false;
@@ -151,6 +154,7 @@ export const publicCard = {
     }
 
     bindAsk(node, { slug, tagId: state.tagId });
+    bindPriceRequest(node, { slug, tagId: state.tagId });
 
     // Переход в контакты — отдельный сигнал: он показывает, что визитка
     // сработала, а не просто открылась.

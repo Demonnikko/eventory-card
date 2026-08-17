@@ -103,6 +103,16 @@ export async function askQuestion(slug, { question, contact = '', tagId = '' }) 
   return post({ action: 'ask', slug, question, contact, tag: tagId });
 }
 
+// Заявка «Узнать цену» от гостя: имя + контакт + (необязательно) дата события.
+export async function sendLead(slug, { name, contact, eventDate = '', tagId = '' }) {
+  return post({ action: 'lead', slug, name, contact, eventDate, tag: tagId });
+}
+
+export async function markLeadsRead() {
+  const card = await getCard();
+  return post({ action: 'leads-read', slug: card.publishedSlug, key: card.leadKey });
+}
+
 // Метка из адреса визитки — по ней считаем, с какого события пришёл гость.
 export function readTagFromUrl() {
   try {

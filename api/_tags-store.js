@@ -34,6 +34,7 @@ const TAG_STATS_KEY = (slug, tag) => `eventory:card:${slug}:tag:${tag}`;
 const CARD_STATS_KEY = (slug) => `eventory:card:${slug}:stats`;
 const VISITOR_KEY = (slug, visitor) => `eventory:card:${slug}:visitor:${visitor}`;
 const DIALOG_KEY = (slug) => `eventory:card:${slug}:dialogs`;
+const LEADS_KEY = (slug) => `eventory:card:${slug}:leads`;
 
 export const MAX_TAGS = 40;
 const YEAR = 60 * 60 * 24 * 365;
@@ -217,5 +218,53 @@ export async function markDialogsRead(slug) {
   const all = await listDialogs(slug);
   const next = all.map((d) => ({ ...d, read: true }));
   await redis(['SET', DIALOG_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
+  return true;
+}
+
+/* ─────────── Заявки «Узнать цену» ─────────── */
+
+// Клиент нажал «Узнать цену» на визитке и оставил контакт. Храним по образцу
+// диалогов: массив под ключом визитки, TTL год, новые сверху. Контакт клиента —
+// «кто это» — владелец видит только в Eventory за Pro (барьер навесим шагом 2);
+// здесь просто копим заявки и считаем их.
+export async function saveLead(slug, entry) {
+  if (!storeConfigured()) return null;
+  const raw = await redis(['GET', LEADS_KEY(slug)]);
+  let all = [];
+  try {
+    all = raw ? JSON.parse(raw) : [];
+  } catch {
+    all = [];
+  }
+  const item = {
+    id: crypto.randomBytes(6).toString('hex'),
+    name: String(entry.name || '').slice(0, 80),
+    contact: String(entry.contact || '').slice(0, 120),
+    eventDate: String(entry.eventDate || '').slice(0, 20),
+    tagId: String(entry.tagId || '').slice(0, 16),
+    createdAt: Date.now(),
+    read: false
+  };
+  const next = [item, ...(Array.isArray(all) ? all : [])].slice(0, 100);
+  await redis(['SET', LEADS_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
+  return item;
+}
+
+export async function listLeads(slug) {
+  if (!storeConfigured()) return [];
+  const raw = await redis(['GET', LEADS_KEY(slug)]);
+  try {
+    const all = raw ? JSON.parse(raw) : [];
+    return Array.isArray(all) ? all : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function markLeadsRead(slug) {
+  if (!storeConfigured()) return false;
+  const all = await listLeads(slug);
+  const next = all.map((l) => ({ ...l, read: true }));
+  await redis(['SET', LEADS_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
   return true;
 }
