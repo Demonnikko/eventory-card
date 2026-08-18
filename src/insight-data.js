@@ -144,6 +144,31 @@ export async function telegramUnlink() {
   return cardLinkPost('tg-unlink');
 }
 
+// Партнёрка визитки: реф-ссылка владельца = его визитка + ?ref=<leadKey>.
+// Приглашённый переходит, видит визитку-пример и регистрируется; опубликует
+// свою — засчитается. 3 приглашённых = месяц Pro.
+export function referralLink(card) {
+  if (!card?.publishedSlug || !card?.leadKey) return '';
+  return `${cardPublicUrl(card.publishedSlug)}?ref=${encodeURIComponent(card.leadKey)}`;
+}
+
+export async function referralStats() {
+  const card = await getCard();
+  if (!card.leadKey) return { needed: 3, invited: 0, earned: 0 };
+  try {
+    const res = await fetch('/api/promo?service=referral-card&action=stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardKey: card.leadKey })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) return { needed: 3, invited: 0, earned: 0 };
+    return { needed: data.needed || 3, invited: data.invited || 0, earned: data.earned || 0 };
+  } catch {
+    return { needed: 3, invited: 0, earned: 0 };
+  }
+}
+
 // Метка из адреса визитки — по ней считаем, с какого события пришёл гость.
 export function readTagFromUrl() {
   try {

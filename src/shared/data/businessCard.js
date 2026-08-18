@@ -337,12 +337,22 @@ export function cardPresentationUrl(slug) {
   return cleanSlug ? `${CARD_PUBLIC_ORIGIN}/#/qr/${encodeURIComponent(cleanSlug)}` : '';
 }
 
-// Получение deviceId без статического импорта (избегаем циклической зависимости).
+// Стабильный id устройства визитки. Нужен для партнёрки (идентифицировать
+// приглашённого артиста при публикации) и device-rate-limit. Тот же ключ, что
+// у Eventory; генерируем при первом обращении, если ещё нет.
 function getDeviceIdSafe() {
   try {
-    const id = localStorage.getItem('eventory:device-id');
-    return id || '';
+    let id = localStorage.getItem('eventory:device-id');
+    if (!id) {
+      id = (crypto.randomUUID?.() || String(Math.random()).slice(2) + Date.now()).replace(/-/g, '').slice(0, 32);
+      localStorage.setItem('eventory:device-id', id);
+    }
+    return id;
   } catch { return ''; }
+}
+
+export function cardDeviceId() {
+  return getDeviceIdSafe();
 }
 
 export async function publishBusinessCard(card, { crmEnabled } = {}) {

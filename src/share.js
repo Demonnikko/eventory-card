@@ -9,8 +9,14 @@ import { downloadVCard } from './vcard.js';
 import { fetchOwnReviews, createInvite, approveReview, removeReview } from './reviews-data.js';
 import { openViewer, proxiedVideo } from './reviews-view.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
+import { referralLink, referralStats } from './insight-data.js';
 
-const state = { card: null, reviews: [], reviewsBusy: false };
+const state = {
+  card: null,
+  reviews: [],
+  reviewsBusy: false,
+  referral: { needed: 3, invited: 0, earned: 0 }
+};
 
 function renderUpsell(pointId) {
   const point = activeUpsell(pointId);
@@ -86,6 +92,41 @@ function renderReviewsBlock() {
   `;
 }
 
+// Партнёрка: приведи 3 артистов → месяц Pro бесплатно. Ссылка = визитка
+// владельца с меткой приглашения; приглашённый видит визитку-пример и, когда
+// опубликует свою, засчитается пригласившему.
+function renderReferral() {
+  const card = state.card;
+  if (!card?.publishedSlug || !card?.leadKey) return '';
+  const link = referralLink(card);
+  const { needed, invited, earned } = state.referral;
+  const dots = Array.from({ length: needed }, (_, i) =>
+    `<span class="ca-ref-dot${i < invited ? ' is-on' : ''}"></span>`).join('');
+
+  return `
+    <div class="ca-ref">
+      <div class="ca-ref-head">
+        <span class="ca-ref-title">Приведите артистов — получите Pro</span>
+        <span class="ca-ref-sub">${needed} артиста с визиткой = месяц Eventory Pro бесплатно.</span>
+      </div>
+      <div class="ca-ref-progress">
+        <div class="ca-ref-dots">${dots}</div>
+        <span class="ca-ref-count">${invited} из ${needed}</span>
+      </div>
+      ${earned ? `<p class="ca-ref-earned">Уже заработано месяцев Pro: ${earned}</p>` : ''}
+      <div class="ca-ref-link">
+        <span class="ca-ref-link-value">${escapeHtml(link)}</span>
+        <button type="button" class="ca-ref-copy" data-ref-copy="${escapeAttr(link)}">
+          ${renderIcon('copy')}
+        </button>
+      </div>
+      <button type="button" class="ca-ref-share" data-ref-share="${escapeAttr(link)}">
+        ${renderIcon('share')} Пригласить артиста
+      </button>
+    </div>
+  `;
+}
+
 function renderContent() {
   const card = state.card;
   if (!card) return '<div class="ca-loading">Загружаем…</div>';
@@ -125,6 +166,8 @@ function renderContent() {
         </span>
         <span class="ca-kiosk-switch" aria-hidden="true"><span class="ca-kiosk-knob"></span></span>
       </button>
+
+      ${renderReferral()}
 
       <div class="ca-qr-card">
         <div class="ca-qr">${qrSvg(url, { className: 'ca-qr-svg', title: 'QR-код визитки' })}</div>
@@ -176,9 +219,27 @@ export const share = {
         state.reviews = await fetchOwnReviews();
         if (state.reviews.length) refreshReviewsBlock(node);
       } catch { /* нет отзывов или нет сети — блок останется пустым */ }
+      // Статистика партнёрки — отдельно, обновляем только свой блок.
+      referralStats().then((stats) => {
+        state.referral = stats;
+        refreshReferralBlock(node);
+      }).catch(() => {});
     }
   }
 };
+
+// Точечно обновляем блок партнёрки, не перерисовывая экран (как для отзывов).
+function refreshReferralBlock(node) {
+  const current = node.querySelector('.ca-ref');
+  if (!current) return;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = renderReferral().trim();
+  const fresh = tpl.content.firstElementChild;
+  if (fresh) {
+    current.replaceWith(fresh);
+    bindReferral(node);
+  }
+}
 
 // Обновляем ТОЛЬКО секцию отзывов, не перерисовывая весь экран: раньше
 // полный node.innerHTML заново рисовал QR, ссылку и кнопки — переход
@@ -193,7 +254,42 @@ function refreshReviewsBlock(node) {
   bindReviewActions(node);
 }
 
+function bindReferral(node) {
+  const copyBtn = node.querySelector('[data-ref-copy]');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(copyBtn.dataset.refCopy);
+        toast.show('Ссылка скопирована — отправьте артисту', { ok: true });
+      } catch {
+        toast.show('Скопируйте ссылку вручную');
+      }
+    });
+  }
+  const shareBtn = node.querySelector('[data-ref-share]');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', async () => {
+      const url = shareBtn.dataset.refShare;
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Сделай визитку в Eventory',
+          text: 'Бесплатная электронная визитка с QR — попробуй.',
+          url
+        }).catch(() => {});
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.show('Ссылка скопирована — отправьте артисту', { ok: true });
+      } catch {
+        toast.show('Скопируйте ссылку вручную');
+      }
+    });
+  }
+}
+
 function bind(node) {
+  bindReferral(node);
   const kioskToggle = node.querySelector('[data-kiosk-toggle]');
   if (kioskToggle) {
     kioskToggle.addEventListener('click', async () => {
