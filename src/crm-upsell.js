@@ -53,12 +53,20 @@ export const UPSELL_POINTS = {
   }
 };
 
-export function upsellHref(pointId) {
+// leadKey передаём ТОЛЬКО из владельческих экранов (редактор, отклик,
+// поделиться) — по нему Eventory склеит визитку с аккаунтом владельца при
+// первом переходе. В публичные ссылки (футер визитки, который видит клиент)
+// ключ НЕ добавляем: это секрет владельца, клиенту он не нужен и опасен.
+export function upsellHref(pointId, leadKey = '') {
   // utm — чтобы в CRM было видно, какая точка визитки реально приводит людей.
   const url = new URL(CRM_URL);
   url.searchParams.set('utm_source', 'card-app');
   url.searchParams.set('utm_medium', 'upsell');
   url.searchParams.set('utm_campaign', pointId);
+  // card_key — мост визитка↔Eventory. Только валидный leadKey (32 hex).
+  if (/^[a-f0-9]{32}$/i.test(String(leadKey))) {
+    url.searchParams.set('card_key', String(leadKey).toLowerCase());
+  }
   return url.toString();
 }
 

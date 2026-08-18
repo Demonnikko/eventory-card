@@ -1,3 +1,3 @@
 // Меняется на каждом пользовательском релизе. Версия видна в подсказке
 // кнопки обновления и гарантирует новый revision в Service Worker.
-export const APP_VERSION = '1.12.1';
+export const APP_VERSION = '1.12.2';

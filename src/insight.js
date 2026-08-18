@@ -176,7 +176,7 @@ function renderLeads() {
         `).join('')}
       </div>
 
-      <a class="in-lead-pro" href="${escapeAttr(upsellHref('leads'))}" target="_blank" rel="noopener">
+      <a class="in-lead-pro" href="${escapeAttr(upsellHref('leads', state.card?.leadKey))}" target="_blank" rel="noopener">
         ${renderIcon('wallet')}
         <span>Узнать, кто оставил заявку — в Eventory Pro</span>
         ${renderIcon('chevron-right')}
@@ -217,7 +217,7 @@ function renderUpsell(pointId) {
   const point = activeUpsell(pointId);
   if (!point) return '';
   return `
-    <a class="ca-upsell" href="${escapeAttr(upsellHref(pointId))}" target="_blank" rel="noopener">
+    <a class="ca-upsell" href="${escapeAttr(upsellHref(pointId, state.card?.leadKey))}" target="_blank" rel="noopener">
       <span class="ca-upsell-eyebrow">${escapeHtml(point.eyebrow)}</span>
       <span class="ca-upsell-title">${escapeHtml(point.title)}</span>
       <span class="ca-upsell-text">${escapeHtml(point.text)}</span>
