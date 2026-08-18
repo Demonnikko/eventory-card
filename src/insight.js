@@ -143,14 +143,51 @@ function renderForm() {
   `;
 }
 
-// Контакт заявки для Pro-владельца: открытый и кликабельный (позвонить/написать).
-function renderLeadContactOpen(contact) {
-  const value = String(contact || '').trim();
-  if (!value) return '<span class="in-lead-contact-open">контакт не указан</span>';
-  const href = contactHref(value);
+// Ссылка на профиль ВКонтакте из того, что ввёл клиент: полный URL, vk.com/id
+// или короткий id/username.
+function vkHref(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  const id = value.replace(/^(https?:\/\/)?(m\.)?vk\.com\//i, '').replace(/^@/, '');
+  return id ? `https://vk.com/${id}` : '';
+}
+
+// Одна кликабельная строка контакта: иконка + значение (можно тапнуть и выделить
+// для копирования). Каждый канал отдельно — чтобы владелец легко проверил клиента.
+function leadContactRow(icon, label, value, href) {
+  const val = String(value || '').trim();
+  if (!val) return '';
+  const inner = `<span class="in-lead-row-label">${label}</span><span class="in-lead-row-value">${escapeHtml(val)}</span>`;
   return href
-    ? `<a class="in-lead-contact-open is-link" href="${escapeAttr(href)}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`
-    : `<span class="in-lead-contact-open">${escapeHtml(value)}</span>`;
+    ? `<a class="in-lead-row is-link" href="${escapeAttr(href)}" target="_blank" rel="noopener">${renderIcon(icon)}${inner}</a>`
+    : `<div class="in-lead-row">${renderIcon(icon)}${inner}</div>`;
+}
+
+// Контакты заявки для Pro-владельца — раздельными строками (телефон, ВК, Telegram).
+function renderLeadContactOpen(lead) {
+  const phone = String(lead.phone || '').trim();
+  const vk = String(lead.vk || '').trim();
+  const tg = String(lead.telegram || '').trim();
+
+  // Старые заявки без структурных полей — показываем строку contact как есть.
+  if (!phone && !vk && !tg) {
+    const value = String(lead.contact || '').trim();
+    if (!value) return '<span class="in-lead-contact-open">контакт не указан</span>';
+    const href = contactHref(value);
+    return href
+      ? `<a class="in-lead-contact-open is-link" href="${escapeAttr(href)}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`
+      : `<span class="in-lead-contact-open">${escapeHtml(value)}</span>`;
+  }
+
+  const tgId = tg.replace(/^@/, '');
+  return `
+    <div class="in-lead-rows">
+      ${leadContactRow('phone', 'Телефон', phone, phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : '')}
+      ${leadContactRow('vk', 'ВКонтакте', vk, vkHref(vk))}
+      ${leadContactRow('telegram', 'Telegram', tg, tgId ? `https://t.me/${tgId}` : '')}
+    </div>
+  `;
 }
 
 /* ─────────── Уведомления в Telegram ─────────── */
@@ -207,7 +244,7 @@ function renderLeads() {
               <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}</span>
               ${l.eventDate ? `<span class="in-lead-date">${escapeHtml(formatEventDate(l.eventDate))}</span>` : ''}
             </div>
-            ${state.ownerPro ? renderLeadContactOpen(l.contact) : `
+            ${state.ownerPro ? renderLeadContactOpen(l) : `
               <div class="in-lead-contact-lock">
                 <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>
                 <span class="in-lead-lock">${renderIcon('wallet')} Открыть контакт с Pro</span>
