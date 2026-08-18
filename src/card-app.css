@@ -4153,6 +4153,9 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 .in-lead-pro > .ui-icon:first-child { color: var(--accent, #e8a64a); flex-shrink: 0; }
 .in-lead-pro > span { flex: 1; }
 .in-lead-pro > .ui-icon:last-child { color: var(--muted-2, #6d6d75); flex-shrink: 0; width: 16px; height: 16px; }
+.in-lead-pro-copy { display: flex; flex-direction: column; gap: 2px; }
+.in-lead-pro-title { font-size: 14.5px; font-weight: 600; }
+.in-lead-pro-note { font-size: 12px; font-weight: 400; color: var(--muted-2, #9a9aa2); line-height: 1.35; }
 
 /* Открытый контакт (Pro-владелец) */
 .in-lead-contact-open {

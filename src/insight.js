@@ -198,7 +198,7 @@ function renderLeads() {
         <span class="in-section-title">Заявки на цену</span>
         ${unread ? `<span class="in-badge in-badge--hot">${unread}</span>` : ''}
       </div>
-      <p class="in-section-sub">Клиенты хотят узнать стоимость. Контакт открывается в Eventory Pro.</p>
+      <p class="in-section-sub">Клиенты хотят узнать стоимость. С Eventory Pro их контакты видны прямо здесь.</p>
 
       <div class="in-leads">
         ${state.leads.slice(0, 20).map((l) => `
@@ -210,7 +210,7 @@ function renderLeads() {
             ${state.ownerPro ? renderLeadContactOpen(l.contact) : `
               <div class="in-lead-contact-lock">
                 <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>
-                <span class="in-lead-lock">${renderIcon('wallet')} Открыть в Eventory Pro</span>
+                <span class="in-lead-lock">${renderIcon('wallet')} Открыть контакт с Pro</span>
               </div>
             `}
             <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}</span>
@@ -221,7 +221,10 @@ function renderLeads() {
       ${state.ownerPro ? '' : `
         <a class="in-lead-pro" href="${escapeAttr(upsellHref('leads', state.card?.leadKey))}" target="_blank" rel="noopener">
           ${renderIcon('wallet')}
-          <span>Узнать, кто оставил заявку — в Eventory Pro</span>
+          <span class="in-lead-pro-copy">
+            <span class="in-lead-pro-title">Открыть контакты клиентов</span>
+            <span class="in-lead-pro-note">Оформите Eventory Pro — имя и телефон появятся прямо здесь</span>
+          </span>
           ${renderIcon('chevron-right')}
         </a>
       `}
