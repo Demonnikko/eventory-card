@@ -23,6 +23,19 @@ function fail(res, status, error) {
   return res.status(status).json({ ok: false, error });
 }
 
+// Уведомление о заявке владельцу в Telegram. Отправку делает основной проект
+// (там токен бота и связка card→chat), визитка лишь дёргает его эндпоинт.
+// Fire-and-forget: заявка уже сохранена, Telegram — приятный бонус.
+function notifyOwnerTelegram(leadKey, name, eventDate) {
+  const key = String(leadKey || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{32}$/.test(key)) return;
+  fetch('https://eventory-mvp.vercel.app/api/promo?service=card-link&action=notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cardKey: key, name, eventDate })
+  }).catch(() => { /* не критично: заявка сохранена, уведомление best-effort */ });
+}
+
 async function assertOwner(slug, key) {
   const data = await readPublicCard(slug);
   if (!data) return null;
@@ -260,6 +273,13 @@ export default async function handler(req, res) {
       eventDate,
       tagId: /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim()) ? String(body.tag).trim().toLowerCase() : ''
     });
+
+    // Тихо уведомляем владельца в Telegram (если он подключил). leadKey берём
+    // из карточки на сервере — гостю он не виден. Контакт клиента НЕ шлём (он
+    // под Pro-барьером): в уведомлении только имя и дата. Fire-and-forget —
+    // заявка сохранена в любом случае, сбой Telegram гостя не касается.
+    notifyOwnerTelegram(data.leadKey, name, eventDate);
+
     return res.status(200).json({ ok: true });
   }
 

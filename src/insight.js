@@ -9,7 +9,7 @@ import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
 import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
 import { getCard } from './card-data.js';
-import { fetchInsight, createTag, deleteTag, markDialogsRead, markLeadsRead, taggedUrl } from './insight-data.js';
+import { fetchInsight, createTag, deleteTag, markDialogsRead, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 const state = {
@@ -19,6 +19,7 @@ const state = {
   dialogs: [],
   leads: [],
   ownerPro: false,
+  tgConnected: false,
   loading: true,
   busy: false,
   form: false,       // открыта форма новой метки
@@ -152,13 +153,41 @@ function renderLeadContactOpen(contact) {
     : `<span class="in-lead-contact-open">${escapeHtml(value)}</span>`;
 }
 
+/* ─────────── Уведомления в Telegram ─────────── */
+
+// Бесплатное подключение: заявки падают в Telegram сразу, чтобы владелец не
+// пропустил клиента. Контакт клиента в уведомлении не раскрывается (Pro).
+function renderTelegramConnect() {
+  if (!state.card?.publishedSlug) return '';
+  if (state.tgConnected) {
+    return `
+      <div class="in-tg is-on">
+        <span class="in-tg-icon" aria-hidden="true">${renderIcon('check')}</span>
+        <span class="in-tg-copy">
+          <span class="in-tg-title">Telegram подключён</span>
+          <span class="in-tg-text">Заявки приходят вам в Telegram.</span>
+        </span>
+        <button type="button" class="in-tg-off" data-tg-unlink>Отключить</button>
+      </div>
+    `;
+  }
+  return `
+    <button type="button" class="in-tg" data-tg-link>
+      <span class="in-tg-icon" aria-hidden="true">${renderIcon('share')}</span>
+      <span class="in-tg-copy">
+        <span class="in-tg-title">Уведомления в Telegram</span>
+        <span class="in-tg-text">Заявки будут приходить сразу — бесплатно.</span>
+      </span>
+      ${renderIcon('chevron-right')}
+    </button>
+  `;
+}
+
 /* ─────────── Заявки «Узнать цену» ─────────── */
 
 // Заявки — горячие лиды, поэтому стоят выше вопросов. Контакт клиента («кто
-// это») — это Pro: показываем факт заявки, имя и дату бесплатно, а контакт
-// размываем под замок «Открыть в Eventory Pro». Пока это UX-барьер; реальную
-// серверную защиту (не отдавать contact без Pro) навесим шагом 2 — сейчас
-// контакт ещё приходит с сервера, blur лишь визуальный.
+// это») — Pro: имя и дата видны всем, а контакт сервер режет для не-Pro и
+// показывается под замком «Открыть в Eventory Pro».
 function renderLeads() {
   if (!state.leads.length) return '';
   const unread = state.leads.filter((l) => !l.read).length;
@@ -279,6 +308,7 @@ function renderContent() {
         </div>
       ` : ''}
 
+      ${renderTelegramConnect()}
       ${renderLeads()}
 
       <section class="in-section">
@@ -318,6 +348,7 @@ export const insight = {
     state.dialogs = [];
     state.leads = [];
     state.ownerPro = false;
+    state.tgConnected = false;
     state.card = await getCard();
 
     node.innerHTML = renderContent();
@@ -334,6 +365,11 @@ export const insight = {
         if (state.dialogs.some((d) => !d.read)) markDialogsRead().catch(() => {});
         if (state.leads.some((l) => !l.read)) markLeadsRead().catch(() => {});
       } catch { /* нет сети — покажем пустой экран, без ошибки на весь экран */ }
+      // Статус Telegram — отдельно, чтобы не задерживать основной экран.
+      telegramStatus().then((connected) => {
+        state.tgConnected = connected;
+        rerender(node);
+      }).catch(() => {});
     }
 
     state.loading = false;
@@ -348,6 +384,35 @@ function rerender(node) {
 }
 
 function bind(node) {
+  const tgLink = node.querySelector('[data-tg-link]');
+  if (tgLink) {
+    tgLink.addEventListener('click', async () => {
+      try {
+        const url = await telegramLink();
+        if (url) window.open(url, '_blank', 'noopener');
+        // После возврата из бота статус подтянется при следующем открытии
+        // экрана; подскажем, что нужно нажать Start.
+        toast.show('Нажмите «Начать» в Telegram — заявки пойдут сюда', { ok: true });
+      } catch {
+        toast.show('Не удалось открыть Telegram', { error: true });
+      }
+    });
+  }
+
+  const tgUnlink = node.querySelector('[data-tg-unlink]');
+  if (tgUnlink) {
+    tgUnlink.addEventListener('click', async () => {
+      try {
+        await telegramUnlink();
+        state.tgConnected = false;
+        rerender(node);
+        toast.show('Telegram отключён');
+      } catch {
+        toast.show('Не удалось отключить', { error: true });
+      }
+    });
+  }
+
   const newBtn = node.querySelector('[data-tag-new]');
   if (newBtn) {
     newBtn.addEventListener('click', () => {

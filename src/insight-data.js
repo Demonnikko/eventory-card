@@ -113,6 +113,37 @@ export async function markLeadsRead() {
   return post({ action: 'leads-read', slug: card.publishedSlug, key: card.leadKey });
 }
 
+// Telegram-уведомления о заявках. Идут через основной проект (там бот): визитка
+// шлёт leadKey, получает ссылку на бота / статус. Отдельные эндпоинты promo.
+async function cardLinkPost(action, extra = {}) {
+  const card = await getCard();
+  if (!card.leadKey) throw new Error('no_lead_key');
+  const res = await fetch(`/api/promo?service=card-link&action=${encodeURIComponent(action)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cardKey: card.leadKey, ...extra })
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok) throw new Error(data?.error || 'request_failed');
+  return data;
+}
+
+export async function telegramLink() {
+  const data = await cardLinkPost('tg-link');
+  return data.url;
+}
+
+export async function telegramStatus() {
+  try {
+    const data = await cardLinkPost('tg-status');
+    return data.connected === true;
+  } catch { return false; }
+}
+
+export async function telegramUnlink() {
+  return cardLinkPost('tg-unlink');
+}
+
 // Метка из адреса визитки — по ней считаем, с какого события пришёл гость.
 export function readTagFromUrl() {
   try {
