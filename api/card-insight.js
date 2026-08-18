@@ -267,12 +267,17 @@ export default async function handler(req, res) {
     // Дата события — необязательна: кто торопится, отправляет без неё.
     const eventDate = String(body.eventDate || '').trim().slice(0, 20);
 
-    await saveLead(slug, {
-      name,
-      contact,
-      eventDate,
-      tagId: /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim()) ? String(body.tag).trim().toLowerCase() : ''
-    });
+    const tag = /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim())
+      ? String(body.tag).trim().toLowerCase() : '';
+    const saved = await saveLead(slug, { name, contact, eventDate, tagId: tag });
+    // Не прячем сбой хранилища: если заявка не записалась — говорим об этом,
+    // иначе клиент думает «отправлено», а владелец её никогда не увидит.
+    if (!saved) return fail(res, 503, 'lead_not_saved');
+
+    // Счётчик «обращений» на экране «Отклик» = contacts в аналитике. Инкрементим
+    // здесь, иначе цифра всегда 0 при живых заявках. По метке — ещё и в её стат.
+    await trackCardOpen(slug, '', 'contact');
+    if (tag) await trackTagOpen(slug, tag, '', 'contact');
 
     // Тихо уведомляем владельца в Telegram (если он подключил). leadKey берём
     // из карточки на сервере — гостю он не виден. Контакт клиента НЕ шлём (он
