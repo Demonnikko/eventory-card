@@ -18,6 +18,7 @@ const state = {
   tags: [],
   dialogs: [],
   leads: [],
+  ownerPro: false,
   loading: true,
   busy: false,
   form: false,       // открыта форма новой метки
@@ -141,6 +142,16 @@ function renderForm() {
   `;
 }
 
+// Контакт заявки для Pro-владельца: открытый и кликабельный (позвонить/написать).
+function renderLeadContactOpen(contact) {
+  const value = String(contact || '').trim();
+  if (!value) return '<span class="in-lead-contact-open">контакт не указан</span>';
+  const href = contactHref(value);
+  return href
+    ? `<a class="in-lead-contact-open is-link" href="${escapeAttr(href)}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`
+    : `<span class="in-lead-contact-open">${escapeHtml(value)}</span>`;
+}
+
 /* ─────────── Заявки «Узнать цену» ─────────── */
 
 // Заявки — горячие лиды, поэтому стоят выше вопросов. Контакт клиента («кто
@@ -167,20 +178,24 @@ function renderLeads() {
               <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}</span>
               ${l.eventDate ? `<span class="in-lead-date">${escapeHtml(formatEventDate(l.eventDate))}</span>` : ''}
             </div>
-            <div class="in-lead-contact-lock">
-              <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>
-              <span class="in-lead-lock">${renderIcon('wallet')} Открыть в Eventory Pro</span>
-            </div>
+            ${state.ownerPro ? renderLeadContactOpen(l.contact) : `
+              <div class="in-lead-contact-lock">
+                <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>
+                <span class="in-lead-lock">${renderIcon('wallet')} Открыть в Eventory Pro</span>
+              </div>
+            `}
             <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}</span>
           </div>
         `).join('')}
       </div>
 
-      <a class="in-lead-pro" href="${escapeAttr(upsellHref('leads', state.card?.leadKey))}" target="_blank" rel="noopener">
-        ${renderIcon('wallet')}
-        <span>Узнать, кто оставил заявку — в Eventory Pro</span>
-        ${renderIcon('chevron-right')}
-      </a>
+      ${state.ownerPro ? '' : `
+        <a class="in-lead-pro" href="${escapeAttr(upsellHref('leads', state.card?.leadKey))}" target="_blank" rel="noopener">
+          ${renderIcon('wallet')}
+          <span>Узнать, кто оставил заявку — в Eventory Pro</span>
+          ${renderIcon('chevron-right')}
+        </a>
+      `}
     </section>
   `;
 }
@@ -302,6 +317,7 @@ export const insight = {
     state.tags = [];
     state.dialogs = [];
     state.leads = [];
+    state.ownerPro = false;
     state.card = await getCard();
 
     node.innerHTML = renderContent();
@@ -313,6 +329,7 @@ export const insight = {
         state.tags = data.tags || [];
         state.dialogs = data.dialogs || [];
         state.leads = data.leads || [];
+        state.ownerPro = data.ownerPro === true;
         // Владелец увидел вопросы — снимаем пометку «новое».
         if (state.dialogs.some((d) => !d.read)) markDialogsRead().catch(() => {});
         if (state.leads.some((l) => !l.read)) markLeadsRead().catch(() => {});

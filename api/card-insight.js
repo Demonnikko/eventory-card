@@ -14,7 +14,7 @@ import {
   listTags, saveTag, deleteTag, readTagStats,
   readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
   saveDialog, listDialogs, markDialogsRead,
-  saveLead, listLeads, markLeadsRead
+  saveLead, listLeads, markLeadsRead, isOwnerPro
 } from './_tags-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
@@ -113,15 +113,24 @@ export default async function handler(req, res) {
       stats: await readTagStats(slug, tag.id)
     })));
 
-    // ШАГ 2 (Pro-барьер): для не-Pro владельца здесь нужно будет отдавать
-    // заявки без поля contact — «кто это» открывается только по подписке.
-    // Сейчас копим и показываем полностью.
+    // Pro-барьер: «кто оставил заявку» открывается только по подписке Eventory.
+    // Контакт режем на СЕРВЕРЕ — не-Pro владелец физически не получает его в
+    // ответе, поэтому barrier не обойти через DevTools. Имя и дата остаются:
+    // владелец видит, что спрос есть, но чтобы ответить — нужен Pro.
+    // Ключ уже прошёл проверку в assertOwner выше — используем его как есть.
+    const ownerPro = await isOwnerPro(String(req.query?.key || ''));
+    const rawLeads = await listLeads(slug);
+    const leads = ownerPro
+      ? rawLeads
+      : rawLeads.map(({ contact, ...rest }) => rest);
+
     return res.status(200).json({
       ok: true,
       summary: await readCardStats(slug),
       tags: withStats,
       dialogs: await listDialogs(slug),
-      leads: await listLeads(slug)
+      leads,
+      ownerPro
     });
   }
 

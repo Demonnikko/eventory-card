@@ -268,3 +268,18 @@ export async function markLeadsRead(slug) {
   await redis(['SET', LEADS_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
   return true;
 }
+
+// Есть ли у владельца карточки активная Pro-подписка Eventory. Мост: карточка
+// связана с устройством Eventory (card-link, пишет Eventory при переходе по
+// ссылке), а устройство помечено Pro (pro-device, пишет Eventory пока подписка
+// активна). Обе отметки живут в ОБЩЕМ Redis (у визитки и Eventory один Upstash).
+// Нет связки или нет Pro-отметки — значит не Pro, контакт заявки закрыт.
+export async function isOwnerPro(leadKey) {
+  if (!storeConfigured()) return false;
+  const key = String(leadKey || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{32}$/.test(key)) return false;
+  const deviceId = await redis(['GET', `eventory:card-link:${key}`]);
+  if (!deviceId) return false;
+  const pro = await redis(['GET', `eventory:pro-device:${deviceId}`]);
+  return pro === '1';
+}
