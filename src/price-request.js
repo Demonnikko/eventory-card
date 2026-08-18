@@ -16,7 +16,9 @@ const state = {
   open: false,
   busy: false,
   name: '',
-  contact: '',
+  phone: '',
+  vk: '',
+  telegram: '',
   eventDate: '',
   sent: false
 };
@@ -48,9 +50,16 @@ export function renderPriceRequest(card) {
         <input class="cp-price-req-input" type="text" value="${escapeAttr(state.name)}"
           placeholder="Как вас зовут" maxlength="80" autocomplete="name"
           data-lead-name ${state.busy ? 'disabled' : ''} />
-        <input class="cp-price-req-input" type="text" value="${escapeAttr(state.contact)}"
-          placeholder="Телефон или @telegram" maxlength="120" autocomplete="tel"
-          data-lead-contact ${state.busy ? 'disabled' : ''} />
+        <input class="cp-price-req-input" type="tel" value="${escapeAttr(state.phone)}"
+          placeholder="Телефон" maxlength="30" autocomplete="tel" inputmode="tel"
+          data-lead-phone ${state.busy ? 'disabled' : ''} />
+        <input class="cp-price-req-input" type="text" value="${escapeAttr(state.vk)}"
+          placeholder="Ссылка ВКонтакте или id" maxlength="120" autocomplete="off"
+          data-lead-vk ${state.busy ? 'disabled' : ''} />
+        <input class="cp-price-req-input" type="text" value="${escapeAttr(state.telegram)}"
+          placeholder="@telegram" maxlength="40" autocomplete="off"
+          data-lead-telegram ${state.busy ? 'disabled' : ''} />
+        <span class="cp-price-req-hint">Телефон обязателен. И укажите ВКонтакте или Telegram — так свяжусь быстрее.</span>
         <input class="cp-price-req-input" type="date"
           value="${escapeAttr(state.eventDate)}"
           data-lead-date ${state.busy ? 'disabled' : ''} />
@@ -80,11 +89,15 @@ export function bindPriceRequest(node, { slug, tagId }) {
   }
 
   const nameEl = node.querySelector('[data-lead-name]');
-  const contactEl = node.querySelector('[data-lead-contact]');
+  const phoneEl = node.querySelector('[data-lead-phone]');
+  const vkEl = node.querySelector('[data-lead-vk]');
+  const tgEl = node.querySelector('[data-lead-telegram]');
   const dateEl = node.querySelector('[data-lead-date]');
   // Держим ввод в состоянии, чтобы перерисовка блока его не теряла.
   nameEl?.addEventListener('input', () => { state.name = nameEl.value; });
-  contactEl?.addEventListener('input', () => { state.contact = contactEl.value; });
+  phoneEl?.addEventListener('input', () => { state.phone = phoneEl.value; });
+  vkEl?.addEventListener('input', () => { state.vk = vkEl.value; });
+  tgEl?.addEventListener('input', () => { state.telegram = tgEl.value; });
   dateEl?.addEventListener('input', () => { state.eventDate = dateEl.value; });
 
   const sendBtn = node.querySelector('[data-lead-send]');
@@ -101,21 +114,25 @@ function rerender(root) {
 async function send(node) {
   if (state.busy) return;
   const name = String(state.name || '').trim();
-  const contact = String(state.contact || '').trim();
+  const phone = String(state.phone || '').trim();
+  const vk = String(state.vk || '').trim();
+  const telegram = String(state.telegram || '').trim();
 
   if (!name) {
     toast.show('Как вас зовут?');
     node.querySelector('[data-lead-name]')?.focus();
     return;
   }
-  if (!contact) {
-    toast.show('Оставьте телефон или Telegram для ответа');
-    node.querySelector('[data-lead-contact]')?.focus();
+  // Телефон обязателен: базовый контакт, есть у всех.
+  if (!/\+?[0-9][0-9()\s-]{6,}/.test(phone)) {
+    toast.show('Укажите телефон для связи');
+    node.querySelector('[data-lead-phone]')?.focus();
     return;
   }
-  if (!/(@[a-z0-9_]{5,32}|\+?[0-9][0-9()\s-]{6,}|[^\s@]+@[^\s@]+\.[^\s@]+)/i.test(contact)) {
-    toast.show('Укажите телефон, @telegram или email');
-    node.querySelector('[data-lead-contact]')?.focus();
+  // Работаем в мессенджерах — нужен хотя бы один: ВКонтакте или Telegram.
+  if (!vk && !telegram) {
+    toast.show('Укажите ВКонтакте или Telegram — так свяжусь быстрее');
+    node.querySelector('[data-lead-vk]')?.focus();
     return;
   }
 
@@ -124,7 +141,7 @@ async function send(node) {
 
   try {
     await sendLead(state.slug, {
-      name, contact, eventDate: state.eventDate, tagId: state.tagId
+      name, phone, vk, telegram, eventDate: state.eventDate, tagId: state.tagId
     });
     state.sent = true;
   } catch {
@@ -139,7 +156,9 @@ export function resetPriceRequest() {
   state.open = false;
   state.busy = false;
   state.name = '';
-  state.contact = '';
+  state.phone = '';
+  state.vk = '';
+  state.telegram = '';
   state.eventDate = '';
   state.sent = false;
 }

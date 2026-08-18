@@ -133,9 +133,11 @@ export default async function handler(req, res) {
     // Ключ уже прошёл проверку в assertOwner выше — используем его как есть.
     const ownerPro = await isOwnerPro(String(req.query?.key || ''));
     const rawLeads = await listLeads(slug);
+    // Pro-барьер: у не-Pro режем ВСЕ контактные поля (contact + phone/vk/telegram),
+    // иначе новые поля утекут мимо барьера.
     const leads = ownerPro
       ? rawLeads
-      : rawLeads.map(({ contact, ...rest }) => rest);
+      : rawLeads.map(({ contact, phone, vk, telegram, ...rest }) => rest);
 
     return res.status(200).json({
       ok: true,
@@ -258,18 +260,22 @@ export default async function handler(req, res) {
 
     const name = String(body.name || '').trim().slice(0, 80);
     if (!name) return fail(res, 400, 'empty_name');
-    const contact = String(body.contact || '').trim().slice(0, 120);
-    if (!contact) return fail(res, 400, 'empty_contact');
-    // Тот же формат, что для вопросов: телефон, @username или email.
-    if (!/(@[a-z0-9_]{5,32}|\+?[0-9][0-9()\s-]{6,}|[^\s@]+@[^\s@]+\.[^\s@]+)/i.test(contact)) {
-      return fail(res, 400, 'invalid_contact');
-    }
+    const phone = String(body.phone || '').trim().slice(0, 30);
+    const vk = String(body.vk || '').trim().slice(0, 120);
+    const telegram = String(body.telegram || '').trim().slice(0, 40);
+    // Телефон обязателен.
+    if (!/\+?[0-9][0-9()\s-]{6,}/.test(phone)) return fail(res, 400, 'invalid_phone');
+    // Работаем в мессенджерах — нужен хотя бы один: ВКонтакте или Telegram.
+    if (!vk && !telegram) return fail(res, 400, 'messenger_required');
+    // Читаемая строка контакта — её показываем Pro-владельцу (совместимость).
+    const contact = String(body.contact || '').trim().slice(0, 200)
+      || [phone && `☎ ${phone}`, vk && `ВК: ${vk}`, telegram && `TG: ${telegram}`].filter(Boolean).join(' · ');
     // Дата события — необязательна: кто торопится, отправляет без неё.
     const eventDate = String(body.eventDate || '').trim().slice(0, 20);
 
     const tag = /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim())
       ? String(body.tag).trim().toLowerCase() : '';
-    const saved = await saveLead(slug, { name, contact, eventDate, tagId: tag });
+    const saved = await saveLead(slug, { name, contact, phone, vk, telegram, eventDate, tagId: tag });
     // Не прячем сбой хранилища: если заявка не записалась — говорим об этом,
     // иначе клиент думает «отправлено», а владелец её никогда не увидит.
     if (!saved) return fail(res, 503, 'lead_not_saved');

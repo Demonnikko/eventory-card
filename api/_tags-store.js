@@ -239,7 +239,11 @@ export async function saveLead(slug, entry) {
   const item = {
     id: crypto.randomBytes(6).toString('hex'),
     name: String(entry.name || '').slice(0, 80),
-    contact: String(entry.contact || '').slice(0, 120),
+    contact: String(entry.contact || '').slice(0, 200),
+    // Структурные контакты для sales-системы (работа в VK/Telegram).
+    phone: String(entry.phone || '').slice(0, 30),
+    vk: String(entry.vk || '').slice(0, 120),
+    telegram: String(entry.telegram || '').slice(0, 40),
     eventDate: String(entry.eventDate || '').slice(0, 20),
     tagId: String(entry.tagId || '').slice(0, 16),
     createdAt: Date.now(),

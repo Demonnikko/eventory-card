@@ -104,8 +104,15 @@ export async function askQuestion(slug, { question, contact = '', tagId = '' }) 
 }
 
 // Заявка «Узнать цену» от гостя: имя + контакт + (необязательно) дата события.
-export async function sendLead(slug, { name, contact, eventDate = '', tagId = '' }) {
-  return post({ action: 'lead', slug, name, contact, eventDate, tag: tagId });
+export async function sendLead(slug, { name, phone = '', vk = '', telegram = '', eventDate = '', tagId = '' }) {
+  // Читаемая строка контакта — её видит Pro-владелец в заявке сейчас. Отдельные
+  // поля phone/vk/telegram сохраняются структурно для будущей sales-системы.
+  const contact = [
+    phone && `☎ ${phone}`,
+    vk && `ВК: ${vk}`,
+    telegram && `TG: ${telegram}`
+  ].filter(Boolean).join(' · ');
+  return post({ action: 'lead', slug, name, contact, phone, vk, telegram, eventDate, tag: tagId });
 }
 
 export async function markLeadsRead() {
