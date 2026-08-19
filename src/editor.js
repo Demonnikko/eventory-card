@@ -8,7 +8,8 @@ import { toast } from './shared/components/toast.js';
 import {
   compressImage,
   BUSINESS_CARD_PROFESSIONS,
-  BUSINESS_CARD_GALLERY_MAX_BYTES
+  BUSINESS_CARD_GALLERY_MAX_BYTES,
+  rotateBusinessCardLeadKey
 } from './shared/data/businessCard.js';
 import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST } from './card-data.js';
 import { createCardDraft } from './editor-draft.js';
@@ -202,6 +203,7 @@ function renderPublishBar(card) {
         ${state.busy ? 'Публикуем…' : (published ? 'Обновить визитку' : 'Опубликовать визитку')}
       </button>
       ${published ? '<button type="button" class="ca-btn ca-btn--ghost" data-open-share>Ссылка и QR-код</button>' : ''}
+      ${published ? '<button type="button" class="ca-key-rotate" data-rotate-key>Сменить ключ доступа</button>' : ''}
     </div>
   `;
 }
@@ -590,6 +592,28 @@ function bind(node) {
   if (shareBtn) {
     shareBtn.addEventListener('click', () => {
       window.location.hash = '#/share';
+    });
+  }
+
+  const rotateBtn = node.querySelector('[data-rotate-key]');
+  if (rotateBtn) {
+    rotateBtn.addEventListener('click', async () => {
+      if (state.busy) return;
+      if (!window.confirm('Сменить ключ доступа к заявкам? Старый ключ перестанет работать. Если у вас подключён Eventory Pro — после смены зайдите в Eventory по ссылке из визитки ещё раз, чтобы контакты снова открылись.')) return;
+      state.busy = true;
+      rerender(node);
+      try {
+        const card = await rotateBusinessCardLeadKey(state.card);
+        state.card = card;
+        toast.show('Ключ доступа обновлён');
+      } catch (err) {
+        toast.show(err?.message === 'not_published'
+          ? 'Сначала опубликуйте визитку'
+          : 'Не удалось сменить ключ. Попробуйте ещё раз', { error: true });
+      } finally {
+        state.busy = false;
+        rerender(node);
+      }
     });
   }
 }
