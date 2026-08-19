@@ -222,6 +222,67 @@ function renderTelegramConnect() {
 
 /* ─────────── Заявки «Узнать цену» ─────────── */
 
+// Русское склонение по числу: plural(2, 'заявка','заявки','заявок') → 'заявки'.
+function plural(n, one, few, many) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
+// Название метки-источника по её id. Клиент пришёл по QR метки → заявка несёт
+// tagId → показываем владельцу «откуда пришёл этот клиент». tags и leads оба в
+// ответе сервера, сопоставляем на клиенте — без запроса и без изменений API.
+function tagLabelById(tagId) {
+  if (!tagId) return '';
+  const tag = state.tags.find((t) => t.id === tagId);
+  return tag ? tag.label : '';
+}
+
+// Бейдж источника заявки: метка QR, по которому клиент пришёл. Пусто — если
+// заявка без метки (прямой заход), тогда бейдж не рисуем.
+function renderLeadSource(tagId) {
+  const label = tagLabelById(tagId);
+  if (!label) return '';
+  return `<span class="in-lead-src">${renderIcon('qr')} ${escapeHtml(label)}</span>`;
+}
+
+// Сводка «Заявки по меткам»: по каждой метке — сколько заявок и конверсия из
+// заходов. Данные уже в tag.stats (opens/contacts). Метки без заявок — тоже
+// показываем: владелец видит, что этот QR раздаётся, но клиентов не приводит.
+function renderLeadsByTag() {
+  const tags = state.tags.filter((t) => (t.stats?.opens || 0) > 0 || (t.stats?.contacts || 0) > 0);
+  if (!tags.length) return '';
+  const rows = tags
+    .slice()
+    .sort((a, b) => (b.stats?.contacts || 0) - (a.stats?.contacts || 0))
+    .map((t) => {
+      const opens = t.stats?.opens || 0;
+      const leads = t.stats?.contacts || 0;
+      const conv = opens ? Math.round((leads / opens) * 100) : 0;
+      const active = leads > 0;
+      return `
+        <div class="in-tagsum${active ? ' is-active' : ''}">
+          <div class="in-tagsum-top">
+            <span class="in-tagsum-name">${renderIcon('qr')} ${escapeHtml(t.label)}</span>
+            <span class="in-tagsum-count">${leads ? `${leads} ${plural(leads, 'заявка', 'заявки', 'заявок')}` : '0 заявок'}</span>
+          </div>
+          <div class="in-tagsum-meta">${opens} ${plural(opens, 'заход', 'захода', 'заходов')} · конверсия ${conv}%</div>
+        </div>
+      `;
+    })
+    .join('');
+  return `
+    <section class="in-section">
+      <div class="in-section-head">
+        <span class="in-section-title">Заявки по меткам</span>
+      </div>
+      <div class="in-tagsums">${rows}</div>
+    </section>
+  `;
+}
+
 // Заявки — горячие лиды, поэтому стоят выше вопросов. Контакт клиента («кто
 // это») — Pro: имя и дата видны всем, а контакт сервер режет для не-Pro и
 // показывается под замком «Открыть в Eventory Pro».
@@ -244,6 +305,7 @@ function renderLeads() {
               <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}</span>
               ${l.eventDate ? `<span class="in-lead-date">${escapeHtml(formatEventDate(l.eventDate))}</span>` : ''}
             </div>
+            ${renderLeadSource(l.tagId)}
             ${state.ownerPro ? renderLeadContactOpen(l) : `
               <div class="in-lead-contact-lock">
                 <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>
@@ -353,6 +415,7 @@ function renderContent() {
 
       ${renderTelegramConnect()}
       ${renderLeads()}
+      ${renderLeadsByTag()}
 
       <section class="in-section">
         <div class="in-section-head">
