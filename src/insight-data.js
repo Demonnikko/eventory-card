@@ -120,6 +120,14 @@ export async function markLeadsRead() {
   return post({ action: 'leads-read', slug: card.publishedSlug, key: card.leadKey });
 }
 
+// Удаление заявки владельцем: спам, ошибочная или тестовая. Возвращает true при
+// успехе — вызывающий убирает строку из UI только по факту удаления на сервере.
+export async function deleteLead(id) {
+  const card = await getCard();
+  const data = await post({ action: 'lead-delete', slug: card.publishedSlug, key: card.leadKey, id });
+  return data?.ok === true;
+}
+
 // Telegram-уведомления о заявках. Идут через основной проект (там бот): визитка
 // шлёт leadKey, получает ссылку на бота / статус. Отдельные эндпоинты promo.
 async function cardLinkPost(action, extra = {}) {

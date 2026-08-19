@@ -4128,12 +4128,32 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 }
 .in-lead-lock .ui-icon { width: 14px; height: 14px; }
 
-.in-lead-time {
-  display: block;
+.in-lead-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: 8px;
+}
+
+.in-lead-time {
   font-size: 11.5px;
   color: var(--muted-2, #6d6d75);
 }
+
+.in-lead-delete {
+  flex-shrink: 0;
+  padding: 6px;
+  margin: -6px -6px -6px 0;
+  background: none;
+  border: 0;
+  color: var(--muted-2, #6d6d75);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.in-lead-delete .ui-icon { width: 15px; height: 15px; }
+.in-lead-delete:active { color: var(--danger, #e5484d); }
 
 /* Призыв открыть заявки в Eventory Pro */
 .in-lead-pro {

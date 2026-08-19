@@ -273,6 +273,20 @@ export async function markLeadsRead(slug) {
   return true;
 }
 
+// Удаление одной заявки по id (спам, ошибка, тест). Возвращаем true, только
+// если заявка нашлась и удалена — чтобы владелец видел реальный результат, а не
+// «ок» на несуществующем id. TTL переставляем, как при любой записи списка.
+export async function deleteLead(slug, id) {
+  if (!storeConfigured()) return false;
+  const wanted = String(id || '').trim();
+  if (!wanted) return false;
+  const all = await listLeads(slug);
+  const next = all.filter((l) => String(l.id) !== wanted);
+  if (next.length === all.length) return false;
+  await redis(['SET', LEADS_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
+  return true;
+}
+
 // Есть ли у владельца карточки активная Pro-подписка Eventory. Мост: карточка
 // связана с устройством Eventory (card-link, пишет Eventory при переходе по
 // ссылке), а устройство помечено Pro (pro-device, пишет Eventory пока подписка

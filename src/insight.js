@@ -9,7 +9,7 @@ import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
 import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
 import { getCard } from './card-data.js';
-import { fetchInsight, createTag, deleteTag, markDialogsRead, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
+import { fetchInsight, createTag, deleteTag, deleteLead, markDialogsRead, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 const state = {
@@ -250,7 +250,10 @@ function renderLeads() {
                 <span class="in-lead-lock">${renderIcon('wallet')} Открыть контакт с Pro</span>
               </div>
             `}
-            <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}</span>
+            <div class="in-lead-foot">
+              <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}</span>
+              <button type="button" class="in-lead-delete" data-lead-delete="${escapeAttr(l.id)}" aria-label="Удалить заявку">${renderIcon('trash')}</button>
+            </div>
           </div>
         `).join('')}
       </div>
@@ -545,6 +548,22 @@ function bind(node) {
         state.qrFor = '';
         rerender(node);
         toast.show('Метка удалена');
+      } catch {
+        toast.show('Не удалось удалить', { error: true });
+      }
+    });
+  });
+
+  node.querySelectorAll('[data-lead-delete]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!window.confirm('Удалить заявку? Это действие необратимо.')) return;
+      const id = btn.dataset.leadDelete;
+      try {
+        const ok = await deleteLead(id);
+        if (!ok) { toast.show('Не удалось удалить', { error: true }); return; }
+        state.leads = state.leads.filter((l) => l.id !== id);
+        rerender(node);
+        toast.show('Заявка удалена');
       } catch {
         toast.show('Не удалось удалить', { error: true });
       }

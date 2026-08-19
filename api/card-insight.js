@@ -14,7 +14,7 @@ import {
   listTags, saveTag, deleteTag, readTagStats,
   readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
   saveDialog, listDialogs, markDialogsRead,
-  saveLead, listLeads, markLeadsRead, isOwnerPro
+  saveLead, listLeads, markLeadsRead, deleteLead, isOwnerPro
 } from './_tags-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
@@ -164,7 +164,8 @@ export default async function handler(req, res) {
     'tag-create': { limit: 30, windowSeconds: 3600 },
     'tag-delete': { limit: 30, windowSeconds: 3600 },
     'dialogs-read': { limit: 120, windowSeconds: 60 },
-    'leads-read': { limit: 120, windowSeconds: 60 }
+    'leads-read': { limit: 120, windowSeconds: 60 },
+    'lead-delete': { limit: 60, windowSeconds: 60 }
   };
   const rule = limits[action];
   if (rule && !await enforceRateLimit(req, res, {
@@ -299,6 +300,15 @@ export default async function handler(req, res) {
     const owner = await assertOwner(slug, String(body.key || ''));
     if (!owner) return fail(res, 403, 'forbidden');
     await markLeadsRead(slug);
+    return res.status(200).json({ ok: true });
+  }
+
+  /* ─────────── Владелец удалил заявку ─────────── */
+  if (action === 'lead-delete') {
+    const owner = await assertOwner(slug, String(body.key || ''));
+    if (!owner) return fail(res, 403, 'forbidden');
+    const removed = await deleteLead(slug, String(body.id || ''));
+    if (!removed) return fail(res, 404, 'lead_not_found');
     return res.status(200).json({ ok: true });
   }
 
