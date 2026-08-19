@@ -133,11 +133,30 @@ export default async function handler(req, res) {
     // Ключ уже прошёл проверку в assertOwner выше — используем его как есть.
     const ownerPro = await isOwnerPro(String(req.query?.key || ''));
     const rawLeads = await listLeads(slug);
-    // Pro-барьер: у не-Pro режем ВСЕ контактные поля (contact + phone/vk/telegram),
-    // иначе новые поля утекут мимо барьера.
-    const leads = ownerPro
-      ? rawLeads
-      : rawLeads.map(({ contact, phone, vk, telegram, ...rest }) => rest);
+
+    // Досье клиента — Pro: к каждой заявке приложить профиль гостя (что смотрел,
+    // сколько заходил). Только для Pro и только если заявка связана с visitorId.
+    // Без Pro — режем контакты И профиль, чтобы ничего не утекло мимо барьера.
+    let leads;
+    if (ownerPro) {
+      leads = await Promise.all(rawLeads.map(async (lead) => {
+        if (!lead.visitorId) return lead;
+        const visitor = await readVisitor(slug, lead.visitorId);
+        if (!visitor) return lead;
+        return {
+          ...lead,
+          profile: {
+            visits: Number(visitor.visits) || 0,
+            interest: visitor.interest || '',
+            interests: visitor.interests || {},
+            firstAt: visitor.firstAt || 0,
+            lastAt: visitor.lastAt || 0
+          }
+        };
+      }));
+    } else {
+      leads = rawLeads.map(({ contact, phone, vk, telegram, visitorId, ...rest }) => rest);
+    }
 
     return res.status(200).json({
       ok: true,
@@ -289,7 +308,9 @@ export default async function handler(req, res) {
 
     const tag = /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim())
       ? String(body.tag).trim().toLowerCase() : '';
-    const saved = await saveLead(slug, { name, contact, phone, vk, telegram, eventDate, tagId: tag });
+    const rawVisitor = String(body.visitor || '').trim();
+    const leadVisitor = /^[a-z0-9_-]{8,64}$/i.test(rawVisitor) ? rawVisitor : '';
+    const saved = await saveLead(slug, { name, contact, phone, vk, telegram, eventDate, tagId: tag, visitorId: leadVisitor });
     // Не прячем сбой хранилища: если заявка не записалась — говорим об этом,
     // иначе клиент думает «отправлено», а владелец её никогда не увидит.
     if (!saved) return fail(res, 503, 'lead_not_saved');

@@ -261,6 +261,8 @@ export async function saveLead(slug, entry) {
     telegram: String(entry.telegram || '').slice(0, 40),
     eventDate: String(entry.eventDate || '').slice(0, 20),
     tagId: String(entry.tagId || '').slice(0, 16),
+    // Связь с профилем гостя: по нему в «Отклике» собираем досье (что смотрел).
+    visitorId: String(entry.visitorId || '').slice(0, 64),
     createdAt: Date.now(),
     read: false
   };

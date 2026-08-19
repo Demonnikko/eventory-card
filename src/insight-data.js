@@ -122,7 +122,9 @@ export async function sendLead(slug, { name, phone = '', vk = '', telegram = '',
     vk && `ВК: ${vk}`,
     telegram && `TG: ${telegram}`
   ].filter(Boolean).join(' · ');
-  return post({ action: 'lead', slug, name, contact, phone, vk, telegram, eventDate, tag: tagId });
+  // visitor — тот же id, по которому копился интерес гостя. Кладём его в заявку,
+  // чтобы в «Отклике» собрать досье: этот клиент = вот что он смотрел.
+  return post({ action: 'lead', slug, name, contact, phone, vk, telegram, eventDate, tag: tagId, visitor: visitorId() });
 }
 
 export async function markLeadsRead() {

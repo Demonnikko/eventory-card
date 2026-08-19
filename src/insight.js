@@ -248,6 +248,70 @@ function renderLeadSource(tagId) {
   return `<span class="in-lead-src">${renderIcon('qr')} ${escapeHtml(label)}</span>`;
 }
 
+// Градус интереса 0–100: насколько клиент «горячий». Складываем из активности
+// (сколько заходил, сколько разделов смотрел) и свежести (недавно = теплее).
+// Это подсказка к действию, а не точная наука — важен порядок, не десятые.
+function interestScore(profile) {
+  if (!profile) return 0;
+  const visits = Number(profile.visits) || 0;
+  const sections = Object.keys(profile.interests || {}).length;
+  const views = Object.values(profile.interests || {}).reduce((s, n) => s + (Number(n) || 0), 0);
+
+  let score = 0;
+  score += Math.min(visits, 5) * 8;      // заходы: до 40
+  score += Math.min(sections, 4) * 8;    // охват разделов: до 32
+  score += Math.min(views, 7) * 4;       // глубина просмотров: до 28
+
+  // Свежесть: заходил в последние 2 дня — полный вес, дальше затухает.
+  const days = profile.lastAt ? (Date.now() - profile.lastAt) / 86400000 : 999;
+  if (days > 2) score *= days > 14 ? 0.5 : 0.75;
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// Словесная температура по градусу — понятнее числа.
+function interestLabel(score) {
+  if (score >= 70) return { text: 'горячий', cls: 'is-hot' };
+  if (score >= 40) return { text: 'тёплый', cls: 'is-warm' };
+  return { text: 'смотрел', cls: 'is-cold' };
+}
+
+// Досье гостя: что смотрел (по убыванию интереса) + градус + команда к действию.
+// Показывается только если заявка связана с профилем гостя (Pro прислал profile).
+function renderLeadDossier(lead) {
+  const p = lead.profile;
+  if (!p) return '';
+  const entries = Object.entries(p.interests || {}).sort((a, b) => b[1] - a[1]);
+  const score = interestScore(p);
+  const temp = interestLabel(score);
+  const top = entries[0]?.[0] || p.interest || '';
+
+  const rows = entries.slice(0, 3).map(([name, count], i) => {
+    const dots = '●'.repeat(Math.min(count, 3)) + '○'.repeat(Math.max(0, 3 - Math.min(count, 3)));
+    return `
+      <div class="in-dos-row${i === 0 ? ' is-top' : ''}">
+        <span class="in-dos-sec">${escapeHtml(name)}</span>
+        <span class="in-dos-dots">${dots}</span>
+      </div>`;
+  }).join('');
+
+  const action = top
+    ? `Смотрел «${escapeHtml(top)}». ${score >= 70 ? 'Звони первым — горячий.' : score >= 40 ? 'Перезвони, интерес есть.' : 'Напиши, пока помнит.'}`
+    : '';
+
+  return `
+    <div class="in-dossier">
+      <div class="in-dos-head">
+        <span class="in-dos-title">${renderIcon('pulse')} Что смотрел</span>
+        <span class="in-dos-temp ${temp.cls}">${score}° · ${temp.text}</span>
+      </div>
+      <div class="in-dos-bar"><span style="width:${score}%"></span></div>
+      ${rows ? `<div class="in-dos-rows">${rows}</div>` : ''}
+      ${p.visits > 1 ? `<div class="in-dos-visits">Заходил ${p.visits} ${plural(p.visits, 'раз', 'раза', 'раз')}</div>` : ''}
+      ${action ? `<div class="in-dos-action">${renderIcon('info')} ${action}</div>` : ''}
+    </div>`;
+}
+
 // Сводка «Заявки по меткам»: по каждой метке — сколько заявок и конверсия из
 // заходов. Данные уже в tag.stats (opens/contacts). Метки без заявок — тоже
 // показываем: владелец видит, что этот QR раздаётся, но клиентов не приводит.
@@ -312,6 +376,7 @@ function renderLeads() {
                 <span class="in-lead-lock">${renderIcon('wallet')} Открыть контакт с Pro</span>
               </div>
             `}
+            ${state.ownerPro ? renderLeadDossier(l) : ''}
             <div class="in-lead-foot">
               <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}</span>
               <button type="button" class="in-lead-delete" data-lead-delete="${escapeAttr(l.id)}" aria-label="Удалить заявку">${renderIcon('trash')}</button>
