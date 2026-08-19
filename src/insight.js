@@ -18,6 +18,7 @@ const state = {
   tags: [],
   dialogs: [],
   leads: [],
+  hot: [],           // горячие гости без заявки («Догони»)
   ownerPro: false,
   tgConnected: false,
   loading: true,
@@ -337,6 +338,40 @@ function renderLeadDossier(lead) {
     </div>`;
 }
 
+// «Догони» — горячие гости, которые смотрели, но заявку не оставили. Контакта
+// нет (гость его не дал), но видно интерес и активность — владелец понимает,
+// что теряет заинтересованного человека. Показываем сортированными по градусу.
+function renderHotChase() {
+  if (!state.ownerPro || !state.hot.length) return '';
+  const rows = state.hot
+    .map((v) => ({ v, score: interestScore(v) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+    .map(({ v, score }) => {
+      const temp = interestLabel(score);
+      const top = Object.entries(v.interests || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || v.interest || '';
+      const src = tagLabelById(v.tagId);
+      return `
+        <div class="in-chase in-chase--${temp.cls.replace('is-', '')}">
+          <div class="in-chase-top">
+            <span class="in-chase-name">${top ? `Смотрел «${escapeHtml(top)}»` : 'Активный гость'}</span>
+            <span class="in-chase-temp ${temp.cls}">${score}°</span>
+          </div>
+          <div class="in-chase-meta">Заходил ${v.visits} ${plural(v.visits, 'раз', 'раза', 'раз')}${src ? ` · ${escapeHtml(src)}` : ''} · заявку не оставил</div>
+        </div>`;
+    })
+    .join('');
+  return `
+    <section class="in-section">
+      <div class="in-section-head">
+        <span class="in-section-title">Догони — смотрели, но молчат</span>
+      </div>
+      <p class="in-section-sub">Заинтересованные гости без заявки. Контакта нет, но интерес виден — стоит напомнить о себе.</p>
+      <div class="in-chases">${rows}</div>
+    </section>
+  `;
+}
+
 // Сводка «Заявки по меткам»: по каждой метке — сколько заявок и конверсия из
 // заходов. Данные уже в tag.stats (opens/contacts). Метки без заявок — тоже
 // показываем: владелец видит, что этот QR раздаётся, но клиентов не приводит.
@@ -505,6 +540,7 @@ function renderContent() {
 
       ${renderTelegramConnect()}
       ${renderLeads()}
+      ${renderHotChase()}
       ${renderLeadsByTag()}
 
       <section class="in-section">
@@ -543,6 +579,7 @@ export const insight = {
     state.tags = [];
     state.dialogs = [];
     state.leads = [];
+    state.hot = [];
     // Бесшовный Pro: если визитка помнит активную подписку — показываем Pro
     // сразу, ещё до ответа сервера. Сервер ниже подтвердит и продлит срок.
     state.ownerPro = localProActive();
@@ -558,6 +595,7 @@ export const insight = {
         state.tags = data.tags || [];
         state.dialogs = data.dialogs || [];
         state.leads = data.leads || [];
+        state.hot = data.hot || [];
         // Сервер — источник истины (он же режет данные по реальной подписке).
         // Пришёл ответ → синхронизируем и локальную память под него.
         state.ownerPro = data.ownerPro === true;

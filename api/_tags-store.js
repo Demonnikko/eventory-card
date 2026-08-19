@@ -35,6 +35,10 @@ const CARD_STATS_KEY = (slug) => `eventory:card:${slug}:stats`;
 const VISITOR_KEY = (slug, visitor) => `eventory:card:${slug}:visitor:${visitor}`;
 const DIALOG_KEY = (slug) => `eventory:card:${slug}:dialogs`;
 const LEADS_KEY = (slug) => `eventory:card:${slug}:leads`;
+// Индекс «горячих» гостей карточки (для «Догони»): Sorted Set, score = lastAt.
+// Только заинтересованные гости, не все анонимы — иначе индекс раздувается.
+const HOT_KEY = (slug) => `eventory:card:${slug}:hot`;
+const HOT_MAX = 50; // держим последних 50 горячих, старых вытесняем
 
 export const MAX_TAGS = 40;
 const YEAR = 60 * 60 * 24 * 365;
@@ -160,6 +164,22 @@ export async function readVisitor(slug, visitorId) {
   }
 }
 
+// Горячие гости карточки для «Догони» — заинтересованные, свежие сверху.
+// Возвращаем профили с visitorId, чтобы владелец мог отсеять тех, кто уже
+// оставил заявку. limit ограничивает выборку (обычно показываем немного).
+export async function listHotVisitors(slug, limit = 20) {
+  if (!storeConfigured()) return [];
+  // ZRANGE REV — от самых свежих (большой lastAt) к старым.
+  const ids = await redis(['ZRANGE', HOT_KEY(slug), '0', String(limit - 1), 'REV']);
+  if (!Array.isArray(ids) || !ids.length) return [];
+  const out = [];
+  for (const id of ids) {
+    const v = await readVisitor(slug, id);
+    if (v) out.push({ visitorId: id, ...v });
+  }
+  return out;
+}
+
 // Портрет гостя: сколько раз заходил, что смотрел, откуда пришёл. Интересы
 // копим ПО РАЗДЕЛАМ как счётчики (interests: {«цены»: 3, «галерея»: 1}) — так
 // виден главный интерес и его смена, а не последняя случайная строка.
@@ -186,6 +206,16 @@ export async function saveVisitor(slug, visitorId, data = {}) {
     tagId: String(data.tagId || prev.tagId || '').slice(0, 16)
   };
   await redis(['SET', VISITOR_KEY(slug, visitorId), JSON.stringify(next), 'EX', String(YEAR)]);
+
+  // Горячий гость — заходил не раз И смотрел разделы. Кладём в индекс «Догони»,
+  // чтобы владелец видел заинтересованных, даже если они не оставили заявку.
+  const isHot = next.visits >= 2 && Object.keys(interests).length > 0;
+  if (isHot) {
+    await redis(['ZADD', HOT_KEY(slug), String(next.lastAt), visitorId]);
+    // Держим индекс компактным: оставляем только HOT_MAX самых свежих.
+    await redis(['ZREMRANGEBYRANK', HOT_KEY(slug), '0', String(-HOT_MAX - 1)]);
+    await redis(['EXPIRE', HOT_KEY(slug), String(YEAR)]);
+  }
   return next;
 }
 

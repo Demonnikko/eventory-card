@@ -13,6 +13,7 @@ import {
   storeConfigured,
   listTags, saveTag, deleteTag, readTagStats,
   readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
+  listHotVisitors,
   saveDialog, listDialogs, markDialogsRead,
   saveLead, listLeads, markLeadsRead, deleteLead, ownerProStatus
 } from './_tags-store.js';
@@ -159,12 +160,31 @@ export default async function handler(req, res) {
       leads = rawLeads.map(({ contact, phone, vk, telegram, visitorId, ...rest }) => rest);
     }
 
+    // «Догони» — Pro: горячие гости, которые смотрели, но заявку НЕ оставили.
+    // Вычитаем тех, кто уже в заявках (по visitorId) — их вести уже не нужно.
+    let hot = [];
+    if (ownerPro) {
+      const leadVisitorIds = new Set(rawLeads.map((l) => l.visitorId).filter(Boolean));
+      const hotVisitors = await listHotVisitors(slug, 20);
+      hot = hotVisitors
+        .filter((v) => !leadVisitorIds.has(v.visitorId))
+        .map((v) => ({
+          visits: Number(v.visits) || 0,
+          interest: v.interest || '',
+          interests: v.interests || {},
+          firstAt: v.firstAt || 0,
+          lastAt: v.lastAt || 0,
+          tagId: v.tagId || ''
+        }));
+    }
+
     return res.status(200).json({
       ok: true,
       summary: await readCardStats(slug),
       tags: withStats,
       dialogs: await listDialogs(slug),
       leads,
+      hot,
       ownerPro,
       // Дата, до которой Pro активен — визитка запомнит её и покажет Pro-контент
       // без переспроса сервера до этого срока.
