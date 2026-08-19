@@ -1,9 +1,0 @@
-- generic [active] [ref=f4e1]:
-  - banner [ref=f4e2]:
-    - generic [ref=f4e4]: Визитка
-  - generic [ref=f4e6]: Загружаем…
-  - tablist "Разделы приложения" [ref=f4e90]:
-    - tab "Визитка" [selected] [ref=f4e192] [cursor=pointer]
-    - tab "Поделиться" [ref=f4e197] [cursor=pointer]
-    - tab "Отклик" [ref=f4e202] [cursor=pointer]
-    - tab "Просмотр" [ref=f4e206] [cursor=pointer]

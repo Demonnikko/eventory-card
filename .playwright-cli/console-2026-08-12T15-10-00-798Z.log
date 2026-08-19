@@ -1,4 +1,0 @@
-[     111ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "username"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:4174/#/editor:0
-[   31612ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "username"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:4174/#/editor:0
-[   48398ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:4174/api/card-review?slug=test-alex&key=ea1bac87b2a24b709cbecc161359bea6:0
-[   60214ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:4174/api/card-review?slug=test-alex:0
