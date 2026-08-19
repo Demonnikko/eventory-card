@@ -8,7 +8,7 @@ import { fetchReviews } from './reviews-data.js';
 import { renderAskBlock, bindAsk, resetAsk } from './card-ask.js';
 import { renderPriceRequest, bindPriceRequest, resetPriceRequest } from './price-request.js';
 import { downloadVCard } from './vcard.js';
-import { trackOpen, greetReturning, readTagFromUrl } from './insight-data.js';
+import { trackOpen, trackSection, greetReturning, readTagFromUrl } from './insight-data.js';
 import { upsellHref } from './crm-upsell.js';
 
 const state = {
@@ -69,6 +69,51 @@ function renderContent() {
 function updateMeta(card) {
   const name = card?.name || 'Визитка';
   document.title = card?.role ? `${name} — ${card.role}` : name;
+}
+
+// Наблюдатель разделов: раздел засчитываем в интерес, только если гость держал
+// его на экране дольше порога — так «пролистнул мимо» не путается с «изучал».
+// Каждый раздел шлём один раз за визит, чтобы один экран не накручивал счётчик.
+const SECTION_DWELL_MS = 2000;
+
+function observeSections(node, slug, tagId) {
+  if (typeof IntersectionObserver === 'undefined') return;
+  // Только ещё не подключённые секции — функцию можно звать повторно (после
+  // догрузки отзывов), не боясь задвоить наблюдение одного раздела.
+  const sections = node.querySelectorAll('[data-section]:not([data-section-seen])');
+  if (!sections.length) return;
+
+  const timers = new WeakMap();
+  const sent = new Set();
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const el = entry.target;
+      const name = el.getAttribute('data-section') || '';
+      if (!name || sent.has(name)) return;
+
+      if (entry.isIntersecting) {
+        // Появился на экране — запускаем отсчёт «досмотра».
+        if (!timers.has(el)) {
+          const t = setTimeout(() => {
+            sent.add(name);
+            trackSection(slug, tagId, name);
+            io.unobserve(el);
+          }, SECTION_DWELL_MS);
+          timers.set(el, t);
+        }
+      } else {
+        // Ушёл с экрана раньше порога — отсчёт сбрасываем.
+        const t = timers.get(el);
+        if (t) { clearTimeout(t); timers.delete(el); }
+      }
+    });
+  }, { threshold: 0.5 });
+
+  sections.forEach((el) => {
+    el.setAttribute('data-section-seen', '1');
+    io.observe(el);
+  });
 }
 
 export const publicCard = {
@@ -155,6 +200,10 @@ export const publicCard = {
 
     bindAsk(node, { slug, tagId: state.tagId });
     bindPriceRequest(node, { slug, tagId: state.tagId });
+
+    // Смарт-метрика: следим, какие разделы гость реально досмотрел (не просто
+    // проскроллил). По этому строится интерес — что предлагать именно ему.
+    observeSections(node, slug, state.tagId);
 
     // Переход в контакты — отдельный сигнал: он показывает, что визитка
     // сработала, а не просто открылась.

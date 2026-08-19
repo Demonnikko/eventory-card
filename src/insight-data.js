@@ -88,6 +88,16 @@ export function trackOpen(slug, tagId, { event = 'open', interest = '' } = {}) {
     .catch(() => { /* учёт не критичен */ });
 }
 
+// Гость досмотрел раздел визитки (галерея, цены, отзывы, конкретный пакет).
+// Фундамент смарт-метрики: по разделам считаем интерес гостя. section — понятное
+// название раздела, оно же ляжет в интерес («Свадебное шоу», «Цены»).
+export function trackSection(slug, tagId, section) {
+  const visitor = visitorId();
+  if (!slug || !section) return Promise.resolve();
+  return post({ action: 'track', slug, tag: tagId, visitor, event: 'view', section })
+    .catch(() => { /* учёт не критичен */ });
+}
+
 export async function greetReturning(slug) {
   const visitor = visitorId();
   if (!slug || !visitor) return null;

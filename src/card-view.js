@@ -103,7 +103,7 @@ function renderServices(card) {
   const packages = Array.isArray(card.servicePackages) ? card.servicePackages : [];
   if (!lines.length && !packages.length) return '';
   return `
-    <section class="cp-block" ${reveal()}>
+    <section class="cp-block" data-section="Услуги" ${reveal()}>
       <h2 class="cp-block-title">Услуги</h2>
       ${lines.length ? `
         <ul class="cp-services">
@@ -132,7 +132,7 @@ function renderGallery(card) {
   if (!photos.length) return '';
   const captions = Array.isArray(card.galleryCaptions) ? card.galleryCaptions : [];
   return `
-    <section class="cp-block" ${reveal()}>
+    <section class="cp-block" data-section="Работы" ${reveal()}>
       <h2 class="cp-block-title">Работы</h2>
       <div class="cp-gallery">
         ${photos.map((src, i) => `
@@ -221,7 +221,7 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
       ${renderReviewsSection(reviews)}
 
       ${card.priceFrom ? `
-        <section class="cp-block cp-price" ${reveal()}>
+        <section class="cp-block cp-price" data-section="Цены" ${reveal()}>
           <span class="cp-price-label">Стоимость от</span>
           <span class="cp-price-value">${escapeHtml(formatPrice(card.priceFrom))}</span>
         </section>

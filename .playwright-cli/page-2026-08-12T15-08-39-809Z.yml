@@ -1,0 +1,81 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e83]:
+    - generic [ref=f1e85]: Визитка
+  - generic [ref=f1e503]:
+    - generic [ref=f1e504]:
+      - generic [ref=f1e505]:
+        - generic [ref=f1e506]: Готовность визитки
+        - generic [ref=f1e507]: 6 из 6
+      - generic [ref=f1e510]: Визитка заполнена — можно публиковать
+    - button "Кто вы Имя, специализация, город" [ref=f1e512] [cursor=pointer]:
+      - generic [ref=f1e513]:
+        - generic [ref=f1e514]: Кто вы
+        - generic [ref=f1e515]: Имя, специализация, город
+    - button "Оформление Фото и галерея" [ref=f1e520] [cursor=pointer]:
+      - generic [ref=f1e521]:
+        - generic [ref=f1e522]: Оформление
+        - generic [ref=f1e523]: Фото и галерея
+    - button "Контакты Как с вами связаться" [ref=f1e528] [cursor=pointer]:
+      - generic [ref=f1e529]:
+        - generic [ref=f1e530]: Контакты
+        - generic [ref=f1e531]: Как с вами связаться
+    - generic [ref=f1e535]:
+      - button "О себе и услуги Что вы делаете и сколько это стоит" [expanded] [ref=f1e536] [cursor=pointer]:
+        - generic [ref=f1e537]:
+          - generic [ref=f1e538]: О себе и услуги
+          - generic [ref=f1e539]: Что вы делаете и сколько это стоит
+      - generic [ref=f1e543]:
+        - generic [ref=f1e544]:
+          - generic [ref=f1e545]: О себе
+          - textbox "О себе" [ref=f1e546]:
+            - /placeholder: Коротко о вашем опыте
+            - text: Ведущий с 2012 года. 400+ свадеб и корпоративов.
+        - generic [ref=f1e547]:
+          - generic [ref=f1e548]: Услуги
+          - textbox "Услуги" [ref=f1e549]:
+            - /placeholder: Каждая услуга с новой строки
+            - text: Ведущий свадеб\nВедущий корпоративов\nТимбилдинг
+        - generic [ref=f1e550]:
+          - generic [ref=f1e551]: Цена от
+          - textbox "Цена от" [ref=f1e552]:
+            - /placeholder: 30 000 ₽
+            - text: 30 000 ₽
+        - generic [ref=f1e553]:
+          - generic [ref=f1e554]:
+            - generic [ref=f1e555]: Пакеты услуг
+            - generic [ref=f1e556]: 1 из 3
+          - generic [ref=f1e557]:
+            - generic [ref=f1e558]:
+              - generic [ref=f1e559]: Пакет 1
+              - button "Удалить пакет 1" [ref=f1e560] [cursor=pointer]
+            - textbox "Название пакета 1" [ref=f1e564]:
+              - /placeholder: Название
+              - text: Пакет 1
+            - textbox "Цена пакета 1" [ref=f1e565]:
+              - /placeholder: Цена
+            - textbox "Описание пакета 1" [ref=f1e566]:
+              - /placeholder: Что входит
+          - button "Добавить пакет" [ref=f1e567] [cursor=pointer]
+        - link "Расчёт и КП Посчитать смету и отправить КП Расчёт стоимости, коммерческое предложение и счёт — в CRM-системе. Как это работает" [ref=f1e568] [cursor=pointer]:
+          - /url: https://eventory-mvp.vercel.app/?utm_source=card-app&utm_medium=upsell&utm_campaign=quote
+          - generic [ref=f1e569]: Расчёт и КП
+          - generic [ref=f1e570]: Посчитать смету и отправить КП
+          - generic [ref=f1e571]: Расчёт стоимости, коммерческое предложение и счёт — в CRM-системе.
+          - generic [ref=f1e572]: Как это работает
+    - button "Заявки Что происходит после клика" [ref=f1e576] [cursor=pointer]:
+      - generic [ref=f1e577]:
+        - generic [ref=f1e578]: Заявки
+        - generic [ref=f1e579]: Что происходит после клика
+    - button "Резервная копия Перенос и восстановление" [ref=f1e584] [cursor=pointer]:
+      - generic [ref=f1e585]:
+        - generic [ref=f1e586]: Резервная копия
+        - generic [ref=f1e587]: Перенос и восстановление
+    - generic [ref=f1e591]:
+      - generic [ref=f1e592]: Опубликуйте — получите ссылку и QR-код
+      - button "Опубликовать визитку" [ref=f1e593] [cursor=pointer]
+  - tablist "Разделы приложения" [ref=f1e167]:
+    - tab "Визитка" [selected] [ref=f1e168] [cursor=pointer]
+    - tab "Поделиться" [ref=f1e173] [cursor=pointer]
+    - tab "Отклик" [ref=f1e178] [cursor=pointer]
+    - tab "Просмотр" [ref=f1e182] [cursor=pointer]
+  - alert [ref=f1e594]: Не удалось опубликовать. Попробуйте ещё раз

@@ -1,0 +1,13 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e83]:
+    - generic [ref=f1e85]: Визитка
+  - generic [ref=f1e595]:
+    - paragraph [ref=f1e596]: Визитка ещё не опубликована
+    - paragraph [ref=f1e597]: Опубликуйте её — появится ссылка и QR-код.
+    - link "Вернуться к визитке" [ref=f1e598] [cursor=pointer]:
+      - /url: "#/editor"
+  - tablist "Разделы приложения" [ref=f1e167]:
+    - tab "Визитка" [ref=f1e599] [cursor=pointer]
+    - tab "Поделиться" [selected] [ref=f1e604] [cursor=pointer]
+    - tab "Отклик" [ref=f1e609] [cursor=pointer]
+    - tab "Просмотр" [ref=f1e613] [cursor=pointer]

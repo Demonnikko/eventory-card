@@ -160,14 +160,29 @@ export async function readVisitor(slug, visitorId) {
   }
 }
 
+// Портрет гостя: сколько раз заходил, что смотрел, откуда пришёл. Интересы
+// копим ПО РАЗДЕЛАМ как счётчики (interests: {«цены»: 3, «галерея»: 1}) — так
+// виден главный интерес и его смена, а не последняя случайная строка.
+//   countVisit: true  — новый заход (event=open), инкрементим visits
+//   section: 'галерея' — гость посмотрел раздел (event=view), +1 к его счётчику
 export async function saveVisitor(slug, visitorId, data = {}) {
   if (!storeConfigured() || !visitorId) return false;
   const prev = await readVisitor(slug, visitorId) || {};
+
+  const interests = (prev.interests && typeof prev.interests === 'object') ? { ...prev.interests } : {};
+  const section = String(data.section || data.interest || '').slice(0, 60).trim();
+  if (section) interests[section] = (Number(interests[section]) || 0) + 1;
+
+  // Главный интерес — раздел с наибольшим счётчиком (для быстрого показа).
+  const topInterest = Object.keys(interests)
+    .sort((a, b) => interests[b] - interests[a])[0] || prev.interest || '';
+
   const next = {
     firstAt: prev.firstAt || Date.now(),
     lastAt: Date.now(),
-    visits: (Number(prev.visits) || 0) + 1,
-    interest: String(data.interest || prev.interest || '').slice(0, 80),
+    visits: (Number(prev.visits) || 0) + (data.countVisit ? 1 : 0),
+    interest: String(topInterest).slice(0, 80),
+    interests,
     tagId: String(data.tagId || prev.tagId || '').slice(0, 16)
   };
   await redis(['SET', VISITOR_KEY(slug, visitorId), JSON.stringify(next), 'EX', String(YEAR)]);

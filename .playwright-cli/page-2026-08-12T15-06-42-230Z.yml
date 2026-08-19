@@ -1,0 +1,17 @@
+- generic [ref=f1e19]:
+  - generic [ref=f1e57]:
+    - strong [ref=f1e58]: Ваше имя
+    - emphasis [ref=f1e59]: Ведущий
+  - generic [ref=f1e26]:
+    - paragraph [ref=f1e27]: Шаг 1 из 2
+    - heading "Кто вы?" [level=2] [ref=f1e28]
+    - paragraph [ref=f1e29]: Фон визитки подберётся под ваше направление.
+  - generic [ref=f1e30]:
+    - button "Ведущий" [active] [pressed] [ref=f1e31] [cursor=pointer]
+    - button "Иллюзионист" [ref=f1e34] [cursor=pointer]
+    - button "Вокалист" [ref=f1e37] [cursor=pointer]
+    - button "Организатор" [ref=f1e40] [cursor=pointer]
+    - button "Декоратор" [ref=f1e43] [cursor=pointer]
+    - button "Видеограф" [ref=f1e46] [cursor=pointer]
+    - button "Фотограф" [ref=f1e49] [cursor=pointer]
+  - button "Дальше" [ref=f1e63] [cursor=pointer]

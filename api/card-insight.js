@@ -192,21 +192,34 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  /* ─────────── Гость открыл визитку ─────────── */
+  /* ─────────── Гость открыл визитку / посмотрел раздел ─────────── */
   if (action === 'track') {
     const rawTagId = String(body.tag || '').trim();
     const tagId = /^[a-f0-9]{8}$/i.test(rawTagId) ? rawTagId.toLowerCase() : '';
     const rawVisitorId = String(body.visitor || '').trim();
     const visitorId = /^[a-z0-9_-]{8,64}$/i.test(rawVisitorId) ? rawVisitorId : '';
     const event = String(body.event || 'open');
-    if (!['open', 'contact'].includes(event)) return fail(res, 400, 'invalid_event');
+    // view — гость досмотрел раздел (галерея/цены/отзывы/пакет). Не считается за
+    // открытие карточки, только копит интерес для смарт-метрики.
+    if (!['open', 'contact', 'view'].includes(event)) return fail(res, 400, 'invalid_event');
+
+    if (event === 'view') {
+      // Просмотр раздела: интерес есть только при известном разделе и госте.
+      const section = String(body.section || '').slice(0, 60).trim();
+      if (visitorId && section) {
+        await saveVisitor(slug, visitorId, { tagId, section });
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     await trackCardOpen(slug, visitorId, event);
     if (tagId) {
       await trackTagOpen(slug, tagId, visitorId, event);
     }
     // Запоминаем визит независимо от метки — для узнавания при возврате.
+    // countVisit только для open: contact не должен накручивать счётчик заходов.
     if (visitorId) {
-      await saveVisitor(slug, visitorId, { tagId, interest: body.interest });
+      await saveVisitor(slug, visitorId, { tagId, countVisit: event === 'open' });
     }
     return res.status(200).json({ ok: true });
   }

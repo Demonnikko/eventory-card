@@ -1,0 +1,66 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e83]:
+    - generic [ref=f1e85]: Визитка
+  - generic [ref=f1e331]:
+    - generic [ref=f1e332]:
+      - generic [ref=f1e333]:
+        - generic [ref=f1e334]: Готовность визитки
+        - generic [ref=f1e335]: 4 из 6
+      - generic [ref=f1e338]: "Осталось: О себе, Услуги или цена"
+    - button "Кто вы Имя, специализация, город" [ref=f1e340] [cursor=pointer]:
+      - generic [ref=f1e341]:
+        - generic [ref=f1e342]: Кто вы
+        - generic [ref=f1e343]: Имя, специализация, город
+    - button "Оформление Фото и галерея" [ref=f1e348] [cursor=pointer]:
+      - generic [ref=f1e349]:
+        - generic [ref=f1e350]: Оформление
+        - generic [ref=f1e351]: Фото и галерея
+    - button "Контакты Как с вами связаться" [ref=f1e356] [cursor=pointer]:
+      - generic [ref=f1e357]:
+        - generic [ref=f1e358]: Контакты
+        - generic [ref=f1e359]: Как с вами связаться
+    - generic [ref=f1e363]:
+      - button "О себе и услуги Что вы делаете и сколько это стоит" [expanded] [ref=f1e364] [cursor=pointer]:
+        - generic [ref=f1e365]:
+          - generic [ref=f1e366]: О себе и услуги
+          - generic [ref=f1e367]: Что вы делаете и сколько это стоит
+      - generic [ref=f1e371]:
+        - generic [ref=f1e372]:
+          - generic [ref=f1e373]: О себе
+          - textbox "О себе" [ref=f1e374]:
+            - /placeholder: Коротко о вашем опыте
+        - generic [ref=f1e375]:
+          - generic [ref=f1e376]: Услуги
+          - textbox "Услуги" [ref=f1e377]:
+            - /placeholder: Каждая услуга с новой строки
+        - generic [ref=f1e378]:
+          - generic [ref=f1e379]: Цена от
+          - textbox "Цена от" [ref=f1e380]:
+            - /placeholder: 30 000 ₽
+        - generic [ref=f1e381]:
+          - generic [ref=f1e382]:
+            - generic [ref=f1e383]: Пакеты услуг
+            - generic [ref=f1e384]: 0 из 3
+          - button "Добавить пакет" [ref=f1e385] [cursor=pointer]
+        - link "Расчёт и КП Посчитать смету и отправить КП Расчёт стоимости, коммерческое предложение и счёт — в CRM-системе. Как это работает" [ref=f1e386] [cursor=pointer]:
+          - /url: https://eventory-mvp.vercel.app/?utm_source=card-app&utm_medium=upsell&utm_campaign=quote
+          - generic [ref=f1e387]: Расчёт и КП
+          - generic [ref=f1e388]: Посчитать смету и отправить КП
+          - generic [ref=f1e389]: Расчёт стоимости, коммерческое предложение и счёт — в CRM-системе.
+          - generic [ref=f1e390]: Как это работает
+    - button "Заявки Что происходит после клика" [ref=f1e394] [cursor=pointer]:
+      - generic [ref=f1e395]:
+        - generic [ref=f1e396]: Заявки
+        - generic [ref=f1e397]: Что происходит после клика
+    - button "Резервная копия Перенос и восстановление" [ref=f1e402] [cursor=pointer]:
+      - generic [ref=f1e403]:
+        - generic [ref=f1e404]: Резервная копия
+        - generic [ref=f1e405]: Перенос и восстановление
+    - generic [ref=f1e409]:
+      - generic [ref=f1e410]: Опубликуйте — получите ссылку и QR-код
+      - button "Опубликовать визитку" [ref=f1e411] [cursor=pointer]
+  - tablist "Разделы приложения" [ref=f1e167]:
+    - tab "Визитка" [selected] [ref=f1e168] [cursor=pointer]
+    - tab "Поделиться" [ref=f1e173] [cursor=pointer]
+    - tab "Отклик" [ref=f1e178] [cursor=pointer]
+    - tab "Просмотр" [ref=f1e182] [cursor=pointer]

@@ -1,0 +1,59 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e83]:
+    - generic [ref=f1e85]: Визитка
+  - generic [ref=f1e259]:
+    - generic [ref=f1e260]:
+      - generic [ref=f1e261]:
+        - generic [ref=f1e262]: Готовность визитки
+        - generic [ref=f1e263]: 3 из 6
+      - generic [ref=f1e266]: "Осталось: Контакт для связи, О себе, Услуги или цена"
+    - button "Кто вы Имя, специализация, город" [ref=f1e268] [cursor=pointer]:
+      - generic [ref=f1e269]:
+        - generic [ref=f1e270]: Кто вы
+        - generic [ref=f1e271]: Имя, специализация, город
+    - button "Оформление Фото и галерея" [ref=f1e276] [cursor=pointer]:
+      - generic [ref=f1e277]:
+        - generic [ref=f1e278]: Оформление
+        - generic [ref=f1e279]: Фото и галерея
+    - generic [ref=f1e283]:
+      - button "Контакты Как с вами связаться" [expanded] [ref=f1e284] [cursor=pointer]:
+        - generic [ref=f1e285]:
+          - generic [ref=f1e286]: Контакты
+          - generic [ref=f1e287]: Как с вами связаться
+      - generic [ref=f1e291]:
+        - generic [ref=f1e292]:
+          - generic [ref=f1e293]: Телефон
+          - textbox "Телефон" [ref=f1e294]:
+            - /placeholder: +7 900 000-00-00
+        - generic [ref=f1e295]:
+          - generic [ref=f1e296]: Telegram
+          - textbox "Telegram" [ref=f1e297]:
+            - /placeholder: "@username"
+        - generic [ref=f1e298]:
+          - generic [ref=f1e299]: Email
+          - textbox "Email" [ref=f1e300]:
+            - /placeholder: mail@example.com
+        - generic [ref=f1e301]:
+          - generic [ref=f1e302]: Сайт или соцсеть
+          - textbox "Сайт или соцсеть" [ref=f1e303]:
+            - /placeholder: https://
+    - button "О себе и услуги Что вы делаете и сколько это стоит" [ref=f1e305] [cursor=pointer]:
+      - generic [ref=f1e306]:
+        - generic [ref=f1e307]: О себе и услуги
+        - generic [ref=f1e308]: Что вы делаете и сколько это стоит
+    - button "Заявки Что происходит после клика" [ref=f1e313] [cursor=pointer]:
+      - generic [ref=f1e314]:
+        - generic [ref=f1e315]: Заявки
+        - generic [ref=f1e316]: Что происходит после клика
+    - button "Резервная копия Перенос и восстановление" [ref=f1e321] [cursor=pointer]:
+      - generic [ref=f1e322]:
+        - generic [ref=f1e323]: Резервная копия
+        - generic [ref=f1e324]: Перенос и восстановление
+    - generic [ref=f1e328]:
+      - generic [ref=f1e329]: Опубликуйте — получите ссылку и QR-код
+      - button "Опубликовать визитку" [ref=f1e330] [cursor=pointer]
+  - tablist "Разделы приложения" [ref=f1e167]:
+    - tab "Визитка" [selected] [ref=f1e168] [cursor=pointer]
+    - tab "Поделиться" [ref=f1e173] [cursor=pointer]
+    - tab "Отклик" [ref=f1e178] [cursor=pointer]
+    - tab "Просмотр" [ref=f1e182] [cursor=pointer]

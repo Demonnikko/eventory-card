@@ -63,7 +63,7 @@ export function renderReviewsSection(reviews) {
   // Мало отзывов — показываем всех крупно, без деления.
   if (reviews.length <= HERO_COUNT) {
     return `
-    <section class="cp-block cp-reviews" data-reviews>
+    <section class="cp-block cp-reviews" data-section="Отзывы" data-reviews>
       <h2 class="cp-block-title">Отзывы</h2>
       <div class="cp-reels" role="list">
         ${reviews.map((r, i) => reelMarkup(r, i, false)).join('')}
@@ -78,7 +78,7 @@ export function renderReviewsSection(reviews) {
   const tail = reviews.slice(HERO_COUNT);
 
   return `
-    <section class="cp-block cp-reviews" data-reviews>
+    <section class="cp-block cp-reviews" data-section="Отзывы" data-reviews>
       <h2 class="cp-block-title">Отзывы</h2>
       <div class="cp-reels" role="list">
         ${heroes.map((r, i) => reelMarkup(r, i, false)).join('')}

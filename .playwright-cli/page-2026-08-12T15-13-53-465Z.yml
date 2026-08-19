@@ -1,0 +1,72 @@
+- generic [active] [ref=f4e1]:
+  - banner [ref=f4e2]:
+    - generic [ref=f4e4]: Визитка
+  - generic [ref=f4e109]:
+    - generic [ref=f4e110]:
+      - generic [ref=f4e111]:
+        - generic [ref=f4e112]: Готовность визитки
+        - generic [ref=f4e113]: 6 из 6
+      - generic [ref=f4e116]: Визитка заполнена — можно публиковать
+    - generic [ref=f4e117]:
+      - button "Кто вы Имя, специализация, город" [expanded] [ref=f4e118] [cursor=pointer]:
+        - generic [ref=f4e119]:
+          - generic [ref=f4e120]: Кто вы
+          - generic [ref=f4e121]: Имя, специализация, город
+      - generic [ref=f4e125]:
+        - generic [ref=f4e126]:
+          - button "Ведущий" [ref=f4e127] [cursor=pointer]
+          - button "Иллюзионист" [ref=f4e128] [cursor=pointer]
+          - button "Вокалист" [ref=f4e129] [cursor=pointer]
+          - button "Организатор" [ref=f4e130] [cursor=pointer]
+          - button "Декоратор" [ref=f4e131] [cursor=pointer]
+          - button "Видеограф" [ref=f4e132] [cursor=pointer]
+          - button "Фотограф" [ref=f4e133] [cursor=pointer]
+        - generic [ref=f4e134]:
+          - generic [ref=f4e135]: Имя
+          - textbox "Имя" [ref=f4e136]:
+            - /placeholder: Как вас зовут
+            - text: Александр Соколов
+        - generic [ref=f4e137]:
+          - generic [ref=f4e138]: Чем занимаетесь
+          - textbox "Чем занимаетесь" [ref=f4e139]:
+            - /placeholder: Ведущий, фотограф, декоратор…
+            - text: Ведущий мероприятий
+        - generic [ref=f4e140]:
+          - generic [ref=f4e141]: Город
+          - textbox "Город" [ref=f4e142]:
+            - /placeholder: Москва
+            - text: Москва
+        - generic [ref=f4e143]:
+          - generic [ref=f4e144]: Короткая подпись
+          - textbox "Короткая подпись" [ref=f4e145]:
+            - /placeholder: Свадьбы и корпоративы под ключ
+            - text: Свадьбы и корпоративы под ключ
+    - button "Оформление Фото и галерея" [ref=f4e147] [cursor=pointer]:
+      - generic [ref=f4e148]:
+        - generic [ref=f4e149]: Оформление
+        - generic [ref=f4e150]: Фото и галерея
+    - button "Контакты Как с вами связаться" [ref=f4e155] [cursor=pointer]:
+      - generic [ref=f4e156]:
+        - generic [ref=f4e157]: Контакты
+        - generic [ref=f4e158]: Как с вами связаться
+    - button "О себе и услуги Что вы делаете и сколько это стоит" [ref=f4e163] [cursor=pointer]:
+      - generic [ref=f4e164]:
+        - generic [ref=f4e165]: О себе и услуги
+        - generic [ref=f4e166]: Что вы делаете и сколько это стоит
+    - button "Заявки Что происходит после клика" [ref=f4e171] [cursor=pointer]:
+      - generic [ref=f4e172]:
+        - generic [ref=f4e173]: Заявки
+        - generic [ref=f4e174]: Что происходит после клика
+    - button "Резервная копия Перенос и восстановление" [ref=f4e179] [cursor=pointer]:
+      - generic [ref=f4e180]:
+        - generic [ref=f4e181]: Резервная копия
+        - generic [ref=f4e182]: Перенос и восстановление
+    - generic [ref=f4e186]:
+      - generic [ref=f4e187]: Визитка опубликована
+      - button "Обновить визитку" [ref=f4e190] [cursor=pointer]
+      - button "Ссылка и QR-код" [ref=f4e191] [cursor=pointer]
+  - tablist "Разделы приложения" [ref=f4e90]:
+    - tab "Визитка" [selected] [ref=f4e192] [cursor=pointer]
+    - tab "Поделиться" [ref=f4e197] [cursor=pointer]
+    - tab "Отклик" [ref=f4e202] [cursor=pointer]
+    - tab "Просмотр" [ref=f4e206] [cursor=pointer]

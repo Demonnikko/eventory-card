@@ -1,0 +1,80 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e83]:
+    - generic [ref=f1e85]: Визитка
+  - generic [ref=f1e639]:
+    - generic [ref=f1e640]:
+      - generic [ref=f1e641]:
+        - generic [ref=f1e642]: Готовность визитки
+        - generic [ref=f1e643]: 6 из 6
+      - generic [ref=f1e646]: Визитка заполнена — можно публиковать
+    - button "Кто вы Имя, специализация, город" [ref=f1e648] [cursor=pointer]:
+      - generic [ref=f1e649]:
+        - generic [ref=f1e650]: Кто вы
+        - generic [ref=f1e651]: Имя, специализация, город
+    - button "Оформление Фото и галерея" [ref=f1e656] [cursor=pointer]:
+      - generic [ref=f1e657]:
+        - generic [ref=f1e658]: Оформление
+        - generic [ref=f1e659]: Фото и галерея
+    - button "Контакты Как с вами связаться" [ref=f1e664] [cursor=pointer]:
+      - generic [ref=f1e665]:
+        - generic [ref=f1e666]: Контакты
+        - generic [ref=f1e667]: Как с вами связаться
+    - generic [ref=f1e671]:
+      - button "О себе и услуги Что вы делаете и сколько это стоит" [expanded] [ref=f1e672] [cursor=pointer]:
+        - generic [ref=f1e673]:
+          - generic [ref=f1e674]: О себе и услуги
+          - generic [ref=f1e675]: Что вы делаете и сколько это стоит
+      - generic [ref=f1e679]:
+        - generic [ref=f1e680]:
+          - generic [ref=f1e681]: О себе
+          - textbox "О себе" [ref=f1e682]:
+            - /placeholder: Коротко о вашем опыте
+            - text: Ведущий с 2012 года. 400+ свадеб и корпоративов.
+        - generic [ref=f1e683]:
+          - generic [ref=f1e684]: Услуги
+          - textbox "Услуги" [ref=f1e685]:
+            - /placeholder: Каждая услуга с новой строки
+            - text: Ведущий свадеб\nВедущий корпоративов\nТимбилдинг
+        - generic [ref=f1e686]:
+          - generic [ref=f1e687]: Цена от
+          - textbox "Цена от" [ref=f1e688]:
+            - /placeholder: 30 000 ₽
+            - text: 30 000 ₽
+        - generic [ref=f1e689]:
+          - generic [ref=f1e690]:
+            - generic [ref=f1e691]: Пакеты услуг
+            - generic [ref=f1e692]: 1 из 3
+          - generic [ref=f1e693]:
+            - generic [ref=f1e694]:
+              - generic [ref=f1e695]: Пакет 1
+              - button "Удалить пакет 1" [ref=f1e696] [cursor=pointer]
+            - textbox "Название пакета 1" [ref=f1e700]:
+              - /placeholder: Название
+              - text: Пакет 1
+            - textbox "Цена пакета 1" [ref=f1e701]:
+              - /placeholder: Цена
+            - textbox "Описание пакета 1" [ref=f1e702]:
+              - /placeholder: Что входит
+          - button "Добавить пакет" [ref=f1e703] [cursor=pointer]
+        - link "Расчёт и КП Посчитать смету и отправить КП Расчёт стоимости, коммерческое предложение и счёт — в CRM-системе. Как это работает" [ref=f1e704] [cursor=pointer]:
+          - /url: https://eventory-mvp.vercel.app/?utm_source=card-app&utm_medium=upsell&utm_campaign=quote
+          - generic [ref=f1e705]: Расчёт и КП
+          - generic [ref=f1e706]: Посчитать смету и отправить КП
+          - generic [ref=f1e707]: Расчёт стоимости, коммерческое предложение и счёт — в CRM-системе.
+          - generic [ref=f1e708]: Как это работает
+    - button "Заявки Что происходит после клика" [ref=f1e712] [cursor=pointer]:
+      - generic [ref=f1e713]:
+        - generic [ref=f1e714]: Заявки
+        - generic [ref=f1e715]: Что происходит после клика
+    - button "Резервная копия Перенос и восстановление" [ref=f1e720] [cursor=pointer]:
+      - generic [ref=f1e721]:
+        - generic [ref=f1e722]: Резервная копия
+        - generic [ref=f1e723]: Перенос и восстановление
+    - generic [ref=f1e727]:
+      - generic [ref=f1e728]: Опубликуйте — получите ссылку и QR-код
+      - button "Опубликовать визитку" [ref=f1e729] [cursor=pointer]
+  - tablist "Разделы приложения" [ref=f1e167]:
+    - tab "Визитка" [selected] [ref=f1e730] [cursor=pointer]
+    - tab "Поделиться" [ref=f1e735] [cursor=pointer]
+    - tab "Отклик" [ref=f1e740] [cursor=pointer]
+    - tab "Просмотр" [ref=f1e744] [cursor=pointer]
