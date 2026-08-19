@@ -318,3 +318,20 @@ export async function isOwnerPro(leadKey) {
   const pro = await redis(['GET', `eventory:pro-device:${deviceId}`]);
   return pro === '1';
 }
+
+// Pro со сроком действия. proUntil — до какой даты подписка активна (по TTL
+// отметки pro-device). Визитка запоминает эту дату у себя и до неё показывает
+// Pro-контент, не переспрашивая сервер каждый раз — бесшовно для владельца.
+export async function ownerProStatus(leadKey) {
+  if (!storeConfigured()) return { pro: false, proUntil: 0 };
+  const key = String(leadKey || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{32}$/.test(key)) return { pro: false, proUntil: 0 };
+  const deviceId = await redis(['GET', `eventory:card-link:${key}`]);
+  if (!deviceId) return { pro: false, proUntil: 0 };
+  const pro = await redis(['GET', `eventory:pro-device:${deviceId}`]);
+  if (pro !== '1') return { pro: false, proUntil: 0 };
+  // TTL отметки = сколько секунд подписка ещё активна. Переводим в дату.
+  const ttl = Number(await redis(['TTL', `eventory:pro-device:${deviceId}`]));
+  const proUntil = ttl > 0 ? Date.now() + ttl * 1000 : 0;
+  return { pro: true, proUntil };
+}

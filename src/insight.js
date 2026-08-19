@@ -26,6 +26,31 @@ const state = {
   qrFor: ''          // id метки, для которой показан QR
 };
 
+// Бесшовный Pro: визитка запоминает, до какой даты подписка активна, и до неё
+// показывает Pro-контент СРАЗУ, не переспрашивая сервер. Сервер сверяется тихо
+// в фоне и продлевает срок. Владельцу не нужно каждый раз подтверждать Pro.
+const PRO_UNTIL_KEY = 'eventory-card:pro-until';
+
+function readLocalProUntil() {
+  try {
+    return Number(localStorage.getItem(PRO_UNTIL_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeLocalProUntil(ts) {
+  try {
+    const val = Number(ts) || 0;
+    if (val > Date.now()) localStorage.setItem(PRO_UNTIL_KEY, String(val));
+    else localStorage.removeItem(PRO_UNTIL_KEY);
+  } catch { /* приватный режим — не критично, просто без памяти */ }
+}
+
+function localProActive() {
+  return readLocalProUntil() > Date.now();
+}
+
 function formatDate(ts) {
   const time = Number(ts);
   if (!time) return '';
@@ -518,7 +543,9 @@ export const insight = {
     state.tags = [];
     state.dialogs = [];
     state.leads = [];
-    state.ownerPro = false;
+    // Бесшовный Pro: если визитка помнит активную подписку — показываем Pro
+    // сразу, ещё до ответа сервера. Сервер ниже подтвердит и продлит срок.
+    state.ownerPro = localProActive();
     state.tgConnected = false;
     state.card = await getCard();
 
@@ -531,7 +558,10 @@ export const insight = {
         state.tags = data.tags || [];
         state.dialogs = data.dialogs || [];
         state.leads = data.leads || [];
+        // Сервер — источник истины (он же режет данные по реальной подписке).
+        // Пришёл ответ → синхронизируем и локальную память под него.
         state.ownerPro = data.ownerPro === true;
+        writeLocalProUntil(data.ownerPro === true ? data.proUntil : 0);
         // Владелец увидел вопросы — снимаем пометку «новое».
         if (state.dialogs.some((d) => !d.read)) markDialogsRead().catch(() => {});
         if (state.leads.some((l) => !l.read)) markLeadsRead().catch(() => {});

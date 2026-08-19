@@ -14,7 +14,7 @@ import {
   listTags, saveTag, deleteTag, readTagStats,
   readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
   saveDialog, listDialogs, markDialogsRead,
-  saveLead, listLeads, markLeadsRead, deleteLead, isOwnerPro
+  saveLead, listLeads, markLeadsRead, deleteLead, ownerProStatus
 } from './_tags-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
@@ -131,7 +131,8 @@ export default async function handler(req, res) {
     // ответе, поэтому barrier не обойти через DevTools. Имя и дата остаются:
     // владелец видит, что спрос есть, но чтобы ответить — нужен Pro.
     // Ключ уже прошёл проверку в assertOwner выше — используем его как есть.
-    const ownerPro = await isOwnerPro(String(req.query?.key || ''));
+    const proStatus = await ownerProStatus(String(req.query?.key || ''));
+    const ownerPro = proStatus.pro;
     const rawLeads = await listLeads(slug);
 
     // Досье клиента — Pro: к каждой заявке приложить профиль гостя (что смотрел,
@@ -164,7 +165,10 @@ export default async function handler(req, res) {
       tags: withStats,
       dialogs: await listDialogs(slug),
       leads,
-      ownerPro
+      ownerPro,
+      // Дата, до которой Pro активен — визитка запомнит её и покажет Pro-контент
+      // без переспроса сервера до этого срока.
+      proUntil: proStatus.proUntil
     });
   }
 
