@@ -61,9 +61,29 @@ function renderContent() {
     interactive: true,
     reviews: state.reviews,
     greeting: state.greeting,
+    offer: offerAllowed() ? state.greeting : null,
     priceRequest: renderPriceRequest(state.card),
     ask: renderAskBlock(state.card)
   })}${renderFooter()}</div>`;
+}
+
+// Умный оффер показываем горячему гостю ОДИН раз — чтобы не превратить визитку
+// в назойливый поп-ап. Отметку о показе храним в браузере гостя на 7 дней.
+const OFFER_SEEN_KEY = 'eventory-card:offer-seen';
+
+function offerAllowed() {
+  try {
+    const seen = Number(localStorage.getItem(OFFER_SEEN_KEY)) || 0;
+    return Date.now() - seen > 7 * 86400000;
+  } catch {
+    return true;
+  }
+}
+
+function markOfferSeen() {
+  try {
+    localStorage.setItem(OFFER_SEEN_KEY, String(Date.now()));
+  } catch { /* приватный режим — просто покажем снова в следующий раз */ }
 }
 
 function updateMeta(card) {
@@ -200,6 +220,19 @@ export const publicCard = {
 
     bindAsk(node, { slug, tagId: state.tagId });
     bindPriceRequest(node, { slug, tagId: state.tagId });
+
+    // Умный оффер: кнопка «Получить предложение» открывает ту же форму заявки.
+    // Помечаем оффер показанным — чтобы не появлялся при каждом заходе.
+    const offerBtn = node.querySelector('[data-offer-cta]');
+    if (offerBtn) {
+      offerBtn.addEventListener('click', () => {
+        markOfferSeen();
+        node.querySelector('[data-offer]')?.setAttribute('hidden', '');
+        const toggle = node.querySelector('[data-price-toggle]');
+        toggle?.click();
+        toggle?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
 
     // Смарт-метрика: следим, какие разделы гость реально досмотрел (не просто
     // проскроллил). По этому строится интерес — что предлагать именно ему.

@@ -11,7 +11,7 @@ import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon, renderBrandIcon, hasBrandIcon } from './shared/components/icons.js';
 import { businessCardTemplateUrl } from './shared/data/businessCard.js';
 import { renderReviewsSection } from './reviews-view.js';
-import { renderGreeting } from './card-ask.js';
+import { renderGreeting, renderSmartOffer } from './card-ask.js';
 
 // Мессенджеры и соцсети — фирменными цветными иконками из public/icons/brands.
 // Раньше Telegram подменялся на стрелку «поделиться» — выглядело чужеродно.
@@ -188,7 +188,7 @@ function renderHero(card) {
 // вторым аргументом и вставляются перед ценой, ближе к решению написать.
 // greeting — узнавание вернувшегося гостя, ask — блок быстрых вопросов.
 // Оба грузятся отдельно от карточки, поэтому приходят параметрами.
-export function renderCardView(card, { interactive = true, reviews = [], greeting = null, ask = '', priceRequest = '' } = {}) {
+export function renderCardView(card, { interactive = true, reviews = [], greeting = null, offer = null, ask = '', priceRequest = '' } = {}) {
   revealIndex = 0;
 
   const ctaHref = telegramHref(card.telegram)
@@ -226,6 +226,8 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
           <span class="cp-price-value">${escapeHtml(formatPrice(card.priceFrom))}</span>
         </section>
       ` : ''}
+
+      ${offer ? renderSmartOffer(offer) : ''}
 
       ${priceRequest}
 

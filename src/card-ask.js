@@ -53,6 +53,36 @@ function formatWhen(ts) {
   return `${Math.floor(days / 30)} мес. назад`;
 }
 
+// Персональный текст оффера по интересу гостя. Названия разделов из трекинга
+// («Работы», «Цены», «Услуги») переводим в человеческую фразу о том, что он
+// смотрел — чтобы оффер звучал как «вижу твой интерес», а не как реклама.
+function offerLine(interest) {
+  const map = {
+    'Работы': 'вам понравились мои работы',
+    'Цены': 'вас интересует стоимость',
+    'Услуги': 'вы присматриваетесь к услугам',
+    'Отзывы': 'вы читали отзывы'
+  };
+  return map[interest] || 'вас заинтересовала визитка';
+}
+
+// Умный оффер: горячему вернувшемуся гостю показываем персональное предложение
+// оставить контакт — ловим клиента в момент интереса, пока он ещё думает.
+// Кнопка ведёт в ту же форму «Узнать цену». Данные берём из greeting (visits,
+// interest). Показ — забота вызывающего (один раз за сессию, не назойливо).
+export function renderSmartOffer(greeting) {
+  if (!greeting || !greeting.returning) return '';
+  const interest = String(greeting.interest || '').trim();
+  return `
+    <div class="cp-offer" data-offer>
+      <span class="cp-offer-badge">${renderIcon('user')} Персонально для вас</span>
+      <span class="cp-offer-title">Похоже, ${offerLine(interest)}</span>
+      <span class="cp-offer-text">Оставьте контакт — вернусь с предложением и свободными датами. Отвечу лично.</span>
+      <button type="button" class="cp-offer-btn" data-offer-cta>Получить предложение</button>
+    </div>
+  `;
+}
+
 export function renderAskBlock(card) {
   // Карточку держим в состоянии: перерисовка блока происходит без участия
   // родительской вьюхи, и данные должны быть под рукой.
