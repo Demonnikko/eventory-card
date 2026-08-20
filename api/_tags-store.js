@@ -337,6 +337,25 @@ export async function deleteLead(slug, id) {
   return true;
 }
 
+// Владелец вручную приписывает заявке метку-источник (клиент пришёл не по QR,
+// а сказал устно «я со свадьбы 20.05»). tagId='' снимает метку. Возвращает
+// false, если заявки с таким id нет.
+export async function setLeadTag(slug, id, tagId) {
+  if (!storeConfigured()) return false;
+  const wanted = String(id || '').trim();
+  if (!wanted) return false;
+  const all = await listLeads(slug);
+  let found = false;
+  const next = all.map((l) => {
+    if (String(l.id) !== wanted) return l;
+    found = true;
+    return { ...l, tagId: String(tagId || '').slice(0, 16) };
+  });
+  if (!found) return false;
+  await redis(['SET', LEADS_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
+  return true;
+}
+
 // Есть ли у владельца карточки активная Pro-подписка Eventory. Мост: карточка
 // связана с устройством Eventory (card-link, пишет Eventory при переходе по
 // ссылке), а устройство помечено Pro (pro-device, пишет Eventory пока подписка

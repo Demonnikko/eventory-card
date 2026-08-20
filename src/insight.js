@@ -9,7 +9,7 @@ import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
 import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
 import { getCard } from './card-data.js';
-import { fetchInsight, createTag, deleteTag, deleteLead, markDialogsRead, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
+import { fetchInsight, createTag, deleteTag, deleteLead, setLeadTag, markDialogsRead, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 const state = {
@@ -266,12 +266,29 @@ function tagLabelById(tagId) {
   return tag ? tag.label : '';
 }
 
-// Бейдж источника заявки: метка QR, по которому клиент пришёл. Пусто — если
-// заявка без метки (прямой заход), тогда бейдж не рисуем.
-function renderLeadSource(tagId) {
+// Бейдж источника заявки + ручная пометка. Если клиент пришёл по QR — метка
+// стоит сама. Если пришёл мимо QR (сказал устно) — владелец выбирает источник
+// вручную из своих меток. Выбор показываем только когда метки вообще заведены.
+function renderLeadSource(leadId, tagId) {
   const label = tagLabelById(tagId);
-  if (!label) return '';
-  return `<span class="in-lead-src">${renderIcon('qr')} ${escapeHtml(label)}</span>`;
+  const badge = label ? `<span class="in-lead-src">${renderIcon('qr')} ${escapeHtml(label)}</span>` : '';
+  // Нет ни одной метки — выбирать не из чего, показываем только бейдж (если есть).
+  if (!state.tags.length) return badge;
+
+  const options = state.tags
+    .map((t) => `<option value="${escapeAttr(t.id)}"${t.id === tagId ? ' selected' : ''}>${escapeHtml(t.label)}</option>`)
+    .join('');
+  // Селект с пустым первым пунктом = «убрать/не указан». Меняет источник заявки.
+  const select = `
+    <label class="in-lead-srcpick">
+      ${renderIcon('qr')}
+      <select class="in-lead-srcpick-sel" data-lead-tag="${escapeAttr(leadId)}" aria-label="Источник заявки">
+        <option value="">${label ? 'Сменить источник…' : 'Указать источник'}</option>
+        ${options}
+      </select>
+    </label>`;
+  // Если метка уже есть — показываем бейдж И даём сменить; если нет — только выбор.
+  return badge ? `${badge}${select}` : select;
 }
 
 // Крючок: гость пришёл по спецпредложению — показываем, по какому именно, чтобы
@@ -438,7 +455,7 @@ function renderLeads() {
               <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}</span>
               ${l.eventDate ? `<span class="in-lead-date">${escapeHtml(formatEventDate(l.eventDate))}</span>` : ''}
             </div>
-            ${renderLeadSource(l.tagId)}
+            ${renderLeadSource(l.id, l.tagId)}
             ${renderLeadOffer(l.offerLabel)}
             ${state.ownerPro ? renderLeadContactOpen(l) : `
               <div class="in-lead-contact-lock">
@@ -774,6 +791,25 @@ function bind(node) {
         toast.show('Заявка удалена');
       } catch {
         toast.show('Не удалось удалить', { error: true });
+      }
+    });
+  });
+
+  // Ручная пометка источника: владелец выбрал метку для заявки (клиент пришёл
+  // не по QR). Пустое значение = снять источник. Обновляем на сервере и в state.
+  node.querySelectorAll('[data-lead-tag]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      const id = sel.dataset.leadTag;
+      const tagId = sel.value;
+      try {
+        const ok = await setLeadTag(id, tagId);
+        if (!ok) { toast.show('Не удалось сохранить источник', { error: true }); return; }
+        const lead = state.leads.find((l) => l.id === id);
+        if (lead) lead.tagId = tagId;
+        rerender(node);
+        toast.show(tagId ? 'Источник указан' : 'Источник убран', { ok: true });
+      } catch {
+        toast.show('Не удалось сохранить источник', { error: true });
       }
     });
   });

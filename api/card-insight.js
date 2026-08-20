@@ -15,7 +15,7 @@ import {
   readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
   listHotVisitors,
   saveDialog, listDialogs, markDialogsRead,
-  saveLead, listLeads, markLeadsRead, deleteLead, ownerProStatus
+  saveLead, listLeads, markLeadsRead, deleteLead, setLeadTag, ownerProStatus
 } from './_tags-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
@@ -370,6 +370,18 @@ export default async function handler(req, res) {
     if (!owner) return fail(res, 403, 'forbidden');
     const removed = await deleteLead(slug, String(body.id || ''));
     if (!removed) return fail(res, 404, 'lead_not_found');
+    return res.status(200).json({ ok: true });
+  }
+
+  /* ─── Владелец вручную указал источник заявки (клиент пришёл не по QR) ─── */
+  if (action === 'lead-tag') {
+    const owner = await assertOwner(slug, String(body.key || ''));
+    if (!owner) return fail(res, 403, 'forbidden');
+    // tagId: 8 hex — валидная метка, либо пусто — снять источник.
+    const rawTag = String(body.tag || '').trim().toLowerCase();
+    const tagId = /^[a-f0-9]{8}$/.test(rawTag) ? rawTag : '';
+    const updated = await setLeadTag(slug, String(body.id || ''), tagId);
+    if (!updated) return fail(res, 404, 'lead_not_found');
     return res.status(200).json({ ok: true });
   }
 

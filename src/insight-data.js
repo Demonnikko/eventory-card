@@ -140,6 +140,14 @@ export async function deleteLead(id) {
   return data?.ok === true;
 }
 
+// Ручная пометка источника: владелец приписывает заявке метку-мероприятие,
+// если клиент пришёл не по QR (сказал устно). tagId='' снимает источник.
+export async function setLeadTag(id, tagId) {
+  const card = await getCard();
+  const data = await post({ action: 'lead-tag', slug: card.publishedSlug, key: card.leadKey, id, tag: tagId });
+  return data?.ok === true;
+}
+
 // Telegram-уведомления о заявках. Идут через основной проект (там бот): визитка
 // шлёт leadKey, получает ссылку на бота / статус. Отдельные эндпоинты promo.
 async function cardLinkPost(action, extra = {}) {

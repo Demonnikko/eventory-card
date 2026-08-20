@@ -4182,6 +4182,38 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   color: var(--success, #c3bda9);
 }
 
+/* Ручная пометка источника: селект в стиле бейджа-источника. */
+.in-lead-srcpick {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  border: 1px dashed var(--border-strong, rgba(224, 213, 190, 0.28));
+  color: var(--text-dim, #b8b1a4);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.in-lead-srcpick .ui-icon { width: 13px; height: 13px; flex: none; }
+
+.in-lead-srcpick-sel {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0;
+  padding-right: 2px;
+  cursor: pointer;
+  max-width: 200px;
+}
+
+.in-lead-srcpick-sel option { color: #111; }
+
 /* Досье клиента: что смотрел + градус интереса + команда к действию */
 .in-dossier {
   margin-top: 12px;
