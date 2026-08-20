@@ -197,6 +197,8 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
       ${greeting ? renderGreeting(greeting) : ''}
       ${renderContacts(card)}
 
+      ${ask}
+
       ${card.bio ? `
         <section class="cp-block" ${reveal()}>
           <h2 class="cp-block-title">О себе</h2>
@@ -218,8 +220,6 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
       ${offer ? renderSmartOffer(offer) : ''}
 
       ${priceRequest}
-
-      ${ask}
 
       ${interactive ? `
         <div class="cp-save" ${reveal()}>
