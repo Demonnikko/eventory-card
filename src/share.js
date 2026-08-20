@@ -210,36 +210,27 @@ export const share = {
   async mount(node) {
     state.card = await getCard();
     state.reviews = [];
+    // Статистику партнёрки грузим ВМЕСТЕ с картой — плашка «Приведите артистов»
+    // рисуется сразу с верным числом (1 из 3), а не прыгает с дефолтного 0 из 3
+    // после отдельного дозапроса. Своя защита в referralStats → дефолт при сбое,
+    // поэтому await безопасен и экран не залипнет.
+    if (state.card.publishedSlug) {
+      try { state.referral = await referralStats(); }
+      catch { /* нет сети — плашка покажет дефолт, не критично */ }
+    }
     node.innerHTML = renderContent();
     bind(node);
 
-    // Отзывы догружаем после отрисовки: экран не должен ждать сеть.
+    // Отзывы догружаем после отрисовки: они внизу экрана, их появление не видно
+    // как прыжок, а ждать сеть ради них не нужно.
     if (state.card.publishedSlug) {
       try {
         state.reviews = await fetchOwnReviews();
         if (state.reviews.length) refreshReviewsBlock(node);
       } catch { /* нет отзывов или нет сети — блок останется пустым */ }
-      // Статистика партнёрки — отдельно, обновляем только свой блок.
-      referralStats().then((stats) => {
-        state.referral = stats;
-        refreshReferralBlock(node);
-      }).catch(() => {});
     }
   }
 };
-
-// Точечно обновляем блок партнёрки, не перерисовывая экран (как для отзывов).
-function refreshReferralBlock(node) {
-  const current = node.querySelector('.ca-ref');
-  if (!current) return;
-  const tpl = document.createElement('template');
-  tpl.innerHTML = renderReferral().trim();
-  const fresh = tpl.content.firstElementChild;
-  if (fresh) {
-    current.replaceWith(fresh);
-    bindReferral(node);
-  }
-}
 
 // Обновляем ТОЛЬКО секцию отзывов, не перерисовывая весь экран: раньше
 // полный node.innerHTML заново рисовал QR, ссылку и кнопки — переход
