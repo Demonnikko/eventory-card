@@ -118,7 +118,7 @@ function renderServices(card) {
                 <span class="cp-package-title">${escapeHtml(p.title || '')}</span>
                 ${p.price ? `<span class="cp-package-price">${escapeHtml(p.price)}</span>` : ''}
               </div>
-              ${p.description ? `<span class="cp-package-desc">${escapeHtml(p.description)}</span>` : ''}
+              ${p.description ? `<span class="cp-package-desc">${escapeHtml(p.description).replace(/\n/g, '<br />')}</span>` : ''}
             </div>
           `).join('')}
         </div>
@@ -191,18 +191,6 @@ function renderHero(card) {
 export function renderCardView(card, { interactive = true, reviews = [], greeting = null, offer = null, ask = '', priceRequest = '' } = {}) {
   revealIndex = 0;
 
-  const ctaHref = telegramHref(card.telegram)
-    || (card.phone ? `tel:${String(card.phone).replace(/\s/g, '')}` : '')
-    || (card.email ? `mailto:${card.email}` : '');
-
-  const ctaLabel = escapeHtml(card.ctaText || 'Оставить заявку');
-  const ctaInner = `<span class="cp-cta-label">${ctaLabel}</span><span class="cp-cta-sheen" aria-hidden="true"></span>`;
-  const cta = card.leadEnabled && ctaHref
-    ? (interactive
-        ? `<a class="cp-cta-btn" href="${escapeAttr(ctaHref)}" target="_blank" rel="noopener">${ctaInner}</a>`
-        : `<span class="cp-cta-btn">${ctaInner}</span>`)
-    : '';
-
   return `
     <article class="cp-card cp-theme--${escapeAttr(card.theme || 'gold')}">
       ${renderHero(card)}
@@ -232,13 +220,6 @@ export function renderCardView(card, { interactive = true, reviews = [], greetin
       ${priceRequest}
 
       ${ask}
-
-      ${cta ? `
-        <div class="cp-cta" ${reveal()}>
-          ${cta}
-          <span class="cp-cta-note">Отвечаю ${escapeHtml(card.responseTime || 'в течение дня')}</span>
-        </div>
-      ` : ''}
 
       ${interactive ? `
         <div class="cp-save" ${reveal()}>
