@@ -600,12 +600,19 @@ export const insight = {
 
     if (state.card.publishedSlug) {
       try {
-        const data = await fetchInsight();
+        // Данные экрана и статус Telegram грузим ПАРАЛЛЕЛЬНО — ждём оба и рисуем
+        // экран один раз, уже с готовой строкой Telegram. Раньше статус летел
+        // отдельным запросом с ещё одним rerender — строка «Подключено» прыгала
+        // поверх готового экрана. Promise.all не суммирует задержки: ждём
+        // максимум из двух, а не последовательно. Статус не роняет весь экран
+        // (своя защита в telegramStatus → false), поэтому в общем try безопасен.
+        const [data, tgConnected] = await Promise.all([fetchInsight(), telegramStatus()]);
         state.summary = data.summary || state.summary;
         state.tags = data.tags || [];
         state.dialogs = data.dialogs || [];
         state.leads = data.leads || [];
         state.hot = data.hot || [];
+        state.tgConnected = tgConnected;
         // Сервер — источник истины (он же режет данные по реальной подписке).
         // Пришёл ответ → синхронизируем и локальную память под него.
         state.ownerPro = data.ownerPro === true;
@@ -614,11 +621,6 @@ export const insight = {
         if (state.dialogs.some((d) => !d.read)) markDialogsRead().catch(() => {});
         if (state.leads.some((l) => !l.read)) markLeadsRead().catch(() => {});
       } catch { /* нет сети — покажем пустой экран, без ошибки на весь экран */ }
-      // Статус Telegram — отдельно, чтобы не задерживать основной экран.
-      telegramStatus().then((connected) => {
-        state.tgConnected = connected;
-        rerender(node);
-      }).catch(() => {});
     }
 
     state.loading = false;
