@@ -66,18 +66,23 @@ function offerLine(interest) {
   return map[interest] || 'вас заинтересовала визитка';
 }
 
-// Умный оффер: горячему вернувшемуся гостю показываем персональное предложение
-// оставить контакт — ловим клиента в момент интереса, пока он ещё думает.
-// Кнопка ведёт в ту же форму «Узнать цену». Данные берём из greeting (visits,
-// interest). Показ — забота вызывающего (один раз за сессию, не назойливо).
+// Умный оффер («крючок»): горячему вернувшемуся гостю показываем ПЕРСОНАЛЬНОЕ
+// спецпредложение владельца — ловим молчащего клиента в момент интереса и
+// заставляем оставить контакт. Текст предложения задаёт ТОЛЬКО владелец в
+// редакторе (card.offerText) — визитка ничего не выдумывает про цену. Нет
+// текста → крючок не показываем вовсе. Кнопка ведёт в ту же форму «Узнать
+// цену»; data-offer-label несёт показанный текст, чтобы пришить его к заявке
+// (в «Отклике» видно, по какому предложению пришёл клиент).
 export function renderSmartOffer(greeting) {
   if (!greeting || !greeting.returning) return '';
+  const offerText = String(greeting.offerText || '').trim();
+  if (!offerText) return '';
   const interest = String(greeting.interest || '').trim();
   return `
-    <div class="cp-offer" data-offer>
+    <div class="cp-offer" data-offer data-offer-label="${escapeAttr(offerText)}">
       <span class="cp-offer-badge">${renderIcon('user')} Персонально для вас</span>
       <span class="cp-offer-title">Похоже, ${offerLine(interest)}</span>
-      <span class="cp-offer-text">Оставьте контакт — вернусь с предложением и свободными датами. Отвечу лично.</span>
+      <span class="cp-offer-text">${escapeHtml(offerText)}</span>
       <button type="button" class="cp-offer-btn" data-offer-cta>Получить предложение</button>
     </div>
   `;

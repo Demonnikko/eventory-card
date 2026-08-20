@@ -292,6 +292,7 @@ function renderContent() {
         body: `
           ${field({ name: 'ctaText', label: 'Текст кнопки', value: card.ctaText, placeholder: 'Оставить заявку', maxlength: 40 })}
           <p class="ca-note">Клиент нажимает кнопку и пишет вам напрямую — в Telegram или по телефону. Это работает бесплатно и без ограничений.</p>
+          ${field({ name: 'offerText', label: 'Спецпредложение для «горячих»', value: card.offerText, textarea: true, rows: 2, maxlength: 140, placeholder: 'Скидка 10% при брони на этой неделе', hint: 'Гостю, кто заходил несколько раз, но молчит, визитка сама покажет это предложение — чтобы он оставил контакт. Пишите своё условие; пусто — предложение не показывается.' })}
           ${renderUpsell('leads')}
         `
       })}

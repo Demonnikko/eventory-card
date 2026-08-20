@@ -6,7 +6,7 @@ import { renderCardView, cleanupRevealHints } from './card-view.js';
 import { bindReviews, injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { renderAskBlock, bindAsk, resetAsk } from './card-ask.js';
-import { renderPriceRequest, bindPriceRequest, resetPriceRequest } from './price-request.js';
+import { renderPriceRequest, bindPriceRequest, resetPriceRequest, markOfferContext } from './price-request.js';
 import { downloadVCard } from './vcard.js';
 import { trackOpen, trackSection, greetReturning, readTagFromUrl } from './insight-data.js';
 import { upsellHref } from './crm-upsell.js';
@@ -61,7 +61,11 @@ function renderContent() {
     interactive: true,
     reviews: state.reviews,
     greeting: state.greeting,
-    offer: offerAllowed() ? state.greeting : null,
+    // Крючок: к greeting (visits/interest с сервера) добавляем текст оффера из
+    // карточки. Без offerText renderSmartOffer сам вернёт пусто — не показываем.
+    offer: (offerAllowed() && state.greeting)
+      ? { ...state.greeting, offerText: state.card?.offerText || '' }
+      : null,
     priceRequest: renderPriceRequest(state.card),
     ask: renderAskBlock(state.card)
   })}${renderFooter()}</div>`;
@@ -227,6 +231,10 @@ export const publicCard = {
     if (offerBtn) {
       offerBtn.addEventListener('click', () => {
         markOfferSeen();
+        // Запоминаем показанный текст предложения — пришьётся к заявке, чтобы
+        // владелец видел, по какому спецусловию пришёл клиент.
+        const label = node.querySelector('[data-offer]')?.getAttribute('data-offer-label') || '';
+        markOfferContext(label);
         node.querySelector('[data-offer]')?.setAttribute('hidden', '');
         const toggle = node.querySelector('[data-price-toggle]');
         toggle?.click();

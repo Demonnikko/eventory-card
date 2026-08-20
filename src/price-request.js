@@ -20,8 +20,16 @@ const state = {
   vk: '',
   telegram: '',
   eventDate: '',
+  offerLabel: '',
   sent: false
 };
+
+// Гость открыл форму через «крючок» (спецпредложение) — запоминаем показанный
+// текст, чтобы пришить его к заявке. Владелец в «Отклике» увидит, по какому
+// предложению пришёл клиент. Переживает перерисовку формы (state — модульный).
+export function markOfferContext(label) {
+  state.offerLabel = String(label || '').slice(0, 140);
+}
 
 export function renderPriceRequest(card) {
   if (card) state.card = card;
@@ -141,7 +149,8 @@ async function send(node) {
 
   try {
     await sendLead(state.slug, {
-      name, phone, vk, telegram, eventDate: state.eventDate, tagId: state.tagId
+      name, phone, vk, telegram, eventDate: state.eventDate, tagId: state.tagId,
+      offerLabel: state.offerLabel
     });
     state.sent = true;
   } catch {

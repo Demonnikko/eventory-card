@@ -274,6 +274,15 @@ function renderLeadSource(tagId) {
   return `<span class="in-lead-src">${renderIcon('qr')} ${escapeHtml(label)}</span>`;
 }
 
+// Крючок: гость пришёл по спецпредложению — показываем, по какому именно, чтобы
+// владелец знал, что клиенту обещано (и клиент не мог придумать условия задним
+// числом). Видно всегда — это текст самого владельца, не контакт под Pro.
+function renderLeadOffer(offerLabel) {
+  const text = String(offerLabel || '').trim();
+  if (!text) return '';
+  return `<span class="in-lead-src in-lead-src--offer">${renderIcon('pulse')} По предложению: ${escapeHtml(text)}</span>`;
+}
+
 // Градус интереса 0–100: насколько клиент «горячий». Складываем из активности
 // (сколько заходил, сколько разделов смотрел) и свежести (недавно = теплее).
 // Это подсказка к действию, а не точная наука — важен порядок, не десятые.
@@ -430,6 +439,7 @@ function renderLeads() {
               ${l.eventDate ? `<span class="in-lead-date">${escapeHtml(formatEventDate(l.eventDate))}</span>` : ''}
             </div>
             ${renderLeadSource(l.tagId)}
+            ${renderLeadOffer(l.offerLabel)}
             ${state.ownerPro ? renderLeadContactOpen(l) : `
               <div class="in-lead-contact-lock">
                 <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>

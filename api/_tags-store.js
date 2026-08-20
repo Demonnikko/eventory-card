@@ -293,6 +293,9 @@ export async function saveLead(slug, entry) {
     tagId: String(entry.tagId || '').slice(0, 16),
     // Связь с профилем гостя: по нему в «Отклике» собираем досье (что смотрел).
     visitorId: String(entry.visitorId || '').slice(0, 64),
+    // Крючок «Догони»: если гость пришёл по спецпредложению — храним его текст,
+    // чтобы владелец видел в «Отклике», по какому условию клиент оставил контакт.
+    offerLabel: String(entry.offerLabel || '').slice(0, 140),
     createdAt: Date.now(),
     read: false
   };

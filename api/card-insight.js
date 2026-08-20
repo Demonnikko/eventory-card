@@ -334,7 +334,10 @@ export default async function handler(req, res) {
       ? String(body.tag).trim().toLowerCase() : '';
     const rawVisitor = String(body.visitor || '').trim();
     const leadVisitor = /^[a-z0-9_-]{8,64}$/i.test(rawVisitor) ? rawVisitor : '';
-    const saved = await saveLead(slug, { name, contact, phone, vk, telegram, eventDate, tagId: tag, visitorId: leadVisitor });
+    // Крючок: текст спецпредложения, по которому гость открыл форму. Пусто —
+    // пришёл сам. saveLead дополнительно обрежет по длине.
+    const offerLabel = String(body.offer || '').trim().slice(0, 140);
+    const saved = await saveLead(slug, { name, contact, phone, vk, telegram, eventDate, tagId: tag, visitorId: leadVisitor, offerLabel });
     // Не прячем сбой хранилища: если заявка не записалась — говорим об этом,
     // иначе клиент думает «отправлено», а владелец её никогда не увидит.
     if (!saved) return fail(res, 503, 'lead_not_saved');

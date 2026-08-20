@@ -4175,6 +4175,13 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 
 .in-lead-src .ui-icon { width: 13px; height: 13px; }
 
+/* Крючок: заявка пришла по спецпредложению — выделяем ярче обычной метки. */
+.in-lead-src--offer {
+  background: var(--success-soft, rgba(195, 189, 169, 0.14));
+  border-color: var(--success, #c3bda9);
+  color: var(--success, #c3bda9);
+}
+
 /* Досье клиента: что смотрел + градус интереса + команда к действию */
 .in-dossier {
   margin-top: 12px;
