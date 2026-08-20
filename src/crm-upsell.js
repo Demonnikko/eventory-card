@@ -13,10 +13,11 @@ export const UPSELL_POINTS = {
   // Заявка пришла — вести её дальше (воронка, история) естественно в Eventory.
   leads: {
     enabled: true,
+    route: '/plan',
     eyebrow: 'Заявки',
-    title: 'Чтобы заявки не терялись',
-    text: 'Клиенты пишут и звонят, а держать их в голове и переписке тяжело. В Eventory заявки идут по этапам — от первого сообщения до заказа.',
-    cta: 'Показать в Eventory'
+    title: 'Откройте контакты клиентов',
+    text: 'Оформите Pro — телефон и мессенджер клиента появятся прямо здесь, в визитке. А ещё Pro открывает полное приложение Eventory, чтобы вести клиента дальше.',
+    cta: 'Оформить Pro'
   },
   // Из заявки — расчёт и КП. Главный сценарий Eventory.
   quote: {
@@ -48,10 +49,11 @@ export const UPSELL_POINTS = {
   // заказа, оплатил ли. Апселл про это, а не про «откуда пришёл» (это уже есть).
   analytics: {
     enabled: true,
+    route: '/plan',
     eyebrow: 'Аналитика',
-    title: 'Что с клиентом дальше',
-    text: 'Визитка показывает, откуда пришла заявка. В Eventory видно всё после: дошёл ли клиент до заказа, оплатил ли, и вся история работы с ним в одном месте.',
-    cta: 'Показать в Eventory'
+    title: 'Кто пришёл и что смотрел',
+    text: 'Визитка показывает, откуда пришла заявка. С Pro откроется умная метрика прямо здесь: сколько раз клиент заходил, что смотрел и насколько он горячий.',
+    cta: 'Оформить Pro'
   }
 };
 
@@ -66,9 +68,17 @@ export function upsellHref(pointId, leadKey = '') {
   url.searchParams.set('utm_medium', 'upsell');
   url.searchParams.set('utm_campaign', pointId);
   // card_key — мост визитка↔Eventory. Только валидный leadKey (32 hex).
+  // Query ставим ДО хэша (url.hash ниже) — Eventory читает card_key из
+  // location.search, поэтому порядок «?card_key=…#/plan» обязателен. URL API
+  // раскладывает это сам: searchParams → до #, hash → после.
   if (/^[a-f0-9]{32}$/i.test(String(leadKey))) {
     url.searchParams.set('card_key', String(leadKey).toLowerCase());
   }
+  // Крючки про Pro-фишки визитки (контакт, метрика) ведут СРАЗУ на экран
+  // оплаты Eventory (#/plan) — человек попадает на понятный тариф, а не на
+  // незнакомую главную. У точки может быть свой route; иначе — главная.
+  const route = UPSELL_POINTS[pointId]?.route || '';
+  if (route) url.hash = route;
   return url.toString();
 }
 
