@@ -15,6 +15,7 @@ const state = {
   card: null,
   reviews: [],
   reviewsBusy: false,
+  loaded: false,     // экран уже открывали — при возврате рисуем сразу
   referral: { needed: 3, invited: 0, earned: 0 }
 };
 
@@ -209,17 +210,33 @@ export const share = {
   },
   async mount(node) {
     state.card = await getCard();
-    state.reviews = [];
-    // Статистику партнёрки грузим ВМЕСТЕ с картой — плашка «Приведите артистов»
-    // рисуется сразу с верным числом (1 из 3), а не прыгает с дефолтного 0 из 3
-    // после отдельного дозапроса. Своя защита в referralStats → дефолт при сбое,
-    // поэтому await безопасен и экран не залипнет.
-    if (state.card.publishedSlug) {
+
+    // Первый заход: ждём статистику партнёрки, иначе плашка «Приведите артистов»
+    // мигнёт дефолтным «0 из 3» и дёрнется на реальное число.
+    // Возврат на экран: число уже известно с прошлого раза — рисуем сразу, а
+    // свежее значение подтянем ниже в фоне. Так переключение вкладки мгновенное.
+    if (state.card.publishedSlug && !state.loaded) {
       try { state.referral = await referralStats(); }
       catch { /* нет сети — плашка покажет дефолт, не критично */ }
     }
+    if (!state.loaded) state.reviews = [];
     node.innerHTML = renderContent();
     bind(node);
+    state.loaded = true;
+
+    // Возврат: обновляем счётчик партнёрки в фоне и трогаем DOM только если
+    // число реально изменилось — иначе никакого мелькания на готовом экране.
+    if (state.card.publishedSlug) {
+      referralStats().then((fresh) => {
+        const same = fresh && state.referral
+          && fresh.invited === state.referral.invited
+          && fresh.earned === state.referral.earned
+          && fresh.needed === state.referral.needed;
+        if (same) return;
+        state.referral = fresh;
+        refreshReferralBlock(node);
+      }).catch(() => {});
+    }
 
     // Отзывы догружаем после отрисовки: они внизу экрана, их появление не видно
     // как прыжок, а ждать сеть ради них не нужно.
@@ -235,6 +252,20 @@ export const share = {
 // Обновляем ТОЛЬКО секцию отзывов, не перерисовывая весь экран: раньше
 // полный node.innerHTML заново рисовал QR, ссылку и кнопки — переход
 // «подтягивался» рывком. Теперь заменяется одна секция и её обработчики.
+// Точечно меняем только плашку партнёрки, не трогая остальной экран: при
+// возврате на вкладку счётчик обновляется в фоне, и перерисовывать ради него
+// QR со ссылкой было бы заметным рывком.
+function refreshReferralBlock(node) {
+  const current = node.querySelector('.ca-ref');
+  if (!current) return;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = renderReferral().trim();
+  const fresh = tpl.content.firstElementChild;
+  if (!fresh) return;
+  current.replaceWith(fresh);
+  bindReferral(node);
+}
+
 function refreshReviewsBlock(node) {
   const current = node.querySelector('.ca-reviews');
   if (!current) return;

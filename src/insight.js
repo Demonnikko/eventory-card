@@ -22,6 +22,7 @@ const state = {
   ownerPro: false,
   tgConnected: false,
   loading: true,
+  loaded: false,     // экран уже показывали — при возврате рисуем сразу, без «Загружаем…»
   busy: false,
   form: false,       // открыта форма новой метки
   qrFor: ''          // id метки, для которой показан QR
@@ -599,21 +600,32 @@ export const insight = {
     return '<div class="ca-loading">Загружаем…</div>';
   },
   async mount(node) {
-    state.loading = true;
+    // Возврат на уже открывавшийся экран: данные лежат в state с прошлого раза,
+    // поэтому рисуем их сразу — переключение вкладки выглядит мгновенным, как в
+    // приложении, а не «пустой экран → загрузка → данные». Свежие цифры
+    // подтянутся ниже и тихо заменят показанные. Первый заход, как и раньше,
+    // показывает «Загружаем…»: показывать там нечего.
+    if (!state.loaded) {
+      state.loading = true;
+      state.summary = { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
+      state.tags = [];
+      state.dialogs = [];
+      state.leads = [];
+      state.hot = [];
+      state.tgConnected = false;
+    }
+    // Состояние самого экрана (открытая форма, раскрытый QR) не переносим.
     state.form = false;
     state.qrFor = '';
-    state.summary = { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
-    state.tags = [];
-    state.dialogs = [];
-    state.leads = [];
-    state.hot = [];
     // Бесшовный Pro: если визитка помнит активную подписку — показываем Pro
     // сразу, ещё до ответа сервера. Сервер ниже подтвердит и продлит срок.
     state.ownerPro = localProActive();
-    state.tgConnected = false;
     state.card = await getCard();
 
     node.innerHTML = renderContent();
+    // Биндим сразу: на возврате экран уже с данными, и кнопки должны работать
+    // до того, как придёт ответ сервера.
+    bind(node);
 
     if (state.card.publishedSlug) {
       try {
@@ -641,6 +653,7 @@ export const insight = {
     }
 
     state.loading = false;
+    state.loaded = true;
     node.innerHTML = renderContent();
     bind(node);
   }

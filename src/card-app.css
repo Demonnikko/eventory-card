@@ -2022,29 +2022,60 @@ body[data-route='present']::before {
   overflow: hidden;
 }
 
+/* Витрина показывает визитку горизонтально — как настоящую карточку.
+   Телефон при этом обычно стоит вертикально, поэтому контент разворачиваем
+   сами (screen.orientation.lock в iOS PWA недоступен).
+
+   Но если у человека включён автоповорот и он кладёт телефон горизонтально,
+   экран уже повёрнут — и второй поворот от нас клал карточку набок, а на
+   границе срабатывания датчика вся сцена пересчитывалась туда-обратно и
+   моргала. Поэтому крутим ТОЛЬКО в портрете, а в ландшафте отдаём сцену как
+   есть: карточка и так лежит правильно. */
 .pr-screen--kiosk .pr-stage {
-  width: 100dvh;
-  height: 100dvw;
-  transform: rotate(90deg);
-  transform-origin: center;
   position: absolute;
-  top: calc(50% - 50dvw);
-  left: calc(50% - 50dvh);
+  transform-origin: center;
+}
+
+/* --kiosk-long — длинная сторона экрана, вдоль которой лежит карточка. От неё
+   считаются и ширина карточки, и кегли: иначе в одной из ориентаций текст
+   берёт короткую сторону и становится вдвое мельче. */
+.pr-screen--kiosk { --kiosk-long: 1dvh; }
+
+@media (orientation: portrait) {
+  .pr-screen--kiosk .pr-stage {
+    width: 100dvh;
+    height: 100dvw;
+    transform: rotate(90deg);
+    top: calc(50% - 50dvw);
+    left: calc(50% - 50dvh);
+  }
+}
+
+@media (orientation: landscape) {
+  .pr-screen--kiosk { --kiosk-long: 1dvw; }
+
+  .pr-screen--kiosk .pr-stage {
+    width: 100dvw;
+    height: 100dvh;
+    transform: none;
+    top: 0;
+    left: 0;
+  }
 }
 
 .pr-screen--kiosk .pr-card {
-  width: min(100dvh, calc(100dvw * 1.7779));
-  max-width: 96dvh;
+  width: min(calc(100 * var(--kiosk-long)), calc(100dvw * 1.7779));
+  max-width: calc(96 * var(--kiosk-long));
 }
 
-/* Карточка повёрнута — её визуальная ширина = высота экрана (dvh). Размеры
-   текста внутри считаем от dvh, иначе vw берёт узкую сторону телефона и текст
-   выходит крошечным. Коэффициенты крупнее, чтобы имя читалось издалека. */
-.pr-screen--kiosk .pr-name { font-size: clamp(30px, 8.2dvh, 62px); }
-.pr-screen--kiosk .pr-surname { font-size: clamp(18px, 4.8dvh, 34px); }
+/* Карточка лежит вдоль длинной стороны экрана — от неё и считаем кегли
+   (--kiosk-long). Иначе текст берёт узкую сторону телефона и выходит
+   крошечным. Коэффициенты крупные, чтобы имя читалось издалека. */
+.pr-screen--kiosk .pr-name { font-size: clamp(30px, calc(8.2 * var(--kiosk-long)), 62px); }
+.pr-screen--kiosk .pr-surname { font-size: clamp(18px, calc(4.8 * var(--kiosk-long)), 34px); }
 .pr-screen--kiosk .pr-meta {
   margin-top: 12px;
-  font-size: clamp(11px, 2.7dvh, 17px);
+  font-size: clamp(11px, calc(2.7 * var(--kiosk-long)), 17px);
   letter-spacing: 0.24em;
 }
 
