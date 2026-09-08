@@ -36,6 +36,17 @@ function vkHref(value) {
 }
 
 // MAX (российский мессенджер): ссылка вида max.ru/u/<username> или полная.
+// Сайт владельца: в поле можно вписать что угодно, а значение уходит прямо в
+// href. Пропускаем только http(s) — иначе строка вида «javascript:…» стала бы
+// исполняемой ссылкой на публичной странице. Домен без схемы дополняем сами.
+function websiteHref(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) return ''; // любая другая схема — отбрасываем
+  return `https://${raw}`;
+}
+
 function maxHref(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -81,7 +92,8 @@ function renderContacts(card) {
   const max = maxHref(card.max);
   if (max) items.push({ icon: 'max', label: 'MAX', href: max });
   if (card.email) items.push({ icon: 'note', label: 'Написать', href: `mailto:${card.email}` });
-  if (card.website) items.push({ icon: 'website', label: 'Сайт', href: card.website });
+  const site = websiteHref(card.website);
+  if (site) items.push({ icon: 'website', label: 'Сайт', href: site });
   if (!items.length) return '';
   return `
     <nav class="cp-contacts" ${reveal()}>
@@ -137,7 +149,7 @@ function renderGallery(card) {
       <div class="cp-gallery">
         ${photos.map((src, i) => `
           <figure class="cp-gallery-item">
-            <img src="${escapeAttr(src)}" alt="" loading="lazy" />
+            <img src="${escapeAttr(src)}" alt="${escapeAttr(captions[i] || `Работа ${i + 1}`)}" loading="lazy" />
             ${captions[i] ? `<figcaption>${escapeHtml(captions[i])}</figcaption>` : ''}
           </figure>
         `).join('')}

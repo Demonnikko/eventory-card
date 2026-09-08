@@ -93,6 +93,20 @@ function markOfferSeen() {
 function updateMeta(card) {
   const name = card?.name || 'Визитка';
   document.title = card?.role ? `${name} — ${card.role}` : name;
+  allowZoom();
+}
+
+// В index.html зум выключен намеренно: у владельца визитка стоит на экране как
+// приложение, и щипок/двойной тап там читаются как сбой, а не как масштаб.
+// Но публичную визитку клиент открывает обычной ссылкой в браузере — это
+// страница, а не приложение, и запрет масштаба лишает возможности увеличить
+// текст (цены, услуги) тех, кто плохо видит. Поэтому на публичном экране
+// возвращаем зум — точечно, не трогая режим владельца.
+function allowZoom() {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta || meta.dataset.zoomAllowed) return;
+  meta.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual');
+  meta.dataset.zoomAllowed = '1';
 }
 
 // Наблюдатель разделов: раздел засчитываем в интерес, только если гость держал

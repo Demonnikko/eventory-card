@@ -15,13 +15,14 @@ import { normalizeSlug } from './_card-access.js';
 // проксируется в основной проект, где лежит карточка. Свой Redis у проекта
 // визитки может указывать на другую базу, поэтому напрямую в него не лезем —
 // иначе og-теги получают только заглушку, а не имя владельца.
-async function fetchCard(origin, slug) {
+async function fetchCard(origin, slug, timeoutMs = 2000) {
   // Жёсткий таймаут: card-get проксируется в другой проект и читает Redis —
   // цепочка из нескольких прыжков. Если она задержится, НЕЛЬЗЯ держать из-за
   // og-тегов весь HTML и весь запуск приложения. Не успели за 2с — отдаём
   // страницу с базовыми тегами, имя догонит в кэше при следующем заходе.
+  // Для отдачи фото таймаут задаётся больше: там ответ заведомо тяжёлый.
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 2000);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(`${origin}/api/card-get?slug=${encodeURIComponent(slug)}`, {
       signal: ctrl.signal
@@ -34,6 +35,40 @@ async function fetchCard(origin, slug) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Обложка визитки хранится в карточке как data-URI (base64). Мессенджеры
+// такие og:image не принимают и показывают заглушку вместо лица владельца —
+// ссылка в чате выглядит безлико. Здесь отдаём ту же обложку обычной
+// картинкой по HTTP: бот получает нормальный jpeg, формат хранения при этом
+// не меняется (миграция данных не нужна, старые визитки работают как есть).
+const DATA_URI_RE = /^data:(image\/(?:jpeg|jpg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/;
+
+async function servePhoto(req, res, origin, slug) {
+  if (!slug) return res.status(404).send('no_slug');
+  // Карточка тяжёлая (фото внутри JSON) — таймаут щедрее, чем для мета-тегов.
+  const card = await fetchCard(origin, slug, 8000);
+  const raw = String(card?.coverPhoto || '');
+  if (!raw) return res.status(404).send('no_photo');
+
+  // Уже загруженное по http фото отдаём редиректом — незачем гонять через себя.
+  if (/^https?:\/\//.test(raw)) {
+    res.setHeader('Location', raw);
+    return res.status(302).end();
+  }
+
+  const match = DATA_URI_RE.exec(raw);
+  if (!match) return res.status(404).send('bad_photo');
+  const [, mime, base64] = match;
+  const body = Buffer.from(base64, 'base64');
+
+  res.setHeader('Content-Type', mime);
+  res.setHeader('Content-Length', String(body.length));
+  // Визитку могут отредактировать, поэтому не immutable: CDN держит копию
+  // час, дальше отдаёт устаревшую и обновляет в фоне — боты и браузеры
+  // получают картинку мгновенно, а новое фото доезжает само.
+  res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+  return res.status(200).send(body);
 }
 
 function escapeAttr(value) {
@@ -71,11 +106,15 @@ function buildMetaTags(card, origin, slug) {
     || (metaParts.length ? metaParts.join(' · ') : 'Контакты, услуги и связь за пару секунд.');
   const url = `${origin}/v/${encodeURIComponent(slug)}`;
   // og:image обязан быть публичным HTTP-URL: мессенджеры не принимают
-  // data-URI (обложка часто хранится именно так) и не тянут относительные
-  // пути. Реальный http(s)-адрес берём как есть, всё остальное — на
-  // фирменную заглушку бренда.
+  // data-URI, а обложка хранится именно так. Поэтому ведём тег на свою же
+  // ветку ?photo=cover — она отдаёт ту же обложку обычным jpeg. Реальный
+  // http-адрес используем напрямую, а без обложки остаётся заглушка бренда.
   const cover = String(card?.coverPhoto || '');
-  const image = /^https?:\/\//.test(cover) ? cover : `${origin}/og-default.png`;
+  const image = /^https?:\/\//.test(cover)
+    ? cover
+    : (cover
+        ? `${origin}/api/og?slug=${encodeURIComponent(slug)}&photo=cover`
+        : `${origin}/og-default.png`);
 
   const title = card?.role ? `${name} — ${card.role}` : name;
 
@@ -99,6 +138,9 @@ export default async function handler(req, res) {
   const origin = originOf(req);
   // Slug приходит из rewrite как query-параметр.
   const slug = normalizeSlug(req.query?.slug);
+
+  // Отдача обложки картинкой (?photo=cover) — на неё указывает og:image.
+  if (req.query?.photo) return servePhoto(req, res, origin, slug);
 
   let html;
   try {
