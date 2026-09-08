@@ -102,6 +102,18 @@ function updateMeta(card) {
 // страница, а не приложение, и запрет масштаба лишает возможности увеличить
 // текст (цены, услуги) тех, кто плохо видит. Поэтому на публичном экране
 // возвращаем зум — точечно, не трогая режим владельца.
+// Один запрос карточки: сетевой сбой и «не ok» отдаём одинаково — null,
+// чтобы вызывающий мог спокойно попробовать запасной адрес.
+async function fetchCardJson(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 function allowZoom() {
   const meta = document.querySelector('meta[name="viewport"]');
   if (!meta || meta.dataset.zoomAllowed) return;
@@ -192,9 +204,15 @@ export const publicCard = {
     }
 
     try {
-      const res = await fetch(`/api/card-get?slug=${encodeURIComponent(slug)}`);
-      const data = await res.json();
-      if (!res.ok || !data?.ok || !data.card) throw new Error('not_found');
+      // Лёгкая карточка: фото приходят ссылками, а не base64 внутри JSON —
+      // страница появляется сразу, снимки догружаются картинками параллельно.
+      // Если лёгкая ветка почему-то недоступна, честно берём полную карточку:
+      // визитка клиента не должна зависеть от одной функции.
+      let data = await fetchCardJson(`/api/og?card=1&slug=${encodeURIComponent(slug)}`);
+      if (!data?.ok || !data.card) {
+        data = await fetchCardJson(`/api/card-get?slug=${encodeURIComponent(slug)}`);
+      }
+      if (!data?.ok || !data.card) throw new Error('not_found');
       state.card = data.card;
       state.error = '';
       writeCache(slug, data.card);

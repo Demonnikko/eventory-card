@@ -44,11 +44,19 @@ async function fetchCard(origin, slug, timeoutMs = 2000) {
 // не меняется (миграция данных не нужна, старые визитки работают как есть).
 const DATA_URI_RE = /^data:(image\/(?:jpeg|jpg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/;
 
-async function servePhoto(req, res, origin, slug) {
+async function servePhoto(req, res, origin, slug, which = 'cover') {
   if (!slug) return res.status(404).send('no_slug');
   // Карточка тяжёлая (фото внутри JSON) — таймаут щедрее, чем для мета-тегов.
   const card = await fetchCard(origin, slug, 8000);
-  const raw = String(card?.coverPhoto || '');
+
+  let raw = '';
+  if (which === 'gallery') {
+    const list = Array.isArray(card?.galleryPhotos) ? card.galleryPhotos : [];
+    const i = Number.parseInt(req.query?.i, 10);
+    raw = String((Number.isInteger(i) && i >= 0 ? list[i] : '') || '');
+  } else {
+    raw = String(card?.coverPhoto || '');
+  }
   if (!raw) return res.status(404).send('no_photo');
 
   // Уже загруженное по http фото отдаём редиректом — незачем гонять через себя.
@@ -69,6 +77,40 @@ async function servePhoto(req, res, origin, slug) {
   // получают картинку мгновенно, а новое фото доезжает само.
   res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
   return res.status(200).send(body);
+}
+
+// Лёгкая карточка для публичного экрана.
+//
+// Фото лежат внутри JSON карточки как base64: у реальной визитки это ~390 КБ,
+// которые гость обязан скачать ЦЕЛИКОМ, прежде чем увидит хоть что-то. По QR
+// в зале со слабым интернетом это секунды пустого экрана.
+//
+// Здесь отдаём ту же карточку, но тяжёлые поля подменяем ссылками на ветку
+// ?photo=… . Клиент получает несколько килобайт и рисует страницу сразу, а
+// фото подтягиваются картинками — параллельно, с CDN-кэшем, и галерея вообще
+// лениво (loading="lazy"). Формат хранения не меняется: подмена живёт только
+// в этом ответе, поэтому редактор владельца и старые визитки не затронуты.
+async function serveLightCard(req, res, origin, slug) {
+  if (!slug) return res.status(404).json({ ok: false, error: 'no_slug' });
+  const card = await fetchCard(origin, slug, 8000);
+  if (!card) return res.status(404).json({ ok: false, error: 'card_not_found' });
+
+  const light = { ...card };
+  const photoUrl = (q) => `/api/og?slug=${encodeURIComponent(slug)}&photo=${q}`;
+
+  // Обложку подменяем только если она data-URI: реальный http-адрес и так лёгкий.
+  if (String(card.coverPhoto || '').startsWith('data:')) {
+    light.coverPhoto = photoUrl('cover');
+  }
+  if (Array.isArray(card.galleryPhotos)) {
+    light.galleryPhotos = card.galleryPhotos.map((src, i) => (
+      String(src || '').startsWith('data:') ? `${photoUrl('gallery')}&i=${i}` : src
+    ));
+  }
+
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+  return res.status(200).json({ ok: true, card: light });
 }
 
 function escapeAttr(value) {
@@ -139,8 +181,13 @@ export default async function handler(req, res) {
   // Slug приходит из rewrite как query-параметр.
   const slug = normalizeSlug(req.query?.slug);
 
-  // Отдача обложки картинкой (?photo=cover) — на неё указывает og:image.
-  if (req.query?.photo) return servePhoto(req, res, origin, slug);
+  // Отдача фото картинкой (?photo=cover|gallery) — на обложку указывает og:image.
+  if (req.query?.photo) {
+    const which = String(req.query.photo) === 'gallery' ? 'gallery' : 'cover';
+    return servePhoto(req, res, origin, slug, which);
+  }
+  // Лёгкая карточка для публичного экрана (?card=1) — без base64-фото.
+  if (req.query?.card) return serveLightCard(req, res, origin, slug);
 
   let html;
   try {
