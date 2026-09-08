@@ -1069,6 +1069,13 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 
 .cp-contact .ui-icon { width: 21px; height: 21px; display: block; }
 
+/* Фирменные синие иконки мессенджеров были единственным цветом на визитке и
+   перетягивали внимание с кнопки заявки. Приводим их к общей шампани: узнают
+   их по форме и подписи, а блок контактов читается цельно. */
+.cp-contact .brand-icon-img {
+  filter: grayscale(1) sepia(0.42) saturate(0.75) brightness(1.32);
+}
+
 .cp-contact-label {
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -1080,12 +1087,15 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
   padding: 34px 24px 0;
 }
 
+/* Названия секций держат структуру визитки. Серым по тёмному они читались на
+   пределе, и блоки сливались в один поток. Тёплый приглушённый акцент делает
+   их «золотой нитью» через всю карточку, не перетягивая внимание с имени. */
 .cp-block-title {
   margin: 0 0 14px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--accent-soft-text, rgba(217, 203, 176, 0.72));
   font-weight: 500;
 }
 
@@ -1152,22 +1162,33 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 .cp-package-desc { font-size: 13px; color: var(--muted-2); line-height: 1.55; }
 
 /* ===== Галерея ===== */
+/* Работы — главный товар артиста, поэтому пара снимков идёт во всю ширину
+   карточки: в двух столбцах они выходили мельче аватара в шапке. От трёх
+   штук возвращаем сетку — иначе визитку пришлось бы бесконечно листать. */
 .cp-gallery {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 10px;
+}
+
+.cp-gallery:has(.cp-gallery-item:nth-child(3)) {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .cp-gallery-item { margin: 0; overflow: hidden; border-radius: var(--radius-md); }
 
 .cp-gallery-item img {
   width: 100%;
-  /* 4:5 вместо квадрата: афиши (вертикальные постеры) обрезаются меньше,
-     а горизонтальные фото с площадок остаются читаемыми. */
-  aspect-ratio: 4 / 5;
+  /* Во всю ширину берём панорамную пропорцию: сцена и зал читаются целиком.
+     В сетке — 4:5, там вертикальный кадр обрезается меньше. */
+  aspect-ratio: 3 / 2;
   object-fit: cover;
   display: block;
   transition: transform 0.8s var(--ease-soft);
+}
+
+.cp-gallery:has(.cp-gallery-item:nth-child(3)) .cp-gallery-item img {
+  aspect-ratio: 4 / 5;
 }
 
 @media (hover: hover) {
@@ -3918,34 +3939,27 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 }
 
 /* ===== Узнавание вернувшегося ===== */
+/* Узнавание гостя — тихая строка, а не плашка: на первом экране рядом с именем
+   любой блок с фоном и рамкой читается как системное уведомление. */
 .cp-greet {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 22px 24px 0;
-  padding: 13px 15px;
-  background: rgba(217, 203, 176, 0.06);
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-md);
+  gap: 8px;
+  margin: 16px 24px 0;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
   animation: cp-reveal 0.8s var(--ease-soft) 0.3s both;
 }
 
-.cp-greet-mark {
+.cp-greet-dot {
   flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: var(--gold-leaf);
-  color: #1a1a1d;
+  background: var(--accent);
 }
-
-.cp-greet-mark .ui-icon { width: 18px; height: 18px; }
-
-.cp-greet-copy { display: flex; flex-direction: column; gap: 2px; }
-.cp-greet-title { font-size: 13.5px; font-weight: 600; color: var(--accent-strong); }
-.cp-greet-text { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 
 /* Умный оффер горячему гостю — заметнее узнавания, ведёт в форму заявки */
 .cp-offer {

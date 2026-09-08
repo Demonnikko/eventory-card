@@ -31,14 +31,14 @@ const state = {
 export function renderGreeting(greeting) {
   if (!greeting) return '';
   const when = formatWhen(greeting.lastAt);
+  // Узнавание гостя — приятная деталь, но не событие: плашкой с иконкой она
+  // читалась как системное уведомление и перебивала первый экран. Оставляем
+  // одну тихую строку с золотой точкой — узнавание есть, веса нет.
   return `
-    <div class="cp-greet" data-greet>
-      <span class="cp-greet-mark" aria-hidden="true">${renderIcon('user')}</span>
-      <span class="cp-greet-copy">
-        <span class="cp-greet-title">Рады видеть снова</span>
-        <span class="cp-greet-text">Вы уже смотрели эту визитку${when ? ` ${when}` : ''}.</span>
-      </span>
-    </div>
+    <p class="cp-greet" data-greet>
+      <span class="cp-greet-dot" aria-hidden="true"></span>
+      <span>Рады видеть снова${when ? ` — вы смотрели визитку ${when}` : ''}</span>
+    </p>
   `;
 }
 
