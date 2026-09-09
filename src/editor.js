@@ -11,7 +11,7 @@ import {
   BUSINESS_CARD_GALLERY_MAX_BYTES,
   rotateBusinessCardLeadKey
 } from './shared/data/businessCard.js';
-import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST } from './card-data.js';
+import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST, cardPublicUrl } from './card-data.js';
 import { createCardDraft } from './editor-draft.js';
 import {
   BACKUP_MAX_BYTES,
@@ -68,7 +68,20 @@ function section({ id, title, sub, body }) {
 }
 
 function renderProgress(card) {
-  const { done, total, percent, missing } = cardCompletion(card);
+  const { done, total, percent } = cardCompletion(card);
+  // Список вместо строки «Осталось: A, B, C»: видно и что уже сделано, и что
+  // осталось. Сделанное приглушаем галочкой, оставшееся держим акцентным —
+  // так понятно, куда идти дальше, и виден пройденный путь.
+  const items = CARD_CHECKLIST.map((item) => {
+    const ok = item.done(card);
+    return `
+      <li class="ca-check${ok ? ' is-done' : ''}">
+        <span class="ca-check-mark" aria-hidden="true">${ok ? renderIcon('check') : ''}</span>
+        <span>${escapeHtml(item.label)}</span>
+      </li>
+    `;
+  }).join('');
+
   return `
     <div class="ca-progress">
       <div class="ca-progress-top">
@@ -76,9 +89,9 @@ function renderProgress(card) {
         <span class="ca-progress-value">${done} из ${total}</span>
       </div>
       <div class="ca-progress-bar"><span style="width:${percent}%"></span></div>
-      ${missing.length
-        ? `<div class="ca-progress-missing">Осталось: ${missing.map((m) => escapeHtml(m.label)).join(', ')}</div>`
-        : '<div class="ca-progress-missing is-done">Визитка заполнена — можно публиковать</div>'}
+      ${done === total
+        ? '<div class="ca-progress-missing is-done">Визитка заполнена — можно публиковать</div>'
+        : `<ul class="ca-checklist">${items}</ul>`}
     </div>
   `;
 }
@@ -199,6 +212,32 @@ function renderProfessions(card, expanded = false) {
           ${escapeHtml(p.label)}
         </button>
       `).join('')}
+    </div>
+  `;
+}
+
+// Первая публикация — кульминация всей сборки: визитка перестаёт быть
+// черновиком и становится доступной людям. Тостом внизу экрана это событие
+// не отличалось от «ссылка скопирована», поэтому показываем момент: сама
+// карточка, живой адрес и следующий шаг. Обновление визитки — рутина, там
+// по-прежнему тост.
+function renderPublishedMoment(card) {
+  const url = cardPublicUrl(card.publishedSlug);
+  return `
+    <div class="ca-published" data-published role="dialog" aria-modal="true" aria-labelledby="ca-published-title">
+      <div class="ca-published-panel">
+        <div class="ca-published-card">
+          ${renderPaperCard({ name: card.name, profession: card.profession, role: card.role })}
+        </div>
+        <p class="ca-published-kicker">Готово</p>
+        <h2 class="ca-published-title" id="ca-published-title">Визитка опубликована</h2>
+        <p class="ca-published-lead">Теперь её можно открыть по ссылке или показать QR-кодом.</p>
+        <p class="ca-published-url">${escapeHtml(url)}</p>
+        <div class="ca-published-actions">
+          <button type="button" class="ca-btn ca-btn--primary" data-published-share>Ссылка и QR-код</button>
+          <button type="button" class="ca-btn ca-btn--ghost" data-published-close>Позже</button>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -333,6 +372,26 @@ function renderContent() {
 
 // Обновляем только сам макет, не трогая форму: при вводе имени полный
 // rerender сбросил бы фокус и позицию курсора.
+// Момент публикации живёт поверх редактора и снимается по любой кнопке.
+// Держим его отдельным узлом, а не частью формы: rerender редактора не должен
+// его гасить, пока человек читает адрес своей визитки.
+function showPublishedMoment(node) {
+  const host = document.createElement('div');
+  host.innerHTML = renderPublishedMoment(state.card);
+  const overlay = host.firstElementChild;
+  if (!overlay) return;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('[data-published-close]')?.addEventListener('click', close);
+  overlay.querySelector('[data-published-share]')?.addEventListener('click', () => {
+    close();
+    window.location.hash = '#/share';
+  });
+  // Тап по затемнению — тоже выход: модальное окно не должно запирать.
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+}
+
 function refreshPaperCard(node) {
   const stage = node.querySelector('[data-paper-stage]');
   if (!stage) return;
@@ -616,12 +675,16 @@ function bind(node) {
         toast.show('Добавьте телефон, Telegram или email для связи');
         return;
       }
+      // Первая это публикация или обновление — решаем ДО запроса: после него
+      // publishedSlug уже проставлен.
+      const firstTime = !state.card.publishedSlug;
       state.busy = true;
       rerender(node);
       try {
         const { card } = await publishCard(state.card);
         state.card = card;
-        toast.show('Визитка опубликована');
+        if (firstTime) showPublishedMoment(node);
+        else toast.show('Визитка обновлена');
       } catch (err) {
         toast.show(err?.message === 'card_too_large'
           ? 'Слишком тяжёлое фото — уменьшите его'

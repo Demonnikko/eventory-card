@@ -409,6 +409,122 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
 }
 
 /* ===== Чипы профессий ===== */
+/* Момент первой публикации. Тот же язык, что у QR-диалога: затемнение с
+   размытием и панель по центру — но в центре сама визитка, а не служебная
+   информация. */
+.ca-published {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: calc(env(safe-area-inset-top) + 24px) 22px calc(env(safe-area-inset-bottom) + 24px);
+  background: rgba(6, 6, 7, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  animation: ca-published-in 0.5s var(--ease-soft) both;
+}
+
+@keyframes ca-published-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ca-published-panel {
+  width: min(100%, 380px);
+  text-align: center;
+}
+
+/* Карточка «выкладывается» на стол — короткое движение, один раз. */
+.ca-published-card {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 22px;
+  perspective: 900px;
+  animation: ca-published-card-in 0.75s var(--ease-soft) 0.1s both;
+}
+
+@keyframes ca-published-card-in {
+  from { opacity: 0; transform: translateY(14px) rotateX(16deg) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+
+.ca-published-card .ob-paper { width: min(100%, 320px); margin: 0; }
+
+.ca-published-kicker {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.ca-published-title {
+  margin: 0 0 8px;
+  font-family: var(--display);
+  font-size: 27px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.ca-published-lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.ca-published-url {
+  margin: 0 0 20px;
+  padding: 11px 14px;
+  font-size: 12.5px;
+  color: var(--accent-strong);
+  background: rgba(217, 203, 176, 0.07);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  word-break: break-all;
+}
+
+.ca-published-actions { display: grid; gap: 10px; }
+
+/* Чек-лист готовности: пройденное видно так же ясно, как оставшееся —
+   строка «Осталось: A, B, C» этого не давала. */
+.ca-checklist {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ca-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ca-check-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-border);
+  color: #1a1a1d;
+}
+
+.ca-check-mark .ui-icon { width: 11px; height: 11px; }
+
+.ca-check.is-done { color: var(--muted-2); }
+
+.ca-check.is-done .ca-check-mark {
+  background: var(--gold-leaf);
+  border-color: transparent;
+}
+
 /* Подложка живого макета в редакторе: карточка «лежит» над формой, как на
    столе. Размер сдержанный — она напоминает о результате, но не съедает
    экран, на котором работают с полями. */
