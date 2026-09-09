@@ -12,6 +12,7 @@ import {
   businessCardTemplateUrl
 } from './shared/data/businessCard.js';
 import { getCard, saveCard } from './card-data.js';
+import { renderPaperCard as renderPaperCardBase, professionLabel, splitName } from './paper-card.js';
 
 const ONBOARDING_KEY = 'eventory-card:onboarded';
 
@@ -81,38 +82,14 @@ function preloadFullTemplate(professionId) {
   fullTemplatePreloads.set(professionId, img);
 }
 
-function professionLabel(id) {
-  return BUSINESS_CARD_PROFESSIONS.find((p) => p.id === id)?.label || '';
-}
 
-function splitName(full) {
-  const parts = String(full || '').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return { first: '', last: '' };
-  return { first: parts[0], last: parts.slice(1).join(' ') };
-}
 
 /* ─────────── Карточка-герой ─────────── */
 
-// Та самая «бумажная» визитка: текстура профессии, тиснёное имя, золотая
-// фольга. Показывается горизонтально — как настоящая визитка в руке.
-function renderPaperCard() {
-  const pro = state.profession || '';
-  const { first, last } = splitName(state.name);
-  const role = professionLabel(pro);
-  const template = pro ? businessCardOnboardingTemplateUrl(pro) : '';
 
-  return `
-    <div class="ob-paper${pro ? ' has-template' : ''}" data-paper style="${template ? `--ob-template:url('${escapeAttr(template)}')` : ''}">
-      <div class="ob-paper-bg" aria-hidden="true"></div>
-      <div class="ob-paper-sheen" aria-hidden="true"></div>
-      <div class="ob-paper-copy">
-        <strong class="ob-paper-first">${escapeHtml(first || 'Ваше имя')}</strong>
-        ${last ? `<span class="ob-paper-last">${escapeHtml(last)}</span>` : ''}
-        <em class="ob-paper-role">${escapeHtml(role || 'ваше направление')}</em>
-      </div>
-      <div class="ob-paper-edge" aria-hidden="true"></div>
-    </div>
-  `;
+// Макет читает состояние онбординга; сама разметка — общий компонент.
+function renderPaperCard() {
+  return renderPaperCardBase({ name: state.name, profession: state.profession });
 }
 
 /* ─────────── Шаги ─────────── */

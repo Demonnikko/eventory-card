@@ -20,6 +20,7 @@ import {
   downloadBackupFile
 } from './card-backup.js';
 import { activeUpsell, upsellHref, CRM_NAME } from './crm-upsell.js';
+import { renderPaperCard } from './paper-card.js';
 
 const state = {
   card: null,
@@ -249,6 +250,14 @@ function renderContent() {
 
   return `
     <form class="ca-form" data-card-form>
+      <!-- Живой макет визитки. В онбординге карточка обретала лицо на глазах,
+           а в редакторе исчезала — человек заполнял анкету вслепую и видел
+           результат только на отдельной вкладке. Держим её здесь и обновляем
+           при вводе, чтобы связь с результатом не терялась. -->
+      <div class="ca-paper-stage" data-paper-stage>
+        ${renderPaperCard({ name: card.name, profession: card.profession, role: card.role })}
+      </div>
+
       ${renderProgress(card)}
 
       ${section({
@@ -322,6 +331,18 @@ function renderContent() {
   `;
 }
 
+// Обновляем только сам макет, не трогая форму: при вводе имени полный
+// rerender сбросил бы фокус и позицию курсора.
+function refreshPaperCard(node) {
+  const stage = node.querySelector('[data-paper-stage]');
+  if (!stage) return;
+  stage.innerHTML = renderPaperCard({
+    name: state.card.name,
+    profession: state.card.profession,
+    role: state.card.role
+  });
+}
+
 function updateDraft(patch) {
   state.card = draft.schedule(patch);
   return state.card;
@@ -385,6 +406,8 @@ function bind(node) {
     }
     const bar = node.querySelector('.ca-progress');
     if (bar) bar.outerHTML = renderProgress(state.card);
+    // Макет перерисовываем точечно: полный rerender увёл бы курсор из поля.
+    if (el.name === 'name' || el.name === 'role') refreshPaperCard(node);
   });
 
   // Blur/change — естественная граница поля. Записываем сразу, чтобы даже

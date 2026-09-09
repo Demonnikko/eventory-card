@@ -409,6 +409,21 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
 }
 
 /* ===== Чипы профессий ===== */
+/* Подложка живого макета в редакторе: карточка «лежит» над формой, как на
+   столе. Размер сдержанный — она напоминает о результате, но не съедает
+   экран, на котором работают с полями. */
+.ca-paper-stage {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 18px;
+  perspective: 900px;
+}
+
+.ca-paper-stage .ob-paper {
+  width: min(100%, 340px);
+  margin: 0;
+}
+
 .ca-chips { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 16px; }
 
 .ca-chip {
