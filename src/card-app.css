@@ -354,12 +354,15 @@ body[data-route='privacy'] .ca-update-banner { display: none !important; }
 /* ===== Поля ===== */
 .ca-field { display: block; margin-top: 16px; }
 
+/* Подписи полей держат структуру формы. Серым по тёмному редактор читался
+   сплошной лентой — поля не группировались взглядом. Тёплый приглушённый
+   акцент тот же, что у заголовков на публичной визитке: единый почерк. */
 .ca-field-label {
   display: block;
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: rgba(217, 203, 176, 0.66);
   margin-bottom: 8px;
 }
 
@@ -423,6 +426,27 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
 }
 
 .ca-chip:active { transform: scale(0.95); }
+
+/* Свёрнутый выбор профессии: выбранное значение статичной плашкой + тихая
+   ссылка «Изменить». Кнопкой её делать нельзя — тап по самой профессии
+   означал бы снятие выбора. */
+.ca-chips.is-picked { align-items: center; }
+.ca-chip.is-static { cursor: default; }
+
+.ca-chip-change {
+  padding: 9px 4px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ca-chip-change:active { color: var(--accent); }
 
 .ca-chip.is-active {
   color: #1a1a1d;

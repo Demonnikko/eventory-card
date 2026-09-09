@@ -24,7 +24,8 @@ import { activeUpsell, upsellHref, CRM_NAME } from './crm-upsell.js';
 const state = {
   card: null,
   busy: false,
-  openSection: 'basics'
+  openSection: 'basics',
+  professionsOpen: false   // список профессий развёрнут (по кнопке «Изменить»)
 };
 
 let draft = null;
@@ -177,7 +178,19 @@ function renderServicePackages(card) {
   `;
 }
 
-function renderProfessions(card) {
+// Профессию выбирают один раз, а семь кнопок занимали четыре ряда на самом
+// видном месте редактора. После выбора сворачиваем список до выбранной строки
+// с «изменить» — верх экрана освобождается под собственно поля визитки.
+function renderProfessions(card, expanded = false) {
+  const current = BUSINESS_CARD_PROFESSIONS.find((p) => p.id === card.profession);
+  if (current && !expanded) {
+    return `
+      <div class="ca-chips is-picked">
+        <span class="ca-chip is-active is-static">${escapeHtml(current.label)}</span>
+        <button type="button" class="ca-chip-change" data-profession-edit>Изменить</button>
+      </div>
+    `;
+  }
   return `
     <div class="ca-chips">
       ${BUSINESS_CARD_PROFESSIONS.map((p) => `
@@ -243,7 +256,7 @@ function renderContent() {
         title: 'Кто вы',
         sub: 'Имя, специализация, город',
         body: `
-          ${renderProfessions(card)}
+          ${renderProfessions(card, state.professionsOpen)}
           ${field({ name: 'name', label: 'Имя', value: card.name, placeholder: 'Как вас зовут', maxlength: 80 })}
           ${field({ name: 'role', label: 'Чем занимаетесь', value: card.role, placeholder: 'Ведущий, фотограф, декоратор…', maxlength: 80 })}
           ${field({ name: 'city', label: 'Город', value: card.city, placeholder: 'Москва', maxlength: 80 })}
@@ -404,9 +417,17 @@ function bind(node) {
   node.querySelectorAll('[data-profession]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const next = state.card.profession === btn.dataset.profession ? '' : btn.dataset.profession;
+      // Выбрал — список сворачивается обратно в одну строку. Снял выбор —
+      // остаётся раскрытым, иначе выбирать станет негде.
+      state.professionsOpen = !next;
       await persist({ profession: next });
       rerender(node);
     });
+  });
+
+  node.querySelector('[data-profession-edit]')?.addEventListener('click', () => {
+    state.professionsOpen = true;
+    rerender(node);
   });
 
   const coverInput = node.querySelector('[data-cover-input]');

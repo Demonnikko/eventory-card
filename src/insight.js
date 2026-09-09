@@ -438,7 +438,20 @@ function renderLeadsByTag() {
 // это») — Pro: имя и дата видны всем, а контакт сервер режет для не-Pro и
 // показывается под замком «Открыть в Eventory Pro».
 function renderLeads() {
-  if (!state.leads.length) return '';
+  // Пока заявок нет, экран без этого блока выглядел случайным набором
+  // карточек: владелец не понимал, что «Отклик» — это про клиентов. Держим
+  // место главного раздела и объясняем, что сюда придёт.
+  if (!state.leads.length) {
+    return `
+      <section class="in-section in-leads-empty">
+        <div class="in-section-head">
+          <span class="in-section-title">Заявки на цену</span>
+        </div>
+        <p class="in-section-sub">Здесь появятся клиенты, которые нажали «Узнать цену» на вашей визитке — с именем, датой события и контактом.</p>
+        <p class="in-empty-hint">Пока заявок нет. Раздайте визитку или QR-код — и они начнут приходить сюда.</p>
+      </section>
+    `;
+  }
   const unread = state.leads.filter((l) => !l.read).length;
 
   return `
@@ -566,8 +579,8 @@ function renderContent() {
         </div>
       ` : ''}
 
-      ${renderTelegramConnect()}
       ${renderLeads()}
+      ${renderTelegramConnect()}
       ${renderHotChase()}
       ${renderLeadsByTag()}
 
