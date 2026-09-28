@@ -23,6 +23,7 @@ const state = {
   tgConnected: false,
   loading: true,
   loaded: false,     // экран уже показывали — при возврате рисуем сразу, без «Загружаем…»
+  loadedFor: '',     // для какой визитки загружены данные (slug:ключ)
   busy: false,
   form: false,       // открыта форма новой метки
   qrFor: ''          // id метки, для которой показан QR
@@ -612,13 +613,22 @@ export const insight = {
   render() {
     return '<div class="ca-loading">Загружаем…</div>';
   },
-  async mount(node) {
+  async mount(node, ctx = {}) {
+    const isCurrent = typeof ctx.isCurrent === 'function' ? ctx.isCurrent : () => true;
+    state.card = await getCard();
+    if (!isCurrent()) return;
+
     // Возврат на уже открывавшийся экран: данные лежат в state с прошлого раза,
     // поэтому рисуем их сразу — переключение вкладки выглядит мгновенным, как в
     // приложении, а не «пустой экран → загрузка → данные». Свежие цифры
     // подтянутся ниже и тихо заменят показанные. Первый заход, как и раньше,
     // показывает «Загружаем…»: показывать там нечего.
-    if (!state.loaded) {
+    //
+    // Прошлые данные годятся только для той же визитки: после восстановления
+    // копии или смены ключа на экране мелькнули бы заявки чужой карточки.
+    const cardKey = `${state.card.publishedSlug || ''}:${state.card.leadKey || ''}`;
+    if (!state.loaded || state.loadedFor !== cardKey) {
+      state.loaded = false;
       state.loading = true;
       state.summary = { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
       state.tags = [];
@@ -633,7 +643,6 @@ export const insight = {
     // Бесшовный Pro: если визитка помнит активную подписку — показываем Pro
     // сразу, ещё до ответа сервера. Сервер ниже подтвердит и продлит срок.
     state.ownerPro = localProActive();
-    state.card = await getCard();
 
     node.innerHTML = renderContent();
     // Биндим сразу: на возврате экран уже с данными, и кнопки должны работать
@@ -667,6 +676,10 @@ export const insight = {
 
     state.loading = false;
     state.loaded = true;
+    state.loadedFor = cardKey;
+    // Ответ пришёл, а человек уже на другой вкладке — не трогаем чужой экран.
+    // Данные при этом сохранены: при возврате они покажутся сразу.
+    if (!isCurrent()) return;
     node.innerHTML = renderContent();
     bind(node);
   }

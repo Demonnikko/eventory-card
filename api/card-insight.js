@@ -202,8 +202,12 @@ export default async function handler(req, res) {
   const limits = {
     track: { limit: 180, windowSeconds: 60 },
     greet: { limit: 60, windowSeconds: 60 },
-    ask: { limit: 8, windowSeconds: 3600 },
-    lead: { limit: 8, windowSeconds: 3600 },
+    // Ключ лимита — IP + визитка. На мероприятии гости часто выходят в сеть
+    // через общий Wi-Fi площадки (один IP на всех): 8 в час там упирались в
+    // потолок раньше, чем заканчивались желающие узнать цену. 20 по-прежнему
+    // режет спам, но не живых гостей.
+    ask: { limit: 20, windowSeconds: 3600 },
+    lead: { limit: 20, windowSeconds: 3600 },
     'tag-create': { limit: 30, windowSeconds: 3600 },
     'tag-delete': { limit: 30, windowSeconds: 3600 },
     'dialogs-read': { limit: 120, windowSeconds: 60 },

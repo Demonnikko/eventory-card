@@ -250,6 +250,8 @@ export function normalizeBusinessCard(input = {}) {
     galleryCaptions: cleanGalleryCaptions(input.galleryCaptions),
     cardMode: ['landing', 'leadgen', 'contact'].includes(String(input.cardMode || '')) ? String(input.cardMode) : 'landing',
     ctaText: clean(input.ctaText, 40) || DEFAULT_BUSINESS_CARD.ctaText,
+    // Спецпредложение для горячих гостей — текст владельца, визитка его не сочиняет.
+    offerText: clean(input.offerText, 140),
     leadEnabled: input.leadEnabled !== false,
     leadTitle: clean(input.leadTitle, 70) || DEFAULT_BUSINESS_CARD.leadTitle,
     leadSubtitle: clean(input.leadSubtitle, 130) || DEFAULT_BUSINESS_CARD.leadSubtitle,
@@ -298,6 +300,9 @@ export function publicCardPayload(card, scheduleGrid = null) {
     galleryCaptions: c.galleryCaptions,
     cardMode: c.cardMode,
     ctaText: c.ctaText,
+    // Без этого поля спецпредложение оставалось на телефоне владельца и до
+    // гостей не доходило: крючок на публичной визитке молчал.
+    offerText: c.offerText,
     leadEnabled: c.leadEnabled,
     leadTitle: c.leadTitle,
     leadSubtitle: c.leadSubtitle,

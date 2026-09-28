@@ -16,6 +16,7 @@ const state = {
   reviews: [],
   reviewsBusy: false,
   loaded: false,     // экран уже открывали — при возврате рисуем сразу
+  loadedFor: '',     // для какой визитки загружены данные (slug:ключ)
   referral: { needed: 3, invited: 0, earned: 0 }
 };
 
@@ -208,33 +209,46 @@ export const share = {
   render() {
     return renderContent();
   },
-  async mount(node) {
+  async mount(node, ctx = {}) {
+    const isCurrent = typeof ctx.isCurrent === 'function' ? ctx.isCurrent : () => true;
     state.card = await getCard();
+    if (!isCurrent()) return;
+
+    // Прошлые данные годятся только для той же визитки (после восстановления
+    // копии счётчик партнёрки и отзывы были бы чужими).
+    const cardKey = `${state.card.publishedSlug || ''}:${state.card.leadKey || ''}`;
+    const warm = state.loaded && state.loadedFor === cardKey;
+    if (!warm) {
+      state.referral = { needed: 3, invited: 0, earned: 0 };
+      state.reviews = [];
+    }
 
     // Первый заход: ждём статистику партнёрки, иначе плашка «Приведите артистов»
     // мигнёт дефолтным «0 из 3» и дёрнется на реальное число.
     // Возврат на экран: число уже известно с прошлого раза — рисуем сразу, а
     // свежее значение подтянем ниже в фоне. Так переключение вкладки мгновенное.
-    if (state.card.publishedSlug && !state.loaded) {
+    if (state.card.publishedSlug && !warm) {
       try { state.referral = await referralStats(); }
       catch { /* нет сети — плашка покажет дефолт, не критично */ }
+      if (!isCurrent()) return;
     }
-    if (!state.loaded) state.reviews = [];
     node.innerHTML = renderContent();
     bind(node);
     state.loaded = true;
+    state.loadedFor = cardKey;
 
     // Возврат: обновляем счётчик партнёрки в фоне и трогаем DOM только если
     // число реально изменилось — иначе никакого мелькания на готовом экране.
-    if (state.card.publishedSlug) {
+    // При первом заходе число только что получено — второй запрос не нужен.
+    if (state.card.publishedSlug && warm) {
       referralStats().then((fresh) => {
         const same = fresh && state.referral
           && fresh.invited === state.referral.invited
           && fresh.earned === state.referral.earned
           && fresh.needed === state.referral.needed;
-        if (same) return;
+        if (same || !fresh) return;
         state.referral = fresh;
-        refreshReferralBlock(node);
+        if (isCurrent()) refreshReferralBlock(node);
       }).catch(() => {});
     }
 
@@ -243,7 +257,7 @@ export const share = {
     if (state.card.publishedSlug) {
       try {
         state.reviews = await fetchOwnReviews();
-        if (state.reviews.length) refreshReviewsBlock(node);
+        if (state.reviews.length && isCurrent()) refreshReviewsBlock(node);
       } catch { /* нет отзывов или нет сети — блок останется пустым */ }
     }
   }

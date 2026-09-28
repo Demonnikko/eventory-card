@@ -169,5 +169,8 @@ export function resetPriceRequest() {
   state.vk = '';
   state.telegram = '';
   state.eventDate = '';
+  // Метка спецпредложения принадлежит визиту, в котором его показали, —
+  // иначе она прицепилась бы к заявке на другую визитку.
+  state.offerLabel = '';
   state.sent = false;
 }

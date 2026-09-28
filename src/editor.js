@@ -11,7 +11,7 @@ import {
   BUSINESS_CARD_GALLERY_MAX_BYTES,
   rotateBusinessCardLeadKey
 } from './shared/data/businessCard.js';
-import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST, cardPublicUrl } from './card-data.js';
+import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST, cardPublicUrl, hasUnpublishedChanges } from './card-data.js';
 import { createCardDraft } from './editor-draft.js';
 import {
   BACKUP_MAX_BYTES,
@@ -242,23 +242,71 @@ function renderPublishedMoment(card) {
   `;
 }
 
+// Три честных состояния публикации. Главное — «есть изменения, которых
+// клиенты ещё не видят»: редактор сохраняет правки на телефоне сразу, а на
+// публичную визитку они попадают только по кнопке. Без этого состояния плашка
+// говорила «опубликована», и владелец был уверен, что клиенты видят новую цену.
+function renderPublishState(card, dirty) {
+  if (!card.publishedSlug) {
+    return '<div class="ca-publish-hint" data-publish-state>Опубликуйте — получите ссылку и QR-код</div>';
+  }
+  return dirty
+    ? `<div class="ca-publish-live is-pending" data-publish-state>
+         <span class="ca-publish-dot" aria-hidden="true"></span>
+         <span>Есть изменения, которых клиенты ещё не видят</span>
+       </div>`
+    : `<div class="ca-publish-live" data-publish-state>
+         <span class="ca-publish-dot" aria-hidden="true"></span>
+         <span>Опубликовано — клиенты видят актуальную визитку</span>
+       </div>`;
+}
+
+function publishLabel(card, dirty) {
+  if (state.busy) return 'Публикуем…';
+  if (!card.publishedSlug) return 'Опубликовать визитку';
+  return dirty ? 'Опубликовать изменения' : 'Обновить визитку';
+}
+
+// Кнопка главная, пока есть что публиковать; когда всё на месте — спокойная.
+function publishButtonClass(card, dirty) {
+  return !card.publishedSlug || dirty ? 'ca-btn ca-btn--primary' : 'ca-btn ca-btn--ghost';
+}
+
 function renderPublishBar(card) {
   const published = Boolean(card.publishedSlug);
+  const dirty = hasUnpublishedChanges(card);
   return `
     <div class="ca-publish">
-      ${published
-        ? `<div class="ca-publish-live">
-             <span class="ca-publish-dot" aria-hidden="true"></span>
-             <span>Визитка опубликована</span>
-           </div>`
-        : '<div class="ca-publish-hint">Опубликуйте — получите ссылку и QR-код</div>'}
-      <button type="button" class="ca-btn ca-btn--primary" data-publish ${state.busy ? 'disabled' : ''}>
-        ${state.busy ? 'Публикуем…' : (published ? 'Обновить визитку' : 'Опубликовать визитку')}
+      ${renderPublishState(card, dirty)}
+      <button type="button" class="${publishButtonClass(card, dirty)}" data-publish ${state.busy ? 'disabled' : ''}>
+        ${publishLabel(card, dirty)}
       </button>
       ${published ? '<button type="button" class="ca-btn ca-btn--ghost" data-open-share>Ссылка и QR-код</button>' : ''}
       ${published ? '<button type="button" class="ca-key-rotate" data-rotate-key>Сменить ключ доступа</button>' : ''}
     </div>
   `;
+}
+
+// Обновляем состояние публикации прямо во время ввода — но точечно (сама
+// кнопка остаётся, с её обработчиком) и с небольшой паузой: отпечаток карточки
+// с фотографиями считать на каждую букву незачем.
+let publishStateTimer = 0;
+
+function schedulePublishState(node) {
+  clearTimeout(publishStateTimer);
+  publishStateTimer = setTimeout(() => refreshPublishState(node), 250);
+}
+
+function refreshPublishState(node) {
+  if (!state.card || state.busy) return;
+  const dirty = hasUnpublishedChanges(state.card);
+  const status = node.querySelector('[data-publish-state]');
+  if (status) status.outerHTML = renderPublishState(state.card, dirty);
+  const btn = node.querySelector('[data-publish]');
+  if (btn) {
+    btn.className = publishButtonClass(state.card, dirty);
+    btn.textContent = publishLabel(state.card, dirty);
+  }
 }
 
 function renderBackup() {
@@ -382,7 +430,12 @@ function showPublishedMoment(node) {
   if (!overlay) return;
   document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
+  const close = () => {
+    overlay.remove();
+    window.removeEventListener('hashchange', close);
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
   overlay.querySelector('[data-published-close]')?.addEventListener('click', close);
   overlay.querySelector('[data-published-share]')?.addEventListener('click', () => {
     close();
@@ -390,6 +443,13 @@ function showPublishedMoment(node) {
   });
   // Тап по затемнению — тоже выход: модальное окно не должно запирать.
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  // Жест «назад» или переход по вкладке не должен оставлять окно висеть
+  // поверх другого экрана.
+  window.addEventListener('hashchange', close);
+  document.addEventListener('keydown', onKey);
+  // Фокус на главном действии: экранный диктор сразу прочтёт окно, а на
+  // компьютере Enter откроет ссылку и QR.
+  overlay.querySelector('[data-published-share]')?.focus({ preventScroll: true });
 }
 
 function refreshPaperCard(node) {
@@ -425,6 +485,8 @@ export const editor = {
     return renderContent();
   },
   async mount(node) {
+    // Раскрытый список профессий — состояние одного захода, а не настройка.
+    state.professionsOpen = false;
     state.card = await getCard();
     draft = createCardDraft(state.card, { save: saveCard });
     state.card = draft.card;
@@ -432,6 +494,7 @@ export const editor = {
     bind(node);
   },
   async unmount() {
+    clearTimeout(publishStateTimer);
     await flushDraft();
   }
 };
@@ -467,6 +530,7 @@ function bind(node) {
     if (bar) bar.outerHTML = renderProgress(state.card);
     // Макет перерисовываем точечно: полный rerender увёл бы курсор из поля.
     if (el.name === 'name' || el.name === 'role') refreshPaperCard(node);
+    schedulePublishState(node);
   });
 
   // Blur/change — естественная граница поля. Записываем сразу, чтобы даже

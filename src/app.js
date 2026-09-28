@@ -116,8 +116,15 @@ export function mountApp() {
   const app = document.getElementById('app');
   const tabbar = document.getElementById('tabbar');
   let currentView = null;
+  // Номер перехода. Быстрые нажатия запускают route() повторно, пока прошлый
+  // ещё ждёт чанк или данные. Без номера опоздавший переход дорисовывал СВОЙ
+  // экран поверх нового (редактор затирался «Откликом», таб-бар мог спрятаться
+  // на обычной вкладке). Теперь устаревший переход просто прекращается.
+  let routeSeq = 0;
 
   async function route() {
+    const seq = ++routeSeq;
+    const isCurrent = () => seq === routeSeq;
     const { id, params } = parseRoute();
     // Метку активной вкладки переставляем ДО ленивой загрузки экрана — тогда
     // при навигации через хэш (кнопки браузера, программный переход)
@@ -128,6 +135,7 @@ export function mountApp() {
     // Лениво подгружаем код нужного экрана. Оболочка (шапка, фон) уже на
     // месте, предыдущий экран виден те миллисекунды, что грузится чанк.
     const view = await VIEW_LOADERS[id]();
+    if (!isCurrent()) return;
     document.body.dataset.route = id;
     if (view.title) {
       document.title = id === 'editor' ? 'Визитка' : `${view.title} — Визитка`;
@@ -141,6 +149,7 @@ export function mountApp() {
     if (currentView && currentView !== view && typeof currentView.unmount === 'function') {
       try { await currentView.unmount(); } catch { /* уход не должен ломать переход */ }
     }
+    if (!isCurrent()) return;
     currentView = view;
 
     // Против моргания при переключении вкладок: раньше роутер сначала рисовал
@@ -163,6 +172,9 @@ export function mountApp() {
       await view.mount(app, {
         routeId: id,
         params,
+        // Экран с сетевыми данными сверяется с этим перед тем, как дорисовать
+        // пришедший ответ: человек мог уже уйти на другую вкладку.
+        isCurrent,
         // Онбординг завершился — перерисовываем маршрут, а не меняем хэш:
         // хэш и так '#/editor', hashchange бы не сработал.
         onDone: () => route()
@@ -170,6 +182,7 @@ export function mountApp() {
     } else {
       app.innerHTML = typeof view.render === 'function' ? view.render() : '';
     }
+    if (!isCurrent()) return;
 
     const chromeless = id === 'card-public' || id === 'onboarding'
       || id === 'present' || id === 'review-record' || id === 'privacy';

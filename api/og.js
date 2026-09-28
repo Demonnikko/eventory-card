@@ -9,7 +9,17 @@
 // index.html, подставляет в <head> og-теги конкретной визитки (имя, роль,
 // фото) и отдаёт всем — и боту, и браузеру. Браузеру теги не мешают: SPA
 // поверх отрисуется как раньше.
+import crypto from 'node:crypto';
 import { normalizeSlug } from './_card-access.js';
+
+// Версия снимка — короткий отпечаток его содержимого. Идёт в адрес картинки
+// (&v=…): сменил владелец фото — сменился адрес, и CDN больше не показывает
+// клиентам старое. Без версии адрес был вечным, и новое фото доезжало до
+// гостей только через час, а в галерее после удаления кадра под подписью
+// «Свадьба» мог час стоять чужой снимок.
+function photoVersion(src) {
+  return crypto.createHash('sha1').update(String(src || '')).digest('hex').slice(0, 12);
+}
 
 // Данные визитки берём из того же эндпоинта, что и клиент: /api/card-get
 // проксируется в основной проект, где лежит карточка. Свой Redis у проекта
@@ -72,10 +82,17 @@ async function servePhoto(req, res, origin, slug, which = 'cover') {
 
   res.setHeader('Content-Type', mime);
   res.setHeader('Content-Length', String(body.length));
-  // Визитку могут отредактировать, поэтому не immutable: CDN держит копию
-  // час, дальше отдаёт устаревшую и обновляет в фоне — боты и браузеры
-  // получают картинку мгновенно, а новое фото доезжает само.
-  res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+  // Адрес с версией, совпавшей с содержимым, неизменен по определению: новое
+  // фото получит новый адрес. Такой ответ кэшируем навсегда — и в CDN, и в
+  // браузере гостя. Если версия не совпала (ответ card-get ещё не догнал
+  // правку) или её нет (старые ссылки, og:image у ботов), кэшируем коротко,
+  // чтобы не закрепить за адресом не тот снимок.
+  const requested = String(req.query?.v || '');
+  if (requested && requested === photoVersion(raw)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  } else {
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+  }
   return res.status(200).send(body);
 }
 
@@ -96,20 +113,27 @@ async function serveLightCard(req, res, origin, slug) {
   if (!card) return res.status(404).json({ ok: false, error: 'card_not_found' });
 
   const light = { ...card };
-  const photoUrl = (q) => `/api/og?slug=${encodeURIComponent(slug)}&photo=${q}`;
+  const base = `/api/og?slug=${encodeURIComponent(slug)}`;
 
-  // Обложку подменяем только если она data-URI: реальный http-адрес и так лёгкий.
-  if (String(card.coverPhoto || '').startsWith('data:')) {
-    light.coverPhoto = photoUrl('cover');
+  // Подменяем только снимки, которые ветка ?photo= действительно умеет отдать.
+  // Непривычный формат (svg, лишние параметры в data-URI) оставляем внутри
+  // карточки как был: пусть тяжелее, зато гость не увидит битую картинку.
+  // Реальный http-адрес и так лёгкий — его не трогаем.
+  const servable = (src) => DATA_URI_RE.test(String(src || ''));
+  if (servable(card.coverPhoto)) {
+    light.coverPhoto = `${base}&photo=cover&v=${photoVersion(card.coverPhoto)}`;
   }
   if (Array.isArray(card.galleryPhotos)) {
     light.galleryPhotos = card.galleryPhotos.map((src, i) => (
-      String(src || '').startsWith('data:') ? `${photoUrl('gallery')}&i=${i}` : src
+      servable(src) ? `${base}&photo=gallery&i=${i}&v=${photoVersion(src)}` : src
     ));
   }
 
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+  // card-get под нами и так держит копию до минуты — поверх неё кэшируем
+  // совсем коротко, только чтобы пережить наплыв (QR на экране в зале), а
+  // правка владельца доезжала до гостей без лишней задержки.
+  res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=50');
   return res.status(200).json({ ok: true, card: light });
 }
 
@@ -154,8 +178,8 @@ function buildMetaTags(card, origin, slug) {
   const cover = String(card?.coverPhoto || '');
   const image = /^https?:\/\//.test(cover)
     ? cover
-    : (cover
-        ? `${origin}/api/og?slug=${encodeURIComponent(slug)}&photo=cover`
+    : (DATA_URI_RE.test(cover)
+        ? `${origin}/api/og?slug=${encodeURIComponent(slug)}&photo=cover&v=${photoVersion(cover)}`
         : `${origin}/og-default.png`);
 
   const title = card?.role ? `${name} — ${card.role}` : name;

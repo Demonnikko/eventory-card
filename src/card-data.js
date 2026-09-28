@@ -83,7 +83,53 @@ export async function publishCard(card) {
     leadKey: data.leadKey || card.leadKey,
     publishedAt: Date.now()
   });
+  writePublishedPrint(saved.publishedSlug, publicFingerprint(saved));
   return { card: saved, url: data.url || cardPublicUrl(data.slug) };
+}
+
+// ─── Неопубликованные изменения ───
+//
+// Редактор сохраняет правки на телефоне сразу, а на публичную визитку они
+// попадают только по кнопке «Обновить». Раньше плашка при этом продолжала
+// говорить «Визитка опубликована» — владелец менял цену, закрывал приложение и
+// был уверен, что клиенты видят новую, а они видели старую.
+//
+// Храним отпечаток ровно того, что ушло на сервер, и сравниваем с тем, что
+// ушло бы сейчас. Локальные настройки (режим витрины и т. п.) в отпечаток не
+// входят — их изменение публикации не требует.
+const PUBLISHED_PRINT_KEY = 'eventory-card:published-print:';
+
+export function publicFingerprint(card) {
+  const text = JSON.stringify(publicCardPayload(card, null));
+  let hash = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+  }
+  return `${text.length}:${(hash >>> 0).toString(36)}`;
+}
+
+function readPublishedPrint(slug) {
+  try {
+    return localStorage.getItem(`${PUBLISHED_PRINT_KEY}${slug}`) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writePublishedPrint(slug, print) {
+  if (!slug) return;
+  try {
+    localStorage.setItem(`${PUBLISHED_PRINT_KEY}${slug}`, print);
+  } catch { /* приватный режим — индикатор просто будет осторожнее */ }
+}
+
+// true — есть правки, которых клиенты не видят. Если отпечатка нет (визитку
+// публиковали до этого обновления или в другом браузере), честно считаем, что
+// правки могут быть: ложное «обновите» безопасно, ложное «всё на месте» — нет.
+export function hasUnpublishedChanges(card) {
+  if (!card?.publishedSlug) return false;
+  const saved = readPublishedPrint(card.publishedSlug);
+  return !saved || saved !== publicFingerprint(card);
 }
 
 // Полнота карточки — единственная «метрика» в бесплатном продукте.

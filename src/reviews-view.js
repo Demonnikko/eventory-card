@@ -252,10 +252,12 @@ export function injectReviews(node, reviews) {
   const section = tpl.content.firstElementChild;
   if (!section) return;
 
-  // Место как в card-view.js: перед ценой, иначе перед CTA/сохранением,
-  // иначе просто в конец карточки.
+  // Место как в card-view.js: перед ценой; если цены нет — перед оффером или
+  // формой заявки, чтобы отзывы стояли ДО решения написать, а не после него;
+  // иначе перед сохранением контакта, иначе в конец карточки.
   const anchor = card.querySelector('.cp-price')
-    || card.querySelector('.cp-cta')
+    || card.querySelector('[data-offer]')
+    || card.querySelector('[data-price-req]')
     || card.querySelector('.cp-save');
   if (anchor) card.insertBefore(section, anchor);
   else card.appendChild(section);

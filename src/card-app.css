@@ -850,6 +850,12 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 }
 
 /* Пульсирующая точка — визитка «в эфире» */
+/* Есть правки, которых клиенты не видят: тот же ряд, но тёплым акцентом и без
+   «живого» пульса — это приглашение к действию, а не сообщение «всё хорошо». */
+.ca-publish-live.is-pending { color: var(--accent-strong); }
+.ca-publish-live.is-pending .ca-publish-dot { background: var(--accent); }
+.ca-publish-live.is-pending .ca-publish-dot::after { animation: none; opacity: 0; }
+
 .ca-publish-dot {
   position: relative;
   width: 7px;
