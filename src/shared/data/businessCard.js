@@ -77,7 +77,6 @@ export const DEFAULT_BUSINESS_CARD = {
   max: '',
   website: '',
   videoUrl: '',           // ссылка на выступление: кнопка «Смотреть выступление»
-  avatarPhoto: '',        // legacy: новые визитки используют только обложку
   coverPhoto: '',         // data:image/jpeg;base64,...
   coverPosition: 'top',   // 'top' | 'center' | 'bottom'
   galleryPhotos: [],      // номера и работы: data:image/jpeg;base64,... до 6 фото
@@ -331,12 +330,14 @@ export function createLeadKey() {
 // Поля прежних версий визитки, у которых больше нет ни экрана, ни места на
 // публичной странице: цена «от», услуги и пакеты (их заменили праздники и
 // форматы), спецпредложение и быстрые вопросы (их заменила одна заявка
-// «Проверить дату»), соцсети и график из CRM. Убираем при чтении, чтобы
+// «Проверить дату»), соцсети, график из CRM и аватар (визитка давно живёт
+// одной обложкой). Убираем при чтении, чтобы
 // они не жили в данных мёртвым грузом и не уезжали в резервные копии.
 const RETIRED_FIELDS = [
   'headline', 'highlights', 'portfolioUrl', 'services', 'priceFrom',
   'responseTime', 'servicePackages', 'socials', 'cardMode', 'ctaText',
-  'offerText', 'leadTitle', 'leadSubtitle', 'showSchedule', 'schedule'
+  'offerText', 'leadTitle', 'leadSubtitle', 'showSchedule', 'schedule',
+  'avatarPhoto'
 ];
 
 function withoutRetired(input) {
@@ -373,7 +374,6 @@ export function normalizeBusinessCard(input = {}) {
     max: normalizeMax(input.max),
     website: cleanUrl(input.website),
     videoUrl: cleanUrl(input.videoUrl),
-    avatarPhoto: '',
     coverPhoto: cleanDataUrl(input.coverPhoto, 320 * 1024),
     coverPosition: ['top', 'center', 'bottom'].includes(String(input.coverPosition || ''))
       ? String(input.coverPosition)
@@ -422,7 +422,6 @@ export function publicCardPayload(card) {
     max: c.max,
     website: c.website,
     videoUrl: c.videoUrl,
-    avatarPhoto: '',
     coverPhoto: c.coverPhoto,
     coverPosition: c.coverPosition,
     galleryPhotos: c.galleryPhotos,
