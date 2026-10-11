@@ -74,8 +74,10 @@ function phoneHref(phone) {
 }
 
 function contactIcon(name) {
-  if (hasBrandIcon(name)) return renderBrandIcon(name, { size: 22 });
-  return renderIcon(name, { size: 22 });
+  if (hasBrandIcon(name)) {
+    return `<span class="vz-contact-icon">${renderBrandIcon(name, { size: 28 })}</span>`;
+  }
+  return `<span class="vz-contact-icon is-glyph">${renderIcon(name, { size: 16 })}</span>`;
 }
 
 function contactItems(card) {
@@ -399,7 +401,7 @@ function renderContacts(card, interactive) {
       <nav class="vz-contacts" style="--cols:${cols}" aria-label="Контакты">
         ${items.map((i) => `
           <a class="vz-contact" href="${escapeAttr(i.href)}" target="_blank" rel="noopener" data-contact>
-            <span class="vz-contact-icon">${contactIcon(i.icon)}</span>
+            ${contactIcon(i.icon)}
             <span class="vz-contact-label">${escapeHtml(i.label)}</span>
           </a>
         `).join('')}

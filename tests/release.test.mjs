@@ -91,6 +91,32 @@ test('заявка «Проверить дату» — единственная 
   assert.doesNotMatch(view, /data-ask|data-offer|data-price-request/);
 });
 
+test('шторка заявки держится над клавиатурой iPhone, а пустая дата подписана', async () => {
+  const [sheet, keyboard, sheetCss] = await Promise.all([
+    readFile(new URL('../src/date-request.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/shared/lib/sheet-keyboard.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles/date-request.css', import.meta.url), 'utf8')
+  ]);
+  // Без подгонки по visualViewport Safari уводил шторку из-под клавиатуры,
+  // а под ней просвечивала визитка (проверено в симуляторе iPhone 17 Pro).
+  assert.match(sheet, /fitSheetToKeyboard\(overlay, body\)/);
+  assert.match(keyboard, /visualViewport/);
+  assert.match(keyboard, /translateY\(-2000px\)/);
+  assert.match(sheetCss, /--dr-lift/);
+  assert.match(sheetCss, /\.dr-sheet::after/);
+  // Пустое поле даты Safari рисует совсем пустым — нужна своя подсказка.
+  assert.match(sheet, /dr-date-hint/);
+  assert.match(sheetCss, /@supports \(-webkit-touch-callout: none\)/);
+});
+
+test('плитки праздников ровные, контакты — плашками без серого фильтра', async () => {
+  const viewCss = await readFile(new URL('../src/styles/card-view.css', import.meta.url), 'utf8');
+  assert.match(viewCss, /\.vz-tile:not\(\.is-lead\) \.vz-tile-note \{\s*min-height/);
+  assert.match(viewCss, /\.vz-tile:not\(\.is-lead\) \.vz-tile-title \{\s*white-space: nowrap/);
+  assert.doesNotMatch(viewCss, /grayscale\(/);
+  assert.match(viewCss, /\.vz-contact-icon\.is-glyph/);
+});
+
 test('явное сохранение повторяет неудачную фоновую запись', async () => {
   let attempts = 0;
   const draft = createCardDraft(DEFAULT_BUSINESS_CARD, {

@@ -9,10 +9,12 @@ body[data-route='card-public'] { padding-bottom: 0; }
 body[data-route='card-public'] .ca-header { display: none; }
 
 /* Шапка визитки — фото во всю ширину телефона, поэтому боковых полей нет:
-   они живут внутри .vz-body. Снизу запас под плавающую панель заявки. */
+   они живут внутри .vz-body. Снизу запас под плавающую панель заявки и под
+   панель Safari на iOS 26: в конце страницы она разворачивается поверх
+   контента и поднимает панель заявки — без запаса та закрывала подвал. */
 body[data-route='card-public'] #app {
   max-width: 560px;
-  padding: 0 0 calc(env(safe-area-inset-bottom) + 104px);
+  padding: 0 0 calc(env(safe-area-inset-bottom) + 140px);
 }
 
 .cp-page {
@@ -416,7 +418,9 @@ body[data-route='card-public'] #app {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(180deg, rgba(6, 6, 7, 0.06) 0%, rgba(6, 6, 7, 0.9) 100%);
+  /* Темнеет не равномерно, а под текстом: верх фото остаётся живым, а белое
+     название не ложится на светлые места кадра (карта в руке, рубашки). */
+  background: linear-gradient(180deg, rgba(6, 6, 7, 0) 28%, rgba(6, 6, 7, 0.62) 58%, rgba(6, 6, 7, 0.92) 100%);
 }
 
 .vz-tile-icon {
@@ -460,6 +464,37 @@ body[data-route='card-public'] #app {
 }
 
 .vz-tile.has-photo .vz-tile-note { color: #cfcfd3; }
+
+/* Текст плитки прижат к низу, поэтому названия в одном ряду совпадают, только
+   если подписи одной высоты. Держим под подписью ровно две строки: короткая
+   («Май — июнь») оставляет воздух снизу, длинная своя подпись обрезается. */
+.vz-tile:not(.is-lead) .vz-tile-note {
+  min-height: calc(2em * 1.35);
+  align-items: flex-start;
+}
+
+.vz-tile:not(.is-lead) .vz-tile-note > span:first-child {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* По той же причине название маленькой плитки — всегда одна строка:
+   «Новый год», перенесённый на две, встал бы выше соседних «Выпускных». */
+.vz-tile:not(.is-lead) .vz-tile-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* На узких телефонах плитка уже ~120 px: ужимаем поля и кегль, чтобы
+   «Выпускные» помещались целиком, без многоточия. */
+@media (max-width: 374px) {
+  .vz-tile:not(.is-lead) { padding: 12px; }
+  .vz-tile:not(.is-lead) .vz-tile-title { font-size: 15.5px; }
+}
 
 .vz-tile-arrow {
   display: grid;
@@ -739,18 +774,26 @@ body[data-route='card-public'] #app {
 
 .vz-contact:active { transform: scale(0.97); }
 
+/* Все контакты — плашки одной формы, как значки приложений: мессенджеры в
+   фирменном цвете (клиент узнаёт Telegram с первого взгляда), телефон, почта
+   и сайт — металлом шампани. Скругление совпадает с фирменными svg (6 из 24). */
 .vz-contact-icon {
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  color: var(--accent);
+  border-radius: 7px;
+  overflow: hidden;
 }
 
-/* Фирменные иконки мессенджеров приглушаем в тон шампани: синий Telegram
-   был бы единственным ярким цветом на всей визитке. */
-.vz-contact .brand-icon-img {
-  filter: grayscale(1) sepia(0.35) brightness(1.12) contrast(0.92);
-  opacity: 0.92;
+.vz-contact-icon.is-glyph {
+  background: var(--gold-leaf);
+  color: var(--on-accent);
+}
+
+.vz-contact-icon .brand-icon-img {
+  width: 100%;
+  height: 100%;
 }
 
 .vz-save {

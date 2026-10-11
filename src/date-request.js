@@ -13,6 +13,7 @@ import { toast } from './shared/components/toast.js';
 import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
 import { enabledOccasions, occasionById, occasionTitle } from './shared/data/occasions.js';
 import { sendLead } from './insight-data.js';
+import { fitSheetToKeyboard } from './shared/lib/sheet-keyboard.js';
 
 const UNKNOWN_FORMAT = 'Пока не знаю';
 const OTHER_OCCASION = 'other';
@@ -72,16 +73,25 @@ function chips(name, label, options, selected) {
 function field({ name, label, type = 'text', value, placeholder = '', autocomplete = 'off', inputmode = '', max = 0, extra = '' }) {
   const error = state.errors[name];
   const id = `dr-${name}`;
-  return `
-    <label class="dr-field" for="${id}">
-      <span class="dr-label">${escapeHtml(label)}</span>
+  const input = `
       <input class="dr-input${error ? ' is-invalid' : ''}" id="${id}" name="${escapeAttr(name)}"
         type="${escapeAttr(type)}" value="${escapeAttr(value)}"
         ${placeholder ? `placeholder="${escapeAttr(placeholder)}"` : ''}
         autocomplete="${escapeAttr(autocomplete)}"
         ${inputmode ? `inputmode="${escapeAttr(inputmode)}"` : ''}
         ${max ? `maxlength="${max}"` : ''}
-        ${error ? `aria-invalid="true" aria-describedby="${id}-error"` : ''} ${extra} />
+        ${error ? `aria-invalid="true" aria-describedby="${id}-error"` : ''} ${extra} />`;
+  // Дата — с подсказкой поверх пустого поля (её видно только на iPhone,
+  // см. .dr-date в date-request.css).
+  const control = type === 'date'
+    ? `<span class="dr-date" data-empty="${value ? 'false' : 'true'}">${input}
+        <span class="dr-date-hint" aria-hidden="true">${renderIcon('calendar', { size: 18 })}Выбрать</span>
+      </span>`
+    : input;
+  return `
+    <label class="dr-field" for="${id}">
+      <span class="dr-label">${escapeHtml(label)}</span>
+      ${control}
       ${error ? `<span class="dr-error" id="${id}-error" role="alert">${escapeHtml(error)}</span>` : ''}
     </label>
   `;
@@ -195,10 +205,12 @@ export function openDateRequest({ card, slug, tagId = '', source = '', occasion 
   requestAnimationFrame(() => overlay.classList.add('is-open'));
 
   const body = overlay.querySelector('[data-dr-body]');
+  const releaseKeyboard = fitSheetToKeyboard(overlay, body);
 
   function close() {
     overlay.classList.remove('is-open');
     document.removeEventListener('keydown', onKey);
+    releaseKeyboard();
     const finish = () => {
       overlay.remove();
       document.documentElement.style.overflow = previousOverflow;
@@ -280,12 +292,13 @@ export function openDateRequest({ card, slug, tagId = '', source = '', occasion 
       const el = event.target;
       if (!(el.name in state)) return;
       state[el.name] = el.value;
+      if (el.type === 'date') el.closest('.dr-date')?.setAttribute('data-empty', el.value ? 'false' : 'true');
       // Ошибку поля снимаем, как только человек начал её исправлять.
       if (state.errors[el.name]) {
         delete state.errors[el.name];
         el.classList.remove('is-invalid');
         el.removeAttribute('aria-invalid');
-        el.parentElement?.querySelector('.dr-error')?.remove();
+        el.closest('.dr-field')?.querySelector('.dr-error')?.remove();
       }
     });
     form.addEventListener('change', (event) => {

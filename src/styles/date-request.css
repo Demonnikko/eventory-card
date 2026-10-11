@@ -3,10 +3,14 @@
    фото, из которого человек её открыл. Поля — тихие, графитовые; главная
    кнопка — металл шампанью, как на нижней панели. */
 
+/* Затемнение — на весь экран. Шторку поднимает к краю видимой части экрана
+   --dr-lift: его считает date-request.js по visualViewport, когда на iPhone
+   выезжает клавиатура. */
 .dr-overlay {
   position: fixed;
   inset: 0;
   z-index: 80;
+  padding-bottom: var(--dr-lift, 0px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -17,8 +21,9 @@
 .dr-overlay.is-open { background: rgba(6, 6, 7, 0.62); }
 
 .dr-sheet {
+  position: relative;
   width: min(100%, 560px);
-  max-height: 92dvh;
+  max-height: min(92dvh, calc(var(--dr-visible, 100dvh) - 16px));
   display: flex;
   flex-direction: column;
   padding: 10px 0 0;
@@ -33,6 +38,19 @@
 }
 
 .dr-overlay.is-open .dr-sheet { transform: none; }
+
+/* Продолжение фона шторки вниз — под клавиатуру и строку Safari. Без него
+   в щели между поднятой шторкой и клавиатурой была видна визитка. */
+.dr-sheet::after {
+  content: '';
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 0;
+  right: 0;
+  height: 100vh;
+  background: rgb(14, 14, 17);
+  pointer-events: none;
+}
 
 .dr-handle {
   align-self: center;
@@ -138,6 +156,32 @@
   color-scheme: dark;
 }
 .dr-input[type='date']::-webkit-date-and-time-value { text-align: left; }
+
+/* Пустое поле даты Safari на iPhone рисует совсем пустым — без «дд.мм.гггг»
+   и значка, будто поле сломано. Подсказку показываем только там
+   (-webkit-touch-callout есть лишь в iOS): Chrome и Android пишут маску сами. */
+.dr-date {
+  position: relative;
+  display: block;
+}
+
+.dr-date-hint { display: none; }
+
+@supports (-webkit-touch-callout: none) {
+  .dr-date[data-empty='true'] .dr-date-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 15px;
+    color: var(--muted-2);
+    font-size: 16px;
+    pointer-events: none;
+  }
+
+  .dr-date-hint .ui-icon { color: var(--accent); }
+}
 
 .dr-error {
   font-size: 12.5px;
