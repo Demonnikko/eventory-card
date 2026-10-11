@@ -11,7 +11,7 @@ import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
-import { enabledOccasions, occasionById, occasionTitle } from './shared/data/occasions.js';
+import { enabledOccasions, findOccasion, occasionTitle } from './shared/data/occasions.js';
 import { sendLead } from './insight-data.js';
 import { fitSheetToKeyboard } from './shared/lib/sheet-keyboard.js';
 
@@ -98,7 +98,7 @@ function field({ name, label, type = 'text', value, placeholder = '', autocomple
 }
 
 function contextTitle(card, fixedOccasion) {
-  const occasion = occasionById(fixedOccasion || state.occasion);
+  const occasion = findOccasion(card, { id: fixedOccasion || state.occasion });
   return occasion ? occasionTitle(occasion) : '';
 }
 

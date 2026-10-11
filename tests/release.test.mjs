@@ -109,6 +109,27 @@ test('шторка заявки держится над клавиатурой i
   assert.match(sheetCss, /@supports \(-webkit-touch-callout: none\)/);
 });
 
+test('страница праздника идёт как продающая презентация и самостоятельна по ссылке', async () => {
+  const page = await readFile(new URL('../src/occasion-view.js', import.meta.url), 'utf8');
+  const order = [
+    'renderMoment(card, settings)',
+    'renderArtist(card, { heroIsCover })',
+    'renderFormats(card',
+    'renderActScreens(card, settings)',
+    'renderHighlight(card, settings)',
+    'renderReviews(card, { occasionId',
+    'renderRequirements(card',
+    'renderFinale(card, settings, ctx)',
+    'renderContacts(card'
+  ];
+  const positions = order.map((part) => page.lastIndexOf(part));
+  assert.ok(positions.every((pos) => pos > 0), 'все экраны на месте');
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'экраны в порядке презентации');
+  assert.match(page, /Теперь ваша дата/);
+  // «Все праздники» только для пришедших с главной: из Sales страница сама по себе.
+  assert.match(page, /ctx\.fromMain \?/);
+});
+
 test('плитки праздников ровные, контакты — плашками без серого фильтра', async () => {
   const viewCss = await readFile(new URL('../src/styles/card-view.css', import.meta.url), 'utf8');
   assert.match(viewCss, /\.vz-tile:not\(\.is-lead\) \.vz-tile-note \{\s*min-height/);
@@ -349,7 +370,7 @@ test('релизные UI-контракты остаются включены',
     readFile(new URL('../src/present.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/card-app.css', import.meta.url), 'utf8'),
     readFile(new URL('../src/share.js', import.meta.url), 'utf8'),
-    readFile(new URL('../src/card-view.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/card-view-parts.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/public-card.js', import.meta.url), 'utf8'),
     readFile(new URL('../vite.config.js', import.meta.url), 'utf8'),
     readFile(new URL('../vercel.json', import.meta.url), 'utf8'),

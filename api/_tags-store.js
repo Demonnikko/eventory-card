@@ -6,7 +6,7 @@
 // ссылке пишется в счётчик метки — и через месяц видно, какое мероприятие
 // действительно принесло обращения, а какое только время.
 import crypto from 'node:crypto';
-import { OCCASIONS } from '../src/shared/data/occasions.js';
+import { OCCASIONS, isOccasionId } from '../src/shared/data/occasions.js';
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -97,8 +97,11 @@ export async function deleteTag(slug, id) {
 
 // Праздники и каналы, которые считает «Отклик». Значения приходят из адреса
 // визитки (путь /v/<визитка>/<праздник> и ?src=…), поэтому принимаем только
-// известные: чужая строка не должна плодить поля в hash статистики.
+// известные: чужая строка не должна плодить поля в hash статистики. Свои
+// праздники визитки (id вида c1a2b3c) сервер заранее не знает — их число в
+// статистике ограничено MAX_CUSTOM_OCCASION_FIELDS.
 export const OCCASION_IDS = OCCASIONS.map((item) => item.id);
+const MAX_CUSTOM_OCCASION_FIELDS = 12;
 export const SOURCE_IDS = ['qr', 'vk', 'max', 'wa', 'tg', 'insta', 'site', 'sales'];
 
 async function readHash(key) {
@@ -112,13 +115,26 @@ async function readHash(key) {
   return out;
 }
 
+// allowed — список id или проверка id (для своих праздников).
 function prefixed(hash, prefix, allowed) {
+  const accepts = typeof allowed === 'function' ? allowed : (id) => allowed.includes(id);
   const out = {};
-  for (const id of allowed) {
-    const n = hash[`${prefix}${id}`];
-    if (n) out[id] = n;
+  for (const [field, n] of Object.entries(hash)) {
+    if (!field.startsWith(prefix) || !n) continue;
+    const id = field.slice(prefix.length);
+    if (accepts(id)) out[id] = n;
   }
   return out;
+}
+
+// Свой праздник считаем, только если он уже есть в статистике или место для
+// новых ещё не кончилось: подставные id не раздуют hash визитки.
+async function canCountOccasion(key, occasion) {
+  if (OCCASION_IDS.includes(occasion)) return true;
+  const hash = await readHash(key);
+  if (`occ:${occasion}` in hash) return true;
+  const custom = Object.keys(hash).filter((field) => field.startsWith('occ:') && !OCCASION_IDS.includes(field.slice(4)));
+  return custom.length < MAX_CUSTOM_OCCASION_FIELDS;
 }
 
 // Статистика метки: открытия, уникальные посетители, переходы в контакты.
@@ -148,7 +164,7 @@ export async function readCardStats(slug) {
     visitors: out.visitors || 0,
     contacts: out.contacts || 0,
     lastAt: out.lastAt || 0,
-    occasions: prefixed(out, 'occ:', OCCASION_IDS),
+    occasions: prefixed(out, 'occ:', isOccasionId),
     sources: prefixed(out, 'src:', SOURCE_IDS)
   };
 }
@@ -196,13 +212,15 @@ export function trackCardOpen(slug, visitorId, event = 'open') {
 }
 
 // Открытие визитки по празднику и каналу + отметка дня для графика недели.
-// occasion и source уже проверены вызывающим (OCCASION_IDS / SOURCE_IDS).
+// occasion и source уже проверены вызывающим (isOccasionId / SOURCE_IDS).
 // countDay=false — переход на праздник внутри уже открытой визитки: повод
 // засчитываем, а новое открытие дня — нет.
 export async function trackCardReach(slug, { occasion = '', source = '', countDay = true } = {}) {
   if (!storeConfigured()) return false;
   const key = CARD_STATS_KEY(slug);
-  if (occasion) await redis(['HINCRBY', key, `occ:${occasion}`, '1']);
+  if (occasion && await canCountOccasion(key, occasion)) {
+    await redis(['HINCRBY', key, `occ:${occasion}`, '1']);
+  }
   if (source) await redis(['HINCRBY', key, `src:${source}`, '1']);
   if (countDay) {
     const day = new Date().toISOString().slice(0, 10);
@@ -310,7 +328,10 @@ export async function saveLead(slug, entry) {
     eventDate: String(entry.eventDate || '').slice(0, 20),
     city: String(entry.city || '').slice(0, 60),
     format: String(entry.format || '').slice(0, 60),
-    occasion: OCCASION_IDS.includes(entry.occasion) ? entry.occasion : '',
+    occasion: isOccasionId(entry.occasion) ? entry.occasion : '',
+    // Название праздника на момент заявки: свой праздник могут переименовать
+    // или удалить, а в «Отклике» заявка должна остаться понятной.
+    occasionTitle: String(entry.occasionTitle || '').slice(0, 40),
     source: SOURCE_IDS.includes(entry.source) ? entry.source : '',
     tagId: String(entry.tagId || '').slice(0, 16),
     // Связь с профилем гостя: по нему в «Отклике» собираем досье (что смотрел).

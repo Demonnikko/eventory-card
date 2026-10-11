@@ -27,8 +27,9 @@ import { renderPaperCard } from './paper-card.js';
 import {
   section, statusDone, statusNew,
   renderBasics, renderMedia, renderActs, renderContacts,
-  renderOccasions, renderTrust, renderProgram
+  renderTrust, renderProgram
 } from './editor-sections.js';
+import { renderOccasions, bindOccasionEditor } from './editor-occasions.js';
 
 const state = {
   card: null,
@@ -45,7 +46,8 @@ const LIST_BLANKS = {
   facts: { value: '', label: '' },
   formats: { minutes: '', title: '', description: '' },
   requirements: { title: '', text: '' },
-  quotes: { text: '', author: '' }
+  included: { text: '' },
+  quotes: { text: '', author: '', occasion: '' }
 };
 
 // Подсказка «осталось» ведёт прямо в нужный раздел.
@@ -387,8 +389,16 @@ function listCopy(list) {
 }
 
 function occasionPatch(id, changes) {
-  const current = state.card.occasions?.[id] || { photo: -1, highlightPhoto: -1 };
+  const current = state.card.occasions?.[id] || { photo: -1, momentPhoto: -1, highlightPhoto: -1 };
   return { occasions: { ...state.card.occasions, [id]: { ...current, ...changes } } };
+}
+
+// Подписи номеров — параллельные массивы: строка i описывает фото i.
+function galleryTextPatch(key, index, value) {
+  const list = [...(state.card[key] || [])];
+  while (list.length < state.card.galleryPhotos.length) list.push('');
+  list[index] = value;
+  return { [key]: list };
 }
 
 export const editor = {
@@ -455,9 +465,20 @@ function bindInput(node, form) {
     } else if (el.dataset.occ) {
       updateDraft(occasionPatch(el.dataset.occ, { [el.dataset.occField]: el.value }));
     } else if (el.dataset.galleryCaption != null) {
-      const captions = [...state.card.galleryCaptions];
-      captions[Number(el.dataset.galleryCaption)] = el.value;
-      updateDraft({ galleryCaptions: captions });
+      updateDraft(galleryTextPatch('galleryCaptions', Number(el.dataset.galleryCaption), el.value));
+    } else if (el.dataset.galleryHeadline != null) {
+      updateDraft(galleryTextPatch('galleryHeadlines', Number(el.dataset.galleryHeadline), el.value));
+    } else if (el.dataset.galleryText != null) {
+      updateDraft(galleryTextPatch('galleryTexts', Number(el.dataset.galleryText), el.value));
+    } else if (el.dataset.customTitle) {
+      // Название своего праздника меняется, адрес страницы — нет: ссылка уже
+      // могла уйти клиентам.
+      const id = el.dataset.customTitle;
+      updateDraft({
+        customOccasions: state.card.customOccasions.map((item) => (item.id === id ? { ...item, title: el.value } : item))
+      });
+    } else if (el.dataset.occNewTitle != null) {
+      return;
     } else if (el.name) {
       updateDraft({ [el.name]: el.value });
     } else {
@@ -557,9 +578,16 @@ function bindGallery(node) {
             maxBytes: BUSINESS_CARD_GALLERY_MAX_BYTES
           }));
         }
+        const pad = (key) => {
+          const list = [...(state.card[key] || [])];
+          while (list.length < state.card.galleryPhotos.length) list.push('');
+          return [...list, ...additions.map(() => '')];
+        };
         await persist({
           galleryPhotos: [...state.card.galleryPhotos, ...additions],
-          galleryCaptions: [...state.card.galleryCaptions, ...additions.map(() => '')]
+          galleryCaptions: pad('galleryCaptions'),
+          galleryHeadlines: pad('galleryHeadlines'),
+          galleryTexts: pad('galleryTexts')
         });
         rerender(node);
       } catch {
@@ -572,16 +600,28 @@ function bindGallery(node) {
   node.querySelectorAll('[data-gallery-remove]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const index = Number(btn.dataset.galleryRemove);
-      // Праздники ссылаются на фото по номеру: удалённое фото уходит в обложку,
-      // а следующие сдвигаются на одно место — иначе страница показала бы
-      // соседний снимок.
+      // Праздники ссылаются на фото по номеру: удалённое фото уходит в обложку
+      // (у момента и изюминки — «без фото»), а следующие сдвигаются на одно
+      // место — иначе страница показала бы соседний снимок.
       const shift = (value) => (value === index ? -1 : value > index ? value - 1 : value);
+      const shiftActs = (acts) => (Array.isArray(acts)
+        ? acts.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i))
+        : acts);
       const occasions = Object.fromEntries(Object.entries(state.card.occasions || {}).map(([id, item]) => [
-        id, { ...item, photo: shift(item.photo), highlightPhoto: shift(item.highlightPhoto) }
+        id, {
+          ...item,
+          photo: shift(item.photo),
+          momentPhoto: shift(item.momentPhoto),
+          highlightPhoto: shift(item.highlightPhoto),
+          acts: shiftActs(item.acts)
+        }
       ]));
+      const without = (key) => (state.card[key] || []).filter((_, i) => i !== index);
       await persist({
-        galleryPhotos: state.card.galleryPhotos.filter((_, i) => i !== index),
-        galleryCaptions: state.card.galleryCaptions.filter((_, i) => i !== index),
+        galleryPhotos: without('galleryPhotos'),
+        galleryCaptions: without('galleryCaptions'),
+        galleryHeadlines: without('galleryHeadlines'),
+        galleryTexts: without('galleryTexts'),
         occasions
       });
       rerender(node);
@@ -606,34 +646,6 @@ function bindLists(node) {
       const list = btn.dataset.listRemove;
       const index = Number(btn.dataset.index);
       await persist({ [list]: listCopy(list).filter((_, i) => i !== index) });
-      rerender(node);
-    });
-  });
-}
-
-function bindOccasions(node) {
-  node.querySelectorAll('[data-occ-toggle]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.occToggle;
-      const on = !(state.card.occasions?.[id]?.on);
-      hapticLight();
-      // Только что включённый праздник сразу раскрываем — его стоит настроить.
-      state.openOccasion = on ? id : (state.openOccasion === id ? '' : state.openOccasion);
-      await persist(occasionPatch(id, { on }));
-      rerender(node);
-    });
-  });
-  node.querySelectorAll('[data-occ-open]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.occOpen;
-      state.openOccasion = state.openOccasion === id ? '' : id;
-      rerender(node);
-    });
-  });
-  node.querySelectorAll('[data-occ-photo]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      hapticLight();
-      await persist(occasionPatch(btn.dataset.occPhoto, { [btn.dataset.occField]: Number(btn.dataset.value) }));
       rerender(node);
     });
   });
@@ -766,7 +778,18 @@ function bind(node) {
   bindCover(node);
   bindGallery(node);
   bindLists(node);
-  bindOccasions(node);
+  bindOccasionEditor(node, {
+    card: () => state.card,
+    persist,
+    occasionPatch,
+    listCopy,
+    rerender: () => rerender(node),
+    openOccasion: (id) => {
+      if (id === undefined) return state.openOccasion;
+      state.openOccasion = id;
+      return id;
+    }
+  });
   bindBackup(node);
   bindPublish(node);
 }

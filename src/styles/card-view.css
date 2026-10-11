@@ -248,6 +248,17 @@ body[data-route='card-public'] #app {
 
 .vz-section--bleed > .vz-h2 { margin: 0 20px; }
 
+/* Заголовок ленты (отзывы) живёт в обёртке: в ней и кикер, и заголовок. */
+.vz-bleed-head { padding: 0 16px; }
+
+/* Строка-раздел над заголовком экрана — как на слайдах презентации.
+   Двойной класс: общий .vz-kicker (серый) объявлен ниже и иначе перебивал цвет. */
+.vz-kicker.vz-section-kicker {
+  display: block;
+  margin: 0 4px 8px;
+  color: var(--accent);
+}
+
 .vz-sub {
   margin: 6px 4px 0;
   font-size: 14px;
@@ -328,43 +339,6 @@ body[data-route='card-public'] #app {
 }
 
 .vz-clients span { color: var(--muted); }
-
-.vz-trust {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.vz-trust-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: var(--surface);
-  min-width: 0;
-}
-
-.vz-trust-tile.is-wide { grid-column: span 2; }
-.vz-trust-tile.is-clients { gap: 7px; }
-
-.vz-trust-value {
-  font-family: var(--display);
-  font-size: 30px;
-  line-height: 1.05;
-}
-
-.vz-trust-label {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.vz-trust-clients {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.4;
-}
 
 /* ===== Праздники ===== */
 .vz-bento {
@@ -723,29 +697,6 @@ body[data-route='card-public'] #app {
   font-size: 14px;
   line-height: 1.45;
   color: #cfcfd3;
-}
-
-.vz-price {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 28px;
-  padding: 20px 18px;
-  border: 1px solid var(--accent-border);
-  border-radius: 26px;
-  background: var(--surface);
-}
-
-.vz-price-title {
-  font-family: var(--display);
-  font-size: 26px;
-  line-height: 1.15;
-}
-
-.vz-price-text {
-  font-size: 14px;
-  line-height: 1.45;
-  color: #c2c2c7;
 }
 
 /* ===== Контакты ===== */

@@ -12,7 +12,7 @@ import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
 import { getCard } from './card-data.js';
 import { fetchInsight, createTag, deleteTag, deleteLead, setLeadTag, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
-import { OCCASIONS, occasionById, occasionTitle } from './shared/data/occasions.js';
+import { occasionsOf, findOccasion, occasionTitle } from './shared/data/occasions.js';
 
 const state = {
   card: null,
@@ -442,12 +442,15 @@ function renderLeads() {
 
       <div class="in-leads">
         ${state.leads.slice(0, 20).map((l) => {
-          const occasion = occasionById(l.occasion);
+          // Название — из визитки, а для удалённого своего праздника — из
+          // самой заявки: сервер сохранил его в момент отправки.
+          const occasion = findOccasion(state.card, { id: l.occasion });
+          const occasionName = occasion ? occasionTitle(occasion) : (l.occasionTitle || '');
           const meta = leadMeta(l);
           return `
           <div class="in-lead${l.read ? '' : ' is-new'}">
             <div class="in-lead-top">
-              <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}${occasion ? ` <span class="in-lead-occ">· ${escapeHtml(occasionTitle(occasion))}</span>` : ''}</span>
+              <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}${occasionName ? ` <span class="in-lead-occ">· ${escapeHtml(occasionName)}</span>` : ''}</span>
               <span class="in-lead-status${l.read ? '' : ' is-new'}">${l.read ? 'Просмотрена' : 'Новая'}</span>
             </div>
             ${meta ? `<p class="in-lead-meta">${escapeHtml(meta)}</p>` : ''}
@@ -560,7 +563,7 @@ function renderBars(title, rows, empty) {
 
 function renderOccasionStats() {
   const counts = state.summary?.occasions || {};
-  const rows = OCCASIONS
+  const rows = occasionsOf(state.card)
     .map((o) => ({ title: occasionTitle(o), count: Number(counts[o.id]) || 0 }))
     .filter((r) => r.count > 0)
     .sort((a, b) => b.count - a.count);

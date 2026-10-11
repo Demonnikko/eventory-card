@@ -13,12 +13,15 @@ import { openDateRequest, resetDateRequest } from './date-request.js';
 import { downloadVCard } from './vcard.js';
 import { trackOpen, trackSection, readTagFromUrl, readSourceFromUrl } from './insight-data.js';
 import { upsellHref } from './crm-upsell.js';
-import { occasionBySlug, occasionTitle } from './shared/data/occasions.js';
+import { findOccasion, occasionTitle } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
-  slug: '', occasion: null, tagId: '', source: '', query: '',
+  slug: '', occasionSlug: '', tagId: '', source: '', query: '',
+  // Пришёл ли человек на праздник с главной визитки: только тогда у страницы
+  // есть «Все праздники». По прямой ссылке из Sales она самостоятельна.
+  fromMain: false,
   // Обложка, ужатая под аватарку контакта (см. prepareVcardPhoto).
   vcardPhoto: '',
   // Разделы, уже засчитанные в интерес за этот визит. Живёт на уровне визита,
@@ -56,8 +59,9 @@ function sameCard(a, b) {
 
 // Праздник из адреса существует только если владелец его включил. Иначе
 // показываем главную — ссылка из старой рассылки не должна вести в пустоту.
+// Ищем по визитке: свои праздники (юбилей, 8 Марта) живут только в ней.
 function activeOccasion() {
-  const occasion = state.occasion;
+  const occasion = findOccasion(state.card, { slug: state.occasionSlug });
   return occasion && state.card?.occasions?.[occasion.id]?.on ? occasion : null;
 }
 
@@ -87,6 +91,7 @@ function renderContent() {
   return `<div class="cp-page">${renderCardView(state.card, {
     interactive: true,
     occasion: activeOccasion(),
+    fromMain: state.fromMain,
     slug: state.slug,
     query: state.query
   })}${renderFooter()}</div>`;
@@ -209,14 +214,15 @@ async function shareCard() {
 }
 
 // Переход между главной и праздником без перезагрузки страницы.
-function navigateTo(occasionSlug, { push = true } = {}) {
-  const occasion = occasionBySlug(occasionSlug);
-  state.occasion = occasion;
+function navigateTo(occasionSlug, { push = true, fromMain = false } = {}) {
+  const occasion = findOccasion(state.card, { slug: occasionSlug });
+  state.occasionSlug = occasion?.slug || '';
+  state.fromMain = fromMain;
   if (push) {
     const path = occasion
       ? `/v/${encodeURIComponent(state.slug)}/${encodeURIComponent(occasion.slug)}`
       : `/v/${encodeURIComponent(state.slug)}`;
-    window.history.pushState({ occasion: occasion?.slug || '' }, '', `${path}${state.query}`);
+    window.history.pushState({ occasion: occasion?.slug || '', fromMain }, '', `${path}${state.query}`);
   }
   updateMeta(state.card);
   renderAndBind(state.node);
@@ -230,7 +236,10 @@ function navigateTo(occasionSlug, { push = true } = {}) {
 function onPopState() {
   const parts = window.location.pathname.split('/').filter(Boolean);
   if (parts[0] !== 'v' || decodeURIComponent(parts[1] || '') !== state.slug) return;
-  navigateTo(decodeURIComponent(parts[2] || ''), { push: false });
+  navigateTo(decodeURIComponent(parts[2] || ''), {
+    push: false,
+    fromMain: Boolean(window.history.state?.fromMain)
+  });
 }
 
 // Всё, чем гость пользуется на визитке, привязываем СРАЗУ после отрисовки:
@@ -238,7 +247,8 @@ function onPopState() {
 function bindInteractive(node) {
   if (!state.card) return;
 
-  node.querySelector('[data-date-open]')?.addEventListener('click', () => {
+  // Кнопка «Проверить дату» есть на панели внизу и в финале страницы праздника.
+  node.querySelectorAll('[data-date-open]').forEach((btn) => btn.addEventListener('click', () => {
     openDateRequest({
       card: state.card,
       slug: state.slug,
@@ -247,7 +257,7 @@ function bindInteractive(node) {
       occasion: activeOccasion()?.id || '',
       onSaveContact: saveContact
     });
-  });
+  }));
 
   node.querySelectorAll('[data-save-contact]').forEach((btn) => {
     btn.addEventListener('click', saveContact);
@@ -267,7 +277,7 @@ function bindInteractive(node) {
     link.addEventListener('click', (event) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
       event.preventDefault();
-      navigateTo(link.dataset.occasionLink);
+      navigateTo(link.dataset.occasionLink, { fromMain: true });
     });
   });
 
@@ -336,7 +346,9 @@ export const publicCard = {
     const slug = ctx.params?.id || '';
     Object.assign(state, {
       loading: true, error: '', card: null, reviews: [], slug,
-      occasion: occasionBySlug(ctx.params?.occasion || ''),
+      occasionSlug: String(ctx.params?.occasion || '').toLowerCase(),
+      // Перезагрузка страницы праздника, открытого с главной, сохраняет «назад».
+      fromMain: Boolean(window.history.state?.fromMain),
       vcardPhoto: '', sentSections: new Set(), node,
       // Метка события и канал из адреса: по ним считаем, откуда гость.
       tagId: readTagFromUrl(),

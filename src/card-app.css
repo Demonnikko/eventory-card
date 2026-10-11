@@ -143,7 +143,7 @@ body::before {
    экрана читается как «моргание при переходе». Приложение переключается сразу. */
 
 @media (prefers-reduced-motion: reduce) {
-  .ca-progress, .ca-section-body, .cp-page { animation: none !important; }
+  .ca-section-body, .cp-page { animation: none !important; }
   .ca-publish-dot::after { animation: none; opacity: 0; }
 }
 
@@ -533,8 +533,6 @@ body[data-route='privacy'] .ca-update-banner { display: none !important; }
   border-top: 1px solid var(--border);
 }
 
-.ca-occ-preview { display: inline-block; margin-top: 16px; font-size: 14px; }
-
 .ca-switch {
   position: relative;
   width: 52px;
@@ -563,6 +561,9 @@ body[data-route='privacy'] .ca-update-banner { display: none !important; }
 
 /* Выбор фото для праздника: обложка или фото номеров. */
 .ca-photo-pick {
+  /* fieldset по умолчанию не уже своего содержимого (min-width: min-content):
+     лента фото вылезала за край карточки вместо прокрутки. */
+  min-width: 0;
   margin: 16px 0 0;
   padding: 0;
   border: 0;
@@ -623,7 +624,6 @@ body[data-route='privacy'] .ca-update-banner { display: none !important; }
 }
 
 .ca-list-pair--time { grid-template-columns: 76px minmax(0, 1fr); }
-
 
 /* Обложка: какой частью кадра заполнить шапку визитки. */
 .ca-segment {
@@ -890,14 +890,20 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
   gap: 10px;
 }
 
-.ca-gallery-row {
+/* Номер: фото слева, справа название, продающий заголовок и описание —
+   на странице праздника каждый номер становится отдельным экраном. */
+.ca-act-row {
   display: grid;
   grid-template-columns: 62px minmax(0, 1fr) 44px;
-  align-items: center;
+  align-items: start;
   gap: 9px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
 
-.ca-gallery-row img {
+.ca-act-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.ca-act-row img {
   width: 62px;
   height: 62px;
   object-fit: cover;
@@ -905,7 +911,26 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
   border: 1px solid var(--border);
 }
 
-.ca-gallery-row .ca-input { padding: 11px 12px; }
+.ca-act-fields {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ca-act-fields .ca-input { padding: 11px 12px; }
+
+/* Выпадающий список в стиле полей ввода (к какому празднику отзыв). */
+.ca-select {
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
 .ca-gallery-add,
 .ca-list-add { width: 100%; margin-top: 11px; }
 

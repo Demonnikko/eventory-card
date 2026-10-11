@@ -1,5 +1,12 @@
 import { normalizePhone, normalizeTelegram, normalizeVk, normalizeMax } from './profile.js';
-import { OCCASIONS } from './occasions.js';
+import {
+  OCCASIONS,
+  CUSTOM_OCCASION_RE,
+  OCCASION_SLUG_RE,
+  MAX_CUSTOM_OCCASIONS,
+  OCCASION_TITLE_MAX,
+  isOccasionId
+} from './occasions.js';
 
 const CARD_ID = 'business-card';
 
@@ -72,18 +79,27 @@ export const DEFAULT_BUSINESS_CARD = {
   coverPosition: 'top',   // 'top' | 'center' | 'bottom'
   galleryPhotos: [],      // номера и работы: data:image/jpeg;base64,... до 6 фото
   galleryCaptions: [],    // название номера, индекс совпадает с galleryPhotos
+  // Номер на странице праздника — отдельный экран, как слайд презентации:
+  // продающий заголовок («Один бросок. Та самая карта») и пара строк.
+  galleryHeadlines: [],
+  galleryTexts: [],
   // Доверие: короткие факты («10 лет» · «на сцене») и строка клиентов.
   facts: [],              // [{ value, label }] до 3
   clients: '',
+  credentials: '',        // регалии на экране «Артист»: «Автор шоу „Секрет“…»
   // Форматы выступления без цены: «20 минут · Сценический блок».
   formats: [],            // [{ minutes, title, description }] до 4
   // Что нужно от площадки — снимает страх организатора.
   requirements: [],       // [{ title, text }] до 4
   requirementsNote: '',
-  quotes: [],             // [{ text, author }] до 3 — текстовые отзывы
-  // Праздники: { [id]: { on, note, headline, text, photo, highlightTitle,
-  // highlightText, highlightPhoto } }. Каталог — shared/data/occasions.js.
+  included: [],           // [{ text }] до 4 — что входит в цену: «Реквизит», «Логотип в номере»
+  quotes: [],             // [{ text, author, occasion }] до 3 — отзыв можно привязать к празднику
+  // Праздники: { [id]: { on, note, headline, text, photo, video,
+  // momentTitle, momentText, momentPhoto, acts, highlightTitle, highlightText,
+  // highlightPhoto, urgency } }. Каталог — shared/data/occasions.js, свои
+  // праздники — customOccasions: [{ id, title, slug }].
   occasions: {},
+  customOccasions: [],
   leadEnabled: true,
   crmEnabled: false,      // встроенная заявка и CRM доступны только в Pro
   crmModeSynced: false,   // локальный маркер миграции старых публикаций
@@ -97,8 +113,10 @@ export const CARD_LIMITS = {
   facts: 3,
   formats: 4,
   requirements: 4,
+  included: 4,
   quotes: 3,
-  gallery: 6
+  gallery: 6,
+  customOccasions: MAX_CUSTOM_OCCASIONS
 };
 
 function clean(value, max = 240) {
@@ -140,9 +158,10 @@ function cleanGallery(input) {
     .slice(0, 6);
 }
 
-function cleanGalleryCaptions(input) {
+// Подписи номеров идут параллельно фото: индекс строки = индекс снимка.
+function cleanGalleryTexts(input, max) {
   if (!Array.isArray(input)) return [];
-  return input.slice(0, 6).map((value) => clean(value, 100));
+  return input.slice(0, CARD_LIMITS.gallery).map((value) => clean(value, max));
 }
 
 // Списки (факты, форматы, требования, цитаты) в редакторе живут построчно:
@@ -175,7 +194,13 @@ const cleanRequirements = (input) => cleanList(input, CARD_LIMITS.requirements, 
 
 const cleanQuotes = (input) => cleanList(input, CARD_LIMITS.quotes, (item) => ({
   text: clean(item.text, 220),
-  author: clean(item.author, 60)
+  author: clean(item.author, 60),
+  // Отзыв заказчика корпоратива сильнее показать на странице корпоратива.
+  occasion: isOccasionId(item.occasion) ? String(item.occasion) : ''
+}));
+
+const cleanIncluded = (input) => cleanList(input, CARD_LIMITS.included, (item) => ({
+  text: clean(item.text, 80)
 }));
 
 // Номер фото для праздника: -1 — обложка визитки, 0…5 — фото из «Номеров».
@@ -184,12 +209,69 @@ function cleanPhotoIndex(value) {
   return Number.isInteger(n) && n >= -1 && n < CARD_LIMITS.gallery ? n : -1;
 }
 
-// Настройки праздников. Чужие ключи отбрасываем: страница существует только
-// для праздников из общего каталога, иначе Sales не угадал бы её адрес.
-function cleanOccasions(input) {
+// Какие номера показать на странице праздника: null — все, массив — выбор
+// владельца в его порядке (на выпускном одни номера, на свадьбе другие).
+function cleanActsPick(value) {
+  if (!Array.isArray(value)) return null;
+  const seen = new Set();
+  for (const raw of value) {
+    const n = Number(raw);
+    if (Number.isInteger(n) && n >= 0 && n < CARD_LIMITS.gallery) seen.add(n);
+  }
+  return [...seen];
+}
+
+// Свои праздники: { id, title, slug }. Адрес не меняется после создания —
+// ссылка уже могла уйти клиентам. Дубли и пересечения с каталогом отбрасываем.
+function cleanCustomOccasions(input) {
+  if (!Array.isArray(input)) return [];
+  const ids = new Set();
+  const slugs = new Set(OCCASIONS.map((item) => item.slug));
+  const out = [];
+  for (const item of input) {
+    if (!item || typeof item !== 'object') continue;
+    const id = String(item.id || '');
+    const slug = String(item.slug || '').toLowerCase();
+    const title = clean(item.title, OCCASION_TITLE_MAX);
+    if (!CUSTOM_OCCASION_RE.test(id) || ids.has(id)) continue;
+    if (!OCCASION_SLUG_RE.test(slug) || slug.length > 30 || slugs.has(slug) || !title) continue;
+    ids.add(id);
+    slugs.add(slug);
+    out.push({ id, title, slug });
+    if (out.length >= CARD_LIMITS.customOccasions) break;
+  }
+  return out;
+}
+
+// «Новый год» и «Юбилеи» были в каталоге v2.0.0. Каталог стал сезонным, а
+// включённые страницы этих праздников переезжают в свои — с теми же адресами,
+// чтобы уже разосланные ссылки продолжали открываться.
+const LEGACY_OCCASIONS = {
+  newyear: { id: 'cnewyar', title: 'Новый год', slug: 'novyy-god' },
+  jubilee: { id: 'cjubile', title: 'Юбилеи', slug: 'yubiley' }
+};
+
+function withLegacyOccasions(occasions, customOccasions) {
+  const source = occasions && typeof occasions === 'object' && !Array.isArray(occasions) ? occasions : {};
+  let custom = Array.isArray(customOccasions) ? customOccasions : [];
+  let next = source;
+  for (const [legacyId, def] of Object.entries(LEGACY_OCCASIONS)) {
+    const item = source[legacyId];
+    if (!item || typeof item !== 'object' || item.on !== true) continue;
+    if (custom.some((c) => c && (c.id === def.id || c.slug === def.slug))) continue;
+    custom = [...custom, { ...def }];
+    next = { ...next, [def.id]: item };
+  }
+  return { occasions: next, customOccasions: custom };
+}
+
+// Настройки праздников. Ключи — только каталог и свои праздники визитки:
+// чужой ключ не должен превращаться в страницу.
+function cleanOccasions(input, customOccasions) {
   const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const ids = [...OCCASIONS.map((item) => item.id), ...customOccasions.map((item) => item.id)];
   const out = {};
-  for (const { id } of OCCASIONS) {
+  for (const id of ids) {
     const item = source[id];
     if (!item || typeof item !== 'object') continue;
     out[id] = {
@@ -198,9 +280,15 @@ function cleanOccasions(input) {
       headline: clean(item.headline, 90),
       text: clean(item.text, 220),
       photo: cleanPhotoIndex(item.photo),
+      video: cleanUrl(item.video),
+      momentTitle: clean(item.momentTitle, 60),
+      momentText: clean(item.momentText, 160),
+      momentPhoto: cleanPhotoIndex(item.momentPhoto),
+      acts: cleanActsPick(item.acts),
       highlightTitle: clean(item.highlightTitle, 40),
       highlightText: clean(item.highlightText, 140),
-      highlightPhoto: cleanPhotoIndex(item.highlightPhoto)
+      highlightPhoto: cleanPhotoIndex(item.highlightPhoto),
+      urgency: clean(item.urgency, 120)
     };
   }
   return out;
@@ -216,6 +304,11 @@ function publicOccasions(occasions) {
     if (item.on) out[id] = item;
   }
   return out;
+}
+
+// Клиенту нужны только свои праздники, страницы которых включены.
+function publicCustomOccasions(custom, occasions) {
+  return custom.filter((item) => occasions[item.id]?.on);
 }
 
 export function createLeadKey() {
@@ -252,6 +345,8 @@ export function normalizeBusinessCard(input = {}) {
   const professionIds = new Set(BUSINESS_CARD_PROFESSIONS.map((item) => item.id));
   const profession = professionIds.has(String(input.profession || '')) ? String(input.profession) : '';
   const leadKey = /^[a-f0-9]{32}$/i.test(String(input.leadKey || '')) ? String(input.leadKey).toLowerCase() : '';
+  const legacy = withLegacyOccasions(input.occasions, input.customOccasions);
+  const customOccasions = cleanCustomOccasions(legacy.customOccasions);
   return {
     ...DEFAULT_BUSINESS_CARD,
     ...withoutRetired(input),
@@ -277,14 +372,19 @@ export function normalizeBusinessCard(input = {}) {
       ? String(input.coverPosition)
       : DEFAULT_BUSINESS_CARD.coverPosition,
     galleryPhotos: cleanGallery(input.galleryPhotos),
-    galleryCaptions: cleanGalleryCaptions(input.galleryCaptions),
+    galleryCaptions: cleanGalleryTexts(input.galleryCaptions, 100),
+    galleryHeadlines: cleanGalleryTexts(input.galleryHeadlines, 60),
+    galleryTexts: cleanGalleryTexts(input.galleryTexts, 160),
     facts: cleanFacts(input.facts),
     clients: clean(input.clients, 160),
+    credentials: clean(input.credentials, 220),
     formats: cleanFormats(input.formats),
     requirements: cleanRequirements(input.requirements),
     requirementsNote: clean(input.requirementsNote, 120),
+    included: cleanIncluded(input.included),
     quotes: cleanQuotes(input.quotes),
-    occasions: cleanOccasions(input.occasions),
+    occasions: cleanOccasions(legacy.occasions, customOccasions),
+    customOccasions,
     leadEnabled: input.leadEnabled !== false,
     crmEnabled: input.crmEnabled === true,
     crmModeSynced: input.crmModeSynced === true,
@@ -320,13 +420,18 @@ export function publicCardPayload(card) {
     coverPosition: c.coverPosition,
     galleryPhotos: c.galleryPhotos,
     galleryCaptions: c.galleryCaptions,
+    galleryHeadlines: c.galleryHeadlines,
+    galleryTexts: c.galleryTexts,
     facts: filled(c.facts, 'value'),
     clients: c.clients,
+    credentials: c.credentials,
     formats: filled(c.formats, 'title'),
     requirements: filled(c.requirements, 'title'),
     requirementsNote: c.requirementsNote,
+    included: filled(c.included, 'text'),
     quotes: filled(c.quotes, 'text'),
     occasions: publicOccasions(c.occasions),
+    customOccasions: publicCustomOccasions(c.customOccasions, c.occasions),
     leadEnabled: c.leadEnabled,
     crmEnabled: c.crmEnabled
   };

@@ -13,8 +13,9 @@ import {
   readCardStats, readCardDays, trackCardOpen, trackCardReach, trackTagOpen,
   readVisitor, saveVisitor, listHotVisitors,
   saveLead, listLeads, markLeadsRead, deleteLead, setLeadTag, ownerProStatus,
-  OCCASION_IDS, SOURCE_IDS
+  SOURCE_IDS
 } from './_tags-store.js';
+import { findOccasion, isOccasionId, occasionTitle } from '../src/shared/data/occasions.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
 
@@ -55,6 +56,12 @@ async function readBody(req) {
 function pick(value, allowed) {
   const id = String(value || '').trim().toLowerCase();
   return allowed.includes(id) ? id : '';
+}
+
+// Праздник из каталога или свой праздник визитки (id вида c1a2b3c).
+function pickOccasion(value) {
+  const id = String(value || '').trim().toLowerCase();
+  return isOccasionId(id) ? id : '';
 }
 
 export default async function handler(req, res) {
@@ -203,7 +210,7 @@ export default async function handler(req, res) {
         await saveVisitor(slug, visitorId, { tagId, section });
       }
       // Гость перешёл на праздник внутри визитки — повод считаем, открытие нет.
-      const occasion = pick(body.occasion, OCCASION_IDS);
+      const occasion = pickOccasion(body.occasion);
       if (occasion) await trackCardReach(slug, { occasion, countDay: false });
       return res.status(200).json({ ok: true });
     }
@@ -213,7 +220,7 @@ export default async function handler(req, res) {
     // просмотры разделов не должны удваивать «откуда пришли».
     if (event === 'open') {
       await trackCardReach(slug, {
-        occasion: pick(body.occasion, OCCASION_IDS),
+        occasion: pickOccasion(body.occasion),
         source: pick(body.source, SOURCE_IDS)
       });
     }
@@ -250,9 +257,14 @@ export default async function handler(req, res) {
       ? String(body.tag).trim().toLowerCase() : '';
     const rawVisitor = String(body.visitor || '').trim();
     const leadVisitor = /^[a-z0-9_-]{8,64}$/i.test(rawVisitor) ? rawVisitor : '';
+    // Праздник заявки сверяем с опубликованной визиткой: так в «Отклик»
+    // попадает настоящее название своего праздника, а не текст из запроса.
+    const leadOccasion = findOccasion(data, { id: pickOccasion(body.occasion) });
+    const occasionOn = leadOccasion && data.occasions?.[leadOccasion.id]?.on;
     const saved = await saveLead(slug, {
       name, contact, phone, messenger, eventDate, city, format,
-      occasion: pick(body.occasion, OCCASION_IDS),
+      occasion: occasionOn ? leadOccasion.id : '',
+      occasionTitle: occasionOn ? occasionTitle(leadOccasion) : '',
       source: pick(body.source, SOURCE_IDS),
       tagId: tag,
       visitorId: leadVisitor

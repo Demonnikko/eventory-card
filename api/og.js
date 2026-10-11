@@ -11,7 +11,7 @@
 // поверх отрисуется как раньше.
 import crypto from 'node:crypto';
 import { normalizeSlug } from './_card-access.js';
-import { occasionBySlug, occasionTitle } from '../src/shared/data/occasions.js';
+import { findOccasion, occasionTitle } from '../src/shared/data/occasions.js';
 
 // Версия снимка — короткий отпечаток его содержимого. Идёт в адрес картинки
 // (&v=…): сменил владелец фото — сменился адрес, и CDN больше не показывает
@@ -167,8 +167,9 @@ async function loadIndexHtml(origin) {
 }
 
 // Страница праздника открыта, если владелец её включил и опубликовал.
+// Ищем по карточке: свои праздники (юбилей, 8 Марта) живут только в ней.
 function publishedOccasion(card, occasionSlug) {
-  const occasion = occasionBySlug(occasionSlug);
+  const occasion = findOccasion(card, { slug: occasionSlug });
   if (!occasion) return null;
   const settings = card?.occasions?.[occasion.id];
   return settings?.on ? { occasion, settings } : null;

@@ -1,0 +1,277 @@
+/* Страница праздника — продающая презентация на телефоне.
+   Экраны идут как слайды: мелкая строка-раздел шампанью, крупный заголовок
+   Prata, фото с большим скруглением. Палитра «Графит и шампань» — токены из
+   card-app.css; своих цветов здесь нет, кроме тёплого свечения финала. */
+
+/* ===== Ради этого момента ===== */
+.vz-moment-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  margin-top: 16px;
+  object-fit: cover;
+  border-radius: 26px;
+  background: var(--surface);
+}
+
+.vz-moment-text {
+  margin: 14px 4px 0;
+  max-width: 36ch;
+  font-size: 18px;
+  line-height: 1.45;
+  color: #e4e4e7;
+}
+
+/* ===== Артист ===== */
+.vz-artist-portrait {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 26px;
+  background: var(--surface);
+}
+
+.vz-artist-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.vz-artist-portrait + .vz-artist-head { margin-top: 18px; }
+
+.vz-artist-avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 32px;
+  border: 1px solid var(--accent-border);
+}
+
+.vz-artist-names { min-width: 0; }
+
+.vz-artist-name {
+  margin: 0;
+  font-size: clamp(28px, 8vw, 32px);
+  line-height: 1.08;
+}
+
+.vz-artist-role {
+  display: block;
+  margin-top: 5px;
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: #cfcfd3;
+}
+
+.vz-artist-facts {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.vz-artist-fact {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.vz-artist-fact-value {
+  font-family: var(--display);
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--accent-strong);
+  overflow-wrap: anywhere;
+}
+
+.vz-artist-fact-label {
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.vz-artist-credentials {
+  margin: 16px 4px 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #cfcfd3;
+}
+
+.vz-artist-clients {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.vz-artist-clients-list {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+/* ===== Номера: экран на каждый ===== */
+.vz-act-screen {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.vz-section-kicker + .vz-h2 + .vz-act-screen,
+.vz-h2 + .vz-act-screen { margin-top: 18px; }
+
+.vz-act-screen-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.vz-act-screen-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 20px;
+}
+
+.vz-act-screen-copy .vz-kicker { color: var(--accent); }
+
+.vz-act-screen-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.18;
+  color: var(--text);
+}
+
+.vz-act-screen-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #cfcfd3;
+}
+
+/* ===== Теперь ваша дата ===== */
+.vz-finale {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 40px;
+  padding: 24px 20px 22px;
+  border: 1px solid var(--accent-border);
+  border-radius: 30px;
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(217, 203, 176, 0.1), transparent 62%),
+    var(--surface);
+}
+
+.vz-finale .vz-kicker { color: var(--accent); }
+
+.vz-finale-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(30px, 9vw, 38px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.vz-finale-sub {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #cfcfd3;
+}
+
+.vz-finale-formats {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.vz-finale-format {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vz-finale-min {
+  min-width: 72px;
+  flex-shrink: 0;
+  font-family: var(--display);
+  font-size: 20px;
+  color: var(--accent-strong);
+}
+
+.vz-finale-format-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.vz-included {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vz-included li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.vz-included .ui-icon,
+.vz-urgency .ui-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.vz-included .ui-icon { color: var(--accent); }
+
+.vz-urgency {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.vz-finale-cta {
+  width: 100%;
+  height: 56px;
+  margin-top: 10px;
+  font-size: 17px;
+}

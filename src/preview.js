@@ -8,7 +8,7 @@ import { renderCardView, cleanupRevealHints } from './card-view.js';
 import { injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { openDateRequest, resetDateRequest } from './date-request.js';
-import { occasionBySlug } from './shared/data/occasions.js';
+import { findOccasion } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
 
 const state = { card: null, occasion: null, reviews: [] };
@@ -22,13 +22,19 @@ function renderContent() {
         <span>Так визитку видит клиент</span>
         <a class="ca-preview-back" href="#/editor">Редактировать</a>
       </div>
-      ${renderCardView(card, { interactive: false, occasion: state.occasion })}
+      ${renderCardView(card, {
+        interactive: false,
+        occasion: state.occasion,
+        // Владельцу нужна дорога назад к главной визитке, клиент из Sales её
+        // не увидит — у него страница праздника самостоятельная.
+        fromMain: true
+      })}
     </div>
   `;
 }
 
 function bind(node) {
-  node.querySelector('[data-date-open]')?.addEventListener('click', () => {
+  node.querySelectorAll('[data-date-open]').forEach((btn) => btn.addEventListener('click', () => {
     openDateRequest({
       card: state.card,
       slug: state.card.publishedSlug,
@@ -36,7 +42,7 @@ function bind(node) {
       interactive: false,
       onSaveContact: () => toast.show('В предпросмотре контакт не сохраняется')
     });
-  });
+  }));
 }
 
 export const preview = {
@@ -50,7 +56,7 @@ export const preview = {
   },
   async mount(node, ctx = {}) {
     state.card = await getCard();
-    state.occasion = occasionBySlug(ctx.params?.occasion || '');
+    state.occasion = findOccasion(state.card, { slug: ctx.params?.occasion || '' });
     resetDateRequest();
     node.innerHTML = renderContent();
     cleanupRevealHints(node);

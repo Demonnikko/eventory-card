@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 import {
   OCCASIONS,
   enabledOccasions,
+  findOccasion,
   occasionBySlug,
   occasionInSeason,
-  occasionTitle
+  occasionTemplate,
+  occasionTitle,
+  slugify,
+  uniqueOccasionSlug
 } from '../src/shared/data/occasions.js';
 import { normalizeBusinessCard, publicCardPayload } from '../src/shared/data/businessCard.js';
 import { cardPublicUrl, cardCompletion, DEFAULT_BUSINESS_CARD } from '../src/card-data.js';
@@ -71,15 +75,15 @@ test('у каждого праздника уникальный id и адрес
   assert.equal(occasionBySlug('nope'), null);
 });
 
-test('сезоны: зима — корпоративы и Новый год, лето — выпускные и свадьбы, юбилеи вне сезона', () => {
+test('в каталоге три сезонных праздника: новогодние корпоративы, выпускные, свадьбы', () => {
+  assert.deepEqual(OCCASIONS.map((item) => item.id), ['corporate', 'graduation', 'wedding']);
   const byId = Object.fromEntries(OCCASIONS.map((item) => [item.id, item]));
   assert.equal(occasionInSeason(byId.corporate, DECEMBER), true);
-  assert.equal(occasionInSeason(byId.newyear, DECEMBER), true);
   assert.equal(occasionInSeason(byId.graduation, DECEMBER), false);
   assert.equal(occasionInSeason(byId.graduation, JUNE), true);
   assert.equal(occasionInSeason(byId.wedding, JUNE), true);
-  assert.equal(occasionInSeason(byId.jubilee, DECEMBER), false);
-  assert.equal(occasionInSeason(byId.jubilee, JUNE), false);
+  assert.equal(occasionInSeason(byId.wedding, DECEMBER), false);
+  assert.ok(OCCASIONS.every((item) => item.months.length > 0));
 });
 
 test('корпоратив в сезон называется новогодним, летом — просто корпоративом', () => {
@@ -88,18 +92,100 @@ test('корпоратив в сезон называется новогодни
   assert.equal(occasionTitle(corporate, JUNE), 'Корпоратив');
 });
 
-test('включённые праздники идут в порядке каталога, сезонный — первым', () => {
+test('включённые праздники: каталог, затем свои, сезонный — первым', () => {
   const card = {
+    customOccasions: [{ id: 'cabcdef', title: 'Юбилей', slug: 'yubiley' }],
     occasions: {
       corporate: { on: true },
       wedding: { on: true },
-      jubilee: { on: true },
-      newyear: { on: false }
+      cabcdef: { on: true },
+      graduation: { on: false }
     }
   };
-  assert.deepEqual(enabledOccasions(card, DECEMBER).map((item) => item.id), ['corporate', 'wedding', 'jubilee']);
-  assert.deepEqual(enabledOccasions(card, JUNE).map((item) => item.id), ['wedding', 'corporate', 'jubilee']);
+  assert.deepEqual(enabledOccasions(card, DECEMBER).map((item) => item.id), ['corporate', 'wedding', 'cabcdef']);
+  assert.deepEqual(enabledOccasions(card, JUNE).map((item) => item.id), ['wedding', 'corporate', 'cabcdef']);
   assert.deepEqual(enabledOccasions({}, JUNE), []);
+  assert.equal(findOccasion(card, { slug: 'yubiley' })?.id, 'cabcdef');
+  assert.equal(findOccasion(card, { id: 'cabcdef' })?.custom, true);
+  assert.equal(findOccasion(card, { slug: 'nope' }), null);
+});
+
+test('адрес своего праздника — русская латиница и без повторов', () => {
+  assert.equal(slugify('Юбилей'), 'yubiley');
+  assert.equal(slugify('8 Марта'), '8-marta');
+  assert.equal(slugify('Детский праздник!'), 'detskiy-prazdnik');
+  assert.equal(slugify('!!!'), 'prazdnik');
+  const card = { customOccasions: [{ id: 'cabcdef', title: 'Юбилей', slug: 'yubiley' }] };
+  assert.equal(uniqueOccasionSlug(card, 'Юбилей'), 'yubiley-2');
+  assert.equal(uniqueOccasionSlug(card, 'Свадьба'), 'svadba-2', 'адрес каталога тоже занят');
+});
+
+test('свои праздники чистятся: чужие id, дубли адресов и лимит', () => {
+  const card = normalizeBusinessCard({
+    customOccasions: [
+      { id: 'cabcdef', title: 'Юбилей', slug: 'yubiley' },
+      { id: 'cabcdef', title: 'Дубль id', slug: 'dubl' },
+      { id: 'c111111', title: 'Дубль адреса', slug: 'yubiley' },
+      { id: 'c222222', title: 'Как каталог', slug: 'svadba' },
+      { id: 'x', title: 'Плохой id', slug: 'plokhoy' },
+      { id: 'c333333', title: '', slug: 'pusto' },
+      { id: 'c444444', title: '8 Марта', slug: '8-marta' },
+      { id: 'c555555', title: 'Выпускной в детском саду', slug: 'sad' },
+      { id: 'c666666', title: 'Детский', slug: 'detskiy' },
+      { id: 'c777777', title: 'Пятый', slug: 'pyatyy' }
+    ],
+    occasions: { cabcdef: { on: true }, c999999: { on: true } }
+  });
+  assert.deepEqual(card.customOccasions.map((item) => item.id), ['cabcdef', 'c444444', 'c555555', 'c666666']);
+  assert.deepEqual(Object.keys(card.occasions), ['cabcdef'], 'настройки без своего праздника не живут');
+});
+
+test('«Новый год» и «Юбилеи» из старой версии переезжают в свои с прежними адресами', () => {
+  const card = normalizeBusinessCard({
+    occasions: { newyear: { on: true, headline: 'Ночь чудес' }, jubilee: { on: false } }
+  });
+  assert.deepEqual(card.customOccasions, [{ id: 'cnewyar', title: 'Новый год', slug: 'novyy-god' }]);
+  assert.equal(card.occasions.cnewyar.headline, 'Ночь чудес');
+  assert.equal(card.occasions.newyear, undefined);
+  assert.equal(findOccasion(card, { slug: 'novyy-god' })?.id, 'cnewyar');
+});
+
+test('глубина страницы: момент, номера, срочность, видео — с лимитами', () => {
+  const card = normalizeBusinessCard({
+    galleryPhotos: [],
+    galleryHeadlines: ['x'.repeat(100)],
+    galleryTexts: ['y'.repeat(300)],
+    credentials: 'z'.repeat(400),
+    included: [{ text: 'Реквизит' }, { text: '' }, {}, {}, {}],
+    occasions: {
+      corporate: {
+        on: true, momentTitle: 'Момент', momentPhoto: 3, acts: [4, 4, 1, 9, 'x'],
+        urgency: 'u'.repeat(200), video: 'vk.com/video1'
+      }
+    }
+  });
+  assert.equal(card.galleryHeadlines[0].length, 60);
+  assert.equal(card.galleryTexts[0].length, 160);
+  assert.equal(card.credentials.length, 220);
+  assert.equal(card.included.length, 4);
+  const corporate = card.occasions.corporate;
+  assert.deepEqual(corporate.acts, [4, 1]);
+  assert.equal(corporate.momentPhoto, 3);
+  assert.equal(corporate.urgency.length, 120);
+  assert.equal(corporate.video, 'https://vk.com/video1');
+  assert.equal(normalizeBusinessCard({ occasions: { corporate: { on: true } } }).occasions.corporate.acts, null, 'не выбрано — значит все номера');
+});
+
+test('образец продающих текстов есть у каждого праздника и влезает в поля', () => {
+  const limits = { headline: 90, text: 220, momentTitle: 60, momentText: 160, highlightTitle: 40, highlightText: 140, urgency: 120 };
+  const occasions = [...OCCASIONS, { id: 'cabcdef', title: 'Юбилей', custom: true }];
+  for (const occasion of occasions) {
+    const template = occasionTemplate(occasion);
+    for (const [key, max] of Object.entries(limits)) {
+      assert.ok(template[key], `${occasion.id}.${key}`);
+      assert.ok(template[key].length <= max, `${occasion.id}.${key} длиннее ${max}`);
+    }
+  }
 });
 
 test('нормализация отбрасывает чужие праздники, режет поля и чинит номер фото', () => {
@@ -150,9 +236,14 @@ test('на сервер уходят только включённые праз�
     name: 'Дмитрий',
     leadKey: '0123456789abcdef0123456789abcdef',
     kioskMode: true,
-    occasions: { corporate: { on: true }, wedding: { on: false } }
+    customOccasions: [
+      { id: 'cabcdef', title: 'Юбилей', slug: 'yubiley' },
+      { id: 'c111111', title: 'Черновик', slug: 'chernovik' }
+    ],
+    occasions: { corporate: { on: true }, wedding: { on: false }, cabcdef: { on: true }, c111111: { on: false } }
   });
-  assert.deepEqual(Object.keys(payload.occasions), ['corporate']);
+  assert.deepEqual(Object.keys(payload.occasions), ['corporate', 'cabcdef']);
+  assert.deepEqual(payload.customOccasions.map((item) => item.slug), ['yubiley']);
   for (const key of ['leadKey', 'kioskMode', 'publishedSlug', 'priceFrom']) {
     assert.equal(key in payload, false, key);
   }
@@ -196,6 +287,20 @@ test('«Отклик» считает праздники и каналы, но �
   });
 });
 
+test('свои праздники попадают в «Отклик», но подставные id не раздувают статистику', async () => {
+  await withRedis(async (store) => {
+    await store.trackCardReach('demo-card', { occasion: 'cabcdef', countDay: false });
+    await store.trackCardReach('demo-card', { occasion: 'cabcdef', countDay: false });
+    for (let i = 0; i < 20; i += 1) {
+      await store.trackCardReach('demo-card', { occasion: `cz${String(i).padStart(5, '0')}`, countDay: false });
+    }
+    await store.trackCardReach('demo-card', { occasion: 'cabcdef', countDay: false });
+    const stats = await store.readCardStats('demo-card');
+    assert.equal(stats.occasions.cabcdef, 3, 'уже известный праздник считается и после лимита');
+    assert.equal(Object.keys(stats.occasions).length, 12);
+  });
+});
+
 test('заявка сохраняет праздник, канал, город и формат, а мусор отбрасывает', async () => {
   await withRedis(async (store) => {
     const good = await store.saveLead('demo-card', {
@@ -217,7 +322,11 @@ test('заявка сохраняет праздник, канал, город �
     assert.equal(bad.occasion, '');
     assert.equal(bad.source, '');
 
+    const custom = await store.saveLead('demo-card', { name: 'Ира', occasion: 'cabcdef', occasionTitle: 'Юбилей' });
+    assert.equal(custom.occasion, 'cabcdef');
+    assert.equal(custom.occasionTitle, 'Юбилей');
+
     const leads = await store.listLeads('demo-card');
-    assert.deepEqual(leads.map((item) => item.name), ['Олег', 'Анна']);
+    assert.deepEqual(leads.map((item) => item.name), ['Ира', 'Олег', 'Анна']);
   });
 });

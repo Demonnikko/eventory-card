@@ -1,0 +1,169 @@
+/* Раздел «Праздники» в редакторе: группы по экранам страницы, образец
+   продающих текстов, выбор номеров и свои праздники. Палитра — токены
+   card-app.css. */
+
+.ca-occ-custom-head { margin-top: 22px; }
+
+/* Экран страницы — подписанная группа полей. */
+.ca-occ-group {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.ca-occ-group:first-of-type { border-top: 0; }
+
+/* Название экрана крупнее и без капса — иначе сливается с подписями полей. */
+.ca-occ-group-title {
+  display: block;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--accent-strong);
+}
+
+.ca-occ-group-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.ca-occ-group > .ca-field:first-of-type,
+.ca-occ-group > .ca-occ-group-hint + .ca-field { margin-top: 12px; }
+
+/* Образец текстов — заметная, но не главная кнопка: металл только у CTA. */
+.ca-occ-template {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ca-occ-template:active { transform: scale(0.98); }
+
+.ca-occ-template-hint {
+  margin: 6px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Номера на странице: плитки с фото и галочкой. */
+.ca-act-pick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ca-act-opt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), opacity 0.2s var(--ease);
+}
+
+.ca-act-opt img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  opacity: 0.45;
+  transition: opacity 0.2s var(--ease);
+}
+
+.ca-act-opt-name {
+  padding: 6px 8px 8px;
+  font-size: 11.5px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-act-opt-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(6, 6, 7, 0.6);
+  color: transparent;
+}
+
+.ca-act-opt.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.ca-act-opt.is-active img { opacity: 1; }
+
+.ca-act-opt.is-active .ca-act-opt-check {
+  background: var(--gold-leaf);
+  color: var(--on-accent);
+}
+
+.ca-act-opt:focus-visible,
+.ca-occ-template:focus-visible,
+.ca-occ-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ca-occ-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  font-size: 14px;
+}
+
+.ca-occ-remove {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Свой праздник: поле названия и кнопка в одну строку. */
+.ca-occ-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ca-occ-add .ca-btn { white-space: nowrap; }

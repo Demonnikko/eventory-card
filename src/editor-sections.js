@@ -1,13 +1,14 @@
 // Разметка разделов редактора визитки.
 //
-// Здесь только HTML: поля, списки, праздники. Состояние, автосохранение и
-// публикация живут в editor.js. Разделы идут в том порядке, в каком визитку
-// читает клиент: кто это → фото и номера → как связаться → праздники →
-// почему можно доверять → форматы и что нужно от площадки.
+// Здесь только HTML: поля и списки. Праздники — в editor-occasions.js.
+// Состояние, автосохранение и публикация живут в editor.js. Разделы идут в
+// том порядке, в каком визитку читает клиент: кто это → фото и номера → как
+// связаться → праздники → почему можно доверять → форматы и что нужно от
+// площадки.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { BUSINESS_CARD_PROFESSIONS, CARD_LIMITS } from './shared/data/businessCard.js';
-import { OCCASIONS, occasionTitle } from './shared/data/occasions.js';
+import { occasionsOf, occasionTitle } from './shared/data/occasions.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 
 export function field({ name, label, value, type = 'text', textarea = false, rows = 3, placeholder = '', maxlength = 0, hint = '', data = '' }) {
@@ -137,29 +138,42 @@ export function renderMedia(card) {
   `;
 }
 
+// Номер на странице праздника — отдельный экран, как слайд презентации:
+// название, продающий заголовок и пара строк о том, что видит зал.
 export function renderActs(card) {
   const photos = Array.isArray(card.galleryPhotos) ? card.galleryPhotos : [];
   const captions = Array.isArray(card.galleryCaptions) ? card.galleryCaptions : [];
+  const headlines = Array.isArray(card.galleryHeadlines) ? card.galleryHeadlines : [];
+  const texts = Array.isArray(card.galleryTexts) ? card.galleryTexts : [];
   return `
     <div class="ca-gallery-editor">
       <div class="ca-editor-subhead">
-        <span>Фото номеров и работ</span>
+        <span>Номера и фото</span>
         <span>${photos.length} из ${CARD_LIMITS.gallery}</span>
       </div>
       ${photos.length ? `
         <div class="ca-gallery-list">
           ${photos.map((photo, index) => `
-            <div class="ca-gallery-row">
+            <div class="ca-act-row">
               <img src="${escapeAttr(photo)}" alt="Фото ${index + 1}" />
-              <input class="ca-input" type="text" maxlength="100"
-                value="${escapeAttr(captions[index] || '')}" placeholder="Название номера"
-                aria-label="Название номера ${index + 1}" data-gallery-caption="${index}" />
+              <div class="ca-act-fields">
+                <input class="ca-input" type="text" maxlength="100"
+                  value="${escapeAttr(captions[index] || '')}" placeholder="Название номера"
+                  aria-label="Название номера ${index + 1}" data-gallery-caption="${index}" />
+                <input class="ca-input" type="text" maxlength="60"
+                  value="${escapeAttr(headlines[index] || '')}" placeholder="Заголовок: «Один бросок. Та самая карта»"
+                  aria-label="Продающий заголовок номера ${index + 1}" data-gallery-headline="${index}" />
+                <textarea class="ca-input" rows="2" maxlength="160"
+                  placeholder="Что видит зал — одна-две строки"
+                  aria-label="Описание номера ${index + 1}" data-gallery-text="${index}">${escapeHtml(texts[index] || '')}</textarea>
+              </div>
               <button type="button" class="ca-icon-btn" aria-label="Удалить фото ${index + 1}"
                 data-gallery-remove="${index}">${renderIcon('trash')}</button>
             </div>
           `).join('')}
         </div>
-      ` : '<p class="ca-note">Добавьте лучшие номера — на визитке они листаются лентой, а на страницах праздников из них выбирается фото.</p>'}
+        <p class="ca-note">На странице праздника каждый номер — отдельный экран. Фото без названия можно использовать как обложку праздника.</p>
+      ` : '<p class="ca-note">Добавьте лучшие номера — на страницах праздников каждый станет отдельным экраном, как слайд презентации.</p>'}
       ${photos.length < CARD_LIMITS.gallery ? `
         <button type="button" class="ca-btn ca-btn--ghost ca-gallery-add" data-gallery-trigger>
           ${renderIcon('upload')} Добавить фото</button>
@@ -179,86 +193,6 @@ export function renderContacts(card) {
     ${field({ name: 'max', label: 'MAX', value: card.max, placeholder: 'max.ru/u/username' })}
     ${field({ name: 'email', label: 'Почта', value: card.email, type: 'email', placeholder: 'mail@example.com' })}
     ${field({ name: 'website', label: 'Сайт', value: card.website, placeholder: 'https://' })}
-  `;
-}
-
-/* ─────────── Праздники ─────────── */
-
-// Выбор фото для праздника: обложка визитки или одно из фото номеров.
-function photoPicker(card, occasionId, fieldName, selected, label) {
-  const photos = card.galleryPhotos || [];
-  const options = [
-    { value: -1, src: card.coverPhoto, label: 'Обложка' },
-    ...photos.map((src, i) => ({ value: i, src, label: card.galleryCaptions?.[i] || `Фото ${i + 1}` }))
-  ];
-  return `
-    <fieldset class="ca-photo-pick">
-      <legend class="ca-field-label">${escapeHtml(label)}</legend>
-      <div class="ca-photo-pick-row">
-        ${options.map((o) => `
-          <button type="button" class="ca-photo-opt${o.value === selected ? ' is-active' : ''}"
-            aria-pressed="${o.value === selected ? 'true' : 'false'}" aria-label="${escapeAttr(o.label)}"
-            data-occ-photo="${escapeAttr(occasionId)}" data-occ-field="${escapeAttr(fieldName)}" data-value="${o.value}">
-            ${o.src ? `<img src="${escapeAttr(o.src)}" alt="" />` : `<span>${escapeHtml(o.label)}</span>`}
-          </button>
-        `).join('')}
-      </div>
-    </fieldset>
-  `;
-}
-
-function occasionField(occasionId, key, label, value, opts = {}) {
-  return field({
-    label,
-    value,
-    data: `data-occ="${escapeAttr(occasionId)}" data-occ-field="${escapeAttr(key)}"`,
-    ...opts
-  });
-}
-
-function renderOccasion(card, occasion, open) {
-  const settings = card.occasions?.[occasion.id] || {};
-  const on = settings.on === true;
-  return `
-    <div class="ca-occ${on ? ' is-on' : ''}">
-      <div class="ca-occ-head">
-        <button type="button" class="ca-switch" role="switch" aria-checked="${on ? 'true' : 'false'}"
-          data-occ-toggle="${escapeAttr(occasion.id)}" aria-label="Показывать «${escapeAttr(occasion.title)}» на визитке">
-          <span class="ca-switch-knob" aria-hidden="true"></span>
-        </button>
-        <span class="ca-occ-titles">
-          <span class="ca-occ-title">${escapeHtml(occasion.seasonTitle ? `${occasion.title} · ${occasion.seasonTitle}` : occasion.title)}</span>
-          <span class="ca-occ-sub">${on ? `/${escapeHtml(occasion.slug)}` : 'Скрыт на визитке'}</span>
-        </span>
-        ${on ? `
-          <button type="button" class="ca-occ-more" data-occ-open="${escapeAttr(occasion.id)}"
-            aria-expanded="${open ? 'true' : 'false'}">${open ? 'Свернуть' : 'Настроить'}</button>
-        ` : ''}
-      </div>
-      ${on && open ? `
-        <div class="ca-occ-body">
-          ${occasionField(occasion.id, 'headline', 'Заголовок страницы', settings.headline, { placeholder: occasionTitle(occasion), maxlength: 90 })}
-          ${occasionField(occasion.id, 'text', 'Пара слов под заголовком', settings.text, { textarea: true, rows: 2, maxlength: 220, placeholder: 'Для кого и в чём особенность программы' })}
-          ${occasionField(occasion.id, 'note', 'Подпись на плитке', settings.note, { placeholder: occasion.note, maxlength: 60 })}
-          ${photoPicker(card, occasion.id, 'photo', settings.photo ?? -1, 'Фото страницы')}
-          ${occasionField(occasion.id, 'highlightTitle', 'Изюминка для этого праздника', settings.highlightTitle, { placeholder: 'Например: ваш логотип в финале', maxlength: 40 })}
-          ${settings.highlightTitle ? `
-            ${occasionField(occasion.id, 'highlightText', 'Чем она хороша', settings.highlightText, { textarea: true, rows: 2, maxlength: 140 })}
-            ${photoPicker(card, occasion.id, 'highlightPhoto', settings.highlightPhoto ?? -1, 'Фото изюминки')}
-          ` : ''}
-          <a class="ca-text-link ca-occ-preview" href="#/preview/${escapeAttr(occasion.slug)}">Посмотреть страницу</a>
-        </div>
-      ` : ''}
-    </div>
-  `;
-}
-
-export function renderOccasions(card, openOccasion) {
-  return `
-    <p class="ca-note">Каждый праздник — своя страница: Sales присылает её ссылку, а по QR человек выбирает повод сам. Плитка того, что бронируют сейчас, на визитке самая крупная.</p>
-    <div class="ca-occs">
-      ${OCCASIONS.map((o) => renderOccasion(card, o, openOccasion === o.id)).join('')}
-    </div>
   `;
 }
 
@@ -307,15 +241,28 @@ export function renderTrust(card) {
       `
     })}
     ${field({ name: 'clients', label: 'Среди клиентов', value: card.clients, placeholder: 'Газпром · Магнит · Danone', maxlength: 160, hint: 'Компании, для которых вы работали, через точку.' })}
+    ${field({ name: 'credentials', label: 'Регалии', value: card.credentials, textarea: true, rows: 2, placeholder: 'Член Российской ассоциации иллюзионистов. Автор шоу «Секрет».', maxlength: 220, hint: 'На страницах праздников — на экране «Артист».' })}
     ${listEditor({
       list: 'quotes', items: card.quotes || [], limit: CARD_LIMITS.quotes,
       title: 'Слова клиентов', addLabel: 'Добавить отзыв',
-      empty: 'Короткие текстовые отзывы — рядом с видеоотзывами.',
+      empty: 'Короткие текстовые отзывы — рядом с видеоотзывами. Отзыв заказчика корпоратива сильнее всего работает на странице корпоратива.',
       renderRow: (q, i) => `
         ${listInput('quotes', i, 'text', q.text, { placeholder: 'Что сказал клиент', maxlength: 220, label: 'Текст отзыва', textarea: true })}
         ${listInput('quotes', i, 'author', q.author, { placeholder: 'Кто сказал', maxlength: 60, label: 'Автор' })}
+        ${quoteOccasionSelect(card, i, q.occasion)}
       `
     })}
+  `;
+}
+
+// К какому празднику отзыв: на его странице он встанет первым.
+function quoteOccasionSelect(card, index, value) {
+  const options = [{ id: '', title: 'Для всех страниц' }, ...occasionsOf(card).map((o) => ({ id: o.id, title: occasionTitle(o) }))];
+  return `
+    <select class="ca-input ca-select" aria-label="Праздник отзыва"
+      data-list="quotes" data-index="${index}" data-key="occasion">
+      ${options.map((o) => `<option value="${escapeAttr(o.id)}"${o.id === (value || '') ? ' selected' : ''}>${escapeHtml(o.title)}</option>`).join('')}
+    </select>
   `;
 }
 
@@ -343,6 +290,14 @@ export function renderProgram(card, leadKey) {
       `
     })}
     ${field({ name: 'requirementsNote', label: 'Что привозите с собой', value: card.requirementsNote, placeholder: 'Микрофон и реквизит привожу с собой', maxlength: 120 })}
+    ${listEditor({
+      list: 'included', items: card.included || [], limit: CARD_LIMITS.included,
+      title: 'Что входит в цену', addLabel: 'Добавить пункт',
+      empty: 'Финал страницы праздника: «Подготовка и реквизит», «Ваш логотип в номере», «Дорога — отдельно».',
+      renderRow: (item, i) => `
+        ${listInput('included', i, 'text', item.text, { placeholder: 'Подготовка, адаптация и реквизит', maxlength: 80, label: 'Что входит' })}
+      `
+    })}
     ${renderUpsell('quote', leadKey)}
   `;
 }

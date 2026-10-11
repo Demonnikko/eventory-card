@@ -12,7 +12,7 @@ import { qrSvg } from './shared/data/qr.js';
 import { businessCardTemplateUrl } from './shared/data/businessCard.js';
 import { hapticLight } from './shared/lib/haptic.js';
 import { getCard, cardPublicUrl } from './card-data.js';
-import { enabledOccasions, occasionBySlug, occasionTitle } from './shared/data/occasions.js';
+import { enabledOccasions, findOccasion, occasionTitle } from './shared/data/occasions.js';
 
 const state = { card: null, target: '' };
 
@@ -29,7 +29,7 @@ function writeTarget(slug) {
 
 // Цель существует, только пока праздник включён на визитке.
 function activeTarget(card) {
-  const occasion = occasionBySlug(state.target);
+  const occasion = findOccasion(card, { slug: state.target });
   return occasion && card.occasions?.[occasion.id]?.on ? occasion : null;
 }
 
