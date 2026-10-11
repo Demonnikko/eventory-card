@@ -1,14 +1,60 @@
 // Режим предъявления — готовая визитка с QR-кодом на лицевой стороне.
 // Карточка появляется один раз и остаётся неподвижной: никаких переворотов,
 // гироскопа и разрешений датчика. По касанию увеличивается только QR-код.
+//
+// Над карточкой — куда ведёт код: на визитку или сразу на праздник. Артист
+// на свадьбе показывает QR, и гость попадает на страницу «Свадьбы», а не
+// ищет её сам. Ссылка подписана каналом qr — «Отклик» видит, что гость
+// пришёл с живой встречи.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { qrSvg } from './shared/data/qr.js';
 import { businessCardTemplateUrl } from './shared/data/businessCard.js';
 import { hapticLight } from './shared/lib/haptic.js';
 import { getCard, cardPublicUrl } from './card-data.js';
+import { enabledOccasions, occasionBySlug, occasionTitle } from './shared/data/occasions.js';
 
-const state = { card: null };
+const state = { card: null, target: '' };
+
+// Выбранную цель помним: витрина открывается сразу показом, без выбора.
+const TARGET_KEY = 'eventory-card:present-target';
+
+function readTarget() {
+  try { return localStorage.getItem(TARGET_KEY) || ''; } catch { return ''; }
+}
+
+function writeTarget(slug) {
+  try { localStorage.setItem(TARGET_KEY, slug); } catch { /* приватный режим — просто без памяти */ }
+}
+
+// Цель существует, только пока праздник включён на визитке.
+function activeTarget(card) {
+  const occasion = occasionBySlug(state.target);
+  return occasion && card.occasions?.[occasion.id]?.on ? occasion : null;
+}
+
+function presentUrl(card) {
+  if (!card.publishedSlug) return '';
+  const occasion = activeTarget(card);
+  return cardPublicUrl(card.publishedSlug, { occasionSlug: occasion?.slug || '', source: 'qr' });
+}
+
+function renderTargets(card) {
+  const list = enabledOccasions(card);
+  if (!list.length || !card.publishedSlug) return '';
+  const current = activeTarget(card)?.slug || '';
+  const options = [{ slug: '', label: 'Визитка' }, ...list.map((o) => ({ slug: o.slug, label: occasionTitle(o) }))];
+  return `
+    <div class="pr-targets" role="radiogroup" aria-label="Куда ведёт QR">
+      ${options.map((o) => `
+        <button type="button" role="radio" aria-checked="${o.slug === current ? 'true' : 'false'}"
+          class="pr-target${o.slug === current ? ' is-active' : ''}" data-target="${escapeAttr(o.slug)}">
+          ${escapeHtml(o.label)}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
 
 // Координаты измерены по исходным шаблонам 1672×941. QR заполняет внутреннюю
 // часть декоративной рамки, а встроенная в SVG quiet zone сохраняет
@@ -108,7 +154,8 @@ function renderContent() {
   const card = state.card;
   if (!card) return '<div class="pr-loading"></div>';
 
-  const url = card.publishedSlug ? cardPublicUrl(card.publishedSlug) : '';
+  const url = presentUrl(card);
+  const target = activeTarget(card);
   // Витрина: приложение открылось сразу визиткой для показа клиенту. Карточка
   // повёрнута крупно на весь экран, видимой кнопки выхода нет — клиент видит
   // только визитку. Владелец выходит долгим удержанием ЦЕНТРА карточки (2 сек):
@@ -124,6 +171,8 @@ function renderContent() {
         </button>
       `}
 
+      ${kiosk ? '' : renderTargets(card)}
+
       <div class="pr-stage">
         <div class="pr-card${kiosk ? ' pr-card--hold' : ''}" data-card
           ${kiosk ? 'data-escape' : ''} aria-label="Визитка с QR-кодом">
@@ -134,7 +183,9 @@ function renderContent() {
 
       ${kiosk ? '' : `
         <p class="pr-hint">
-          ${url ? 'QR уже на визитке · коснитесь, чтобы увеличить' : 'QR появится здесь после публикации визитки'}
+          ${url
+            ? `Откроется: <strong>${escapeHtml(target ? occasionTitle(target).toLowerCase() : 'визитка')}</strong> · коснитесь, чтобы увеличить`
+            : 'QR появится здесь после публикации визитки'}
         </p>
 
         <p class="pr-rotate">
@@ -156,12 +207,25 @@ export const present = {
   },
   async mount(node) {
     state.card = await getCard();
+    state.target = readTarget();
     node.innerHTML = renderContent();
     bind(node);
   }
 };
 
 function bind(node) {
+  node.querySelectorAll('[data-target]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      hapticLight();
+      state.target = btn.dataset.target;
+      writeTarget(state.target);
+      // Карточка не перепроигрывает появление: меняется только код и подпись.
+      node.innerHTML = renderContent();
+      node.querySelector('[data-present]')?.classList.add('is-settled');
+      bind(node);
+    });
+  });
+
   const exit = node.querySelector('[data-exit]');
   const escape = node.querySelector('[data-escape]');
   const qrOpen = node.querySelector('[data-qr-open]');

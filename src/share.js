@@ -1,11 +1,12 @@
-// Экран «Ссылка и QR-код» — то, ради чего визитку публикуют.
-// Всё здесь бесплатно: ссылка, QR, сохранение контакта.
+// Экран «Поделиться» — то, ради чего визитку публикуют: главная ссылка и
+// QR, отдельная ссылка на каждый праздник (их рассылает Sales), видеоотзывы
+// и режим витрины. Всё здесь бесплатно.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
 import { getCard, saveCard, cardPublicUrl } from './card-data.js';
-import { downloadVCard } from './vcard.js';
+import { enabledOccasions, occasionTitle } from './shared/data/occasions.js';
 import { fetchOwnReviews, createInvite, approveReview, removeReview } from './reviews-data.js';
 import { openViewer, proxiedVideo } from './reviews-view.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
@@ -42,7 +43,7 @@ function renderReviewsBlock() {
   return `
     <section class="ca-reviews">
       <div class="ca-reviews-head">
-        <span class="ca-reviews-title">Видеоотзывы</span>
+        <h2 class="sh-h2">Видеоотзывы</h2>
         ${state.reviews.length
           ? `<span class="ca-reviews-count">${published.length} на визитке</span>`
           : ''}
@@ -129,15 +130,55 @@ function renderReferral() {
   `;
 }
 
+// Ссылка на каждый праздник — для Sales и для ответа в переписке: человек
+// сразу попадает на свой повод, а превью в мессенджере показывает праздник.
+function renderOccasionLinks(card) {
+  const list = enabledOccasions(card);
+  if (!list.length) {
+    return `
+      <section class="sh-section">
+        <h2 class="sh-h2">Ссылки на праздники</h2>
+        <p class="sh-sub">Включите праздники в редакторе — у каждого появится своя страница и ссылка для рассылки.</p>
+        <a class="ca-btn ca-btn--ghost" href="#/editor">Включить праздники</a>
+      </section>
+    `;
+  }
+  return `
+    <section class="sh-section">
+      <h2 class="sh-h2">Ссылки на праздники</h2>
+      <p class="sh-sub">Для Sales и переписки: человек сразу попадает на свой праздник.</p>
+      <div class="sh-links">
+        ${list.map((o) => {
+          const url = cardPublicUrl(card.publishedSlug, { occasionSlug: o.slug });
+          return `
+            <div class="sh-link">
+              <span class="sh-link-copy">
+                <span class="sh-link-title">${escapeHtml(occasionTitle(o))}</span>
+                <span class="sh-link-path">/${escapeHtml(o.slug)}</span>
+              </span>
+              <button type="button" class="ca-icon-btn" data-copy="${escapeAttr(url)}"
+                aria-label="Скопировать ссылку «${escapeAttr(occasionTitle(o))}»">${renderIcon('copy')}</button>
+              <button type="button" class="ca-icon-btn" data-share="${escapeAttr(url)}" data-share-title="${escapeAttr(occasionTitle(o))}"
+                aria-label="Отправить ссылку «${escapeAttr(occasionTitle(o))}»">${renderIcon('share')}</button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
 function renderContent() {
   const card = state.card;
-  if (!card) return '<div class="ca-loading">Загружаем…</div>';
+  const head = '<div class="ca-page-head"><h1 class="ca-page-title">Поделиться</h1></div>';
+  if (!card) return `${head}<div class="ca-loading">Загружаем…</div>`;
 
   if (!card.publishedSlug) {
     return `
+      ${head}
       <div class="ca-empty">
         <p class="ca-empty-title">Визитка ещё не опубликована</p>
-        <p class="ca-empty-text">Опубликуйте её — появится ссылка и QR-код.</p>
+        <p class="ca-empty-text">Опубликуйте её — появятся ссылки и QR-код.</p>
         <a class="ca-btn ca-btn--primary" href="#/editor">Вернуться к визитке</a>
       </div>
     `;
@@ -145,59 +186,37 @@ function renderContent() {
 
   const url = cardPublicUrl(card.publishedSlug);
   return `
+    ${head}
     <div class="ca-share">
-      <!-- Главное действие при живом знакомстве: показать визитку в руке.
-           Стоит первым — им пользуются чаще, чем копированием ссылки. -->
-      <a class="ca-present-cta" href="#/present">
-        <span class="ca-present-art" aria-hidden="true">
-          <span class="ca-present-card"></span>
-        </span>
-        <span class="ca-present-copy">
-          <span class="ca-present-title">Показать визитку</span>
-          <span class="ca-present-text">QR уже на карточке — просто покажите её собеседнику</span>
-        </span>
-        ${renderIcon('chevron-right')}
-      </a>
+      <section class="sh-qr">
+        <div class="sh-qr-code">${qrSvg(url, { className: 'ca-qr-svg', title: 'QR-код визитки' })}</div>
+        <p class="sh-qr-url" data-selectable>${escapeHtml(url.replace(/^https?:\/\//, ''))}</p>
+        <div class="sh-qr-actions">
+          <button type="button" class="ca-btn ca-btn--ghost" data-copy="${escapeAttr(url)}">
+            ${renderIcon('copy')} Копировать
+          </button>
+          <button type="button" class="ca-btn ca-btn--ghost" data-share="${escapeAttr(url)}">
+            ${renderIcon('share')} Отправить
+          </button>
+        </div>
+        <a class="ca-btn ca-btn--primary sh-qr-show" href="#/present">Показать QR</a>
+      </section>
+
+      ${renderOccasionLinks(card)}
+
+      ${renderReviewsBlock()}
 
       <button type="button" class="ca-kiosk" role="switch"
-        aria-checked="${state.card?.kioskMode ? 'true' : 'false'}"
+        aria-checked="${card.kioskMode ? 'true' : 'false'}"
         data-kiosk-toggle>
         <span class="ca-kiosk-copy">
           <span class="ca-kiosk-title">Режим витрины</span>
-          <span class="ca-kiosk-text">Приложение открывается сразу визиткой с QR. Выход — долгое удержание левого верхнего угла.</span>
+          <span class="ca-kiosk-text">Приложение открывается сразу визиткой с QR. Выход — долгое удержание карточки.</span>
         </span>
         <span class="ca-kiosk-switch" aria-hidden="true"><span class="ca-kiosk-knob"></span></span>
       </button>
 
       ${renderReferral()}
-
-      <div class="ca-qr-card">
-        <div class="ca-qr">${qrSvg(url, { className: 'ca-qr-svg', title: 'QR-код визитки' })}</div>
-        <p class="ca-qr-hint">Покажите этот код — визитка откроется на телефоне клиента</p>
-      </div>
-
-      <div class="ca-link">
-        <span class="ca-link-value">${escapeHtml(url)}</span>
-        <button type="button" class="ca-btn ca-btn--ghost" data-copy="${escapeAttr(url)}">
-          ${renderIcon('copy')} Скопировать
-        </button>
-      </div>
-
-      <div class="ca-share-actions">
-        <button type="button" class="ca-btn ca-btn--primary" data-share="${escapeAttr(url)}">
-          ${renderIcon('share')} Поделиться
-        </button>
-        <a class="ca-btn ca-btn--ghost" href="#/preview" >
-          ${renderIcon('search')} Посмотреть как клиент
-        </a>
-        <button type="button" class="ca-btn ca-btn--ghost" data-vcard>
-          ${renderIcon('download')} Сохранить контакт
-        </button>
-      </div>
-
-      ${renderReviewsBlock()}
-
-      ${renderUpsell('analytics')}
       ${renderUpsell('calendar')}
     </div>
   `;
@@ -205,7 +224,7 @@ function renderContent() {
 
 export const share = {
   id: 'share',
-  title: 'Ссылка и QR',
+  title: 'Поделиться',
   render() {
     return renderContent();
   },
@@ -253,12 +272,13 @@ export const share = {
     }
 
     // Отзывы догружаем после отрисовки: они внизу экрана, их появление не видно
-    // как прыжок, а ждать сеть ради них не нужно.
+    // как прыжок, а ждать сеть ради них не нужно. Без await: роутер рисует
+    // таббар, когда mount() закончился, и ожидание сети прятало бы его.
     if (state.card.publishedSlug) {
-      try {
-        state.reviews = await fetchOwnReviews();
-        if (state.reviews.length && isCurrent()) refreshReviewsBlock(node);
-      } catch { /* нет отзывов или нет сети — блок останется пустым */ }
+      fetchOwnReviews().then((reviews) => {
+        state.reviews = reviews;
+        if (reviews.length && isCurrent()) refreshReviewsBlock(node);
+      }).catch(() => { /* нет отзывов или нет сети — блок останется пустым */ });
     }
   }
 };
@@ -347,33 +367,27 @@ function bind(node) {
     });
   }
 
-  const copyBtn = node.querySelector('[data-copy]');
-  if (copyBtn) {
+  node.querySelectorAll('[data-copy]').forEach((copyBtn) => {
     copyBtn.addEventListener('click', async () => {
-      const value = copyBtn.dataset.copy;
       try {
-        await navigator.clipboard.writeText(value);
+        await navigator.clipboard.writeText(copyBtn.dataset.copy);
         toast.show('Ссылка скопирована', { ok: true });
       } catch {
-        // Часть браузеров запрещает clipboard без жеста/https — показываем
-        // ссылку для ручного копирования, а не молчим об ошибке.
+        // Часть браузеров запрещает clipboard без жеста/https — подсказываем,
+        // а не молчим об ошибке.
         toast.show('Скопируйте ссылку вручную');
       }
     });
-  }
+  });
 
-  const shareBtn = node.querySelector('[data-share]');
-  if (shareBtn) {
+  node.querySelectorAll('[data-share]').forEach((shareBtn) => {
     shareBtn.addEventListener('click', async () => {
       const url = shareBtn.dataset.share;
-      const title = state.card?.name ? `Визитка — ${state.card.name}` : 'Моя визитка';
+      const name = state.card?.name || 'Визитка';
+      const title = shareBtn.dataset.shareTitle ? `${shareBtn.dataset.shareTitle} · ${name}` : name;
       if (navigator.share) {
-        try {
-          await navigator.share({ title, url });
-          return;
-        } catch {
-          return; // пользователь закрыл системный лист — это не ошибка
-        }
+        await navigator.share({ title, url }).catch(() => { /* закрыли системный лист — не ошибка */ });
+        return;
       }
       try {
         await navigator.clipboard.writeText(url);
@@ -382,12 +396,7 @@ function bind(node) {
         toast.show('Скопируйте ссылку вручную');
       }
     });
-  }
-
-  const vcardBtn = node.querySelector('[data-vcard]');
-  if (vcardBtn) {
-    vcardBtn.addEventListener('click', () => downloadVCard(state.card));
-  }
+  });
 
   bindReviewActions(node);
 }

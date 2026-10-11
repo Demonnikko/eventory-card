@@ -11,6 +11,7 @@
 // поверх отрисуется как раньше.
 import crypto from 'node:crypto';
 import { normalizeSlug } from './_card-access.js';
+import { occasionBySlug, occasionTitle } from '../src/shared/data/occasions.js';
 
 // Версия снимка — короткий отпечаток его содержимого. Идёт в адрес картинки
 // (&v=…): сменил владелец фото — сменился адрес, и CDN больше не показывает
@@ -165,24 +166,46 @@ async function loadIndexHtml(origin) {
   return res.text();
 }
 
-function buildMetaTags(card, origin, slug) {
+// Страница праздника открыта, если владелец её включил и опубликовал.
+function publishedOccasion(card, occasionSlug) {
+  const occasion = occasionBySlug(occasionSlug);
+  if (!occasion) return null;
+  const settings = card?.occasions?.[occasion.id];
+  return settings?.on ? { occasion, settings } : null;
+}
+
+function photoUrl(card, origin, slug, index) {
+  const gallery = Array.isArray(card?.galleryPhotos) ? card.galleryPhotos : [];
+  const src = String(index >= 0 ? gallery[index] || '' : card?.coverPhoto || '');
+  if (/^https?:\/\//.test(src)) return src;
+  if (!DATA_URI_RE.test(src)) return '';
+  const which = index >= 0 ? `gallery&i=${index}` : 'cover';
+  return `${origin}/api/og?slug=${encodeURIComponent(slug)}&photo=${which}&v=${photoVersion(src)}`;
+}
+
+function buildMetaTags(card, origin, slug, occasionSlug = '') {
   const name = card?.name || 'Электронная визитка';
   const metaParts = [card?.role, card?.city].filter(Boolean);
-  const description = card?.tagline
-    || (metaParts.length ? metaParts.join(' · ') : 'Контакты, услуги и связь за пару секунд.');
-  const url = `${origin}/v/${encodeURIComponent(slug)}`;
-  // og:image обязан быть публичным HTTP-URL: мессенджеры не принимают
-  // data-URI, а обложка хранится именно так. Поэтому ведём тег на свою же
-  // ветку ?photo=cover — она отдаёт ту же обложку обычным jpeg. Реальный
-  // http-адрес используем напрямую, а без обложки остаётся заглушка бренда.
-  const cover = String(card?.coverPhoto || '');
-  const image = /^https?:\/\//.test(cover)
-    ? cover
-    : (DATA_URI_RE.test(cover)
-        ? `${origin}/api/og?slug=${encodeURIComponent(slug)}&photo=cover&v=${photoVersion(cover)}`
-        : `${origin}/og-default.png`);
+  const page = publishedOccasion(card, occasionSlug);
 
-  const title = card?.role ? `${name} — ${card.role}` : name;
+  // Ссылку праздника присылают из Sales: в превью сразу видно, о чём она —
+  // «Новогодний корпоратив · Дмитрий Костюк», а не просто имя артиста.
+  const title = page
+    ? `${occasionTitle(page.occasion)} · ${name}`
+    : (card?.role ? `${name} — ${card.role}` : name);
+  const description = (page && (page.settings.headline || page.settings.text))
+    || card?.tagline
+    || (metaParts.length ? metaParts.join(' · ') : 'Контакты, услуги и связь за пару секунд.');
+  const url = page
+    ? `${origin}/v/${encodeURIComponent(slug)}/${encodeURIComponent(page.occasion.slug)}`
+    : `${origin}/v/${encodeURIComponent(slug)}`;
+  // og:image обязан быть публичным HTTP-URL: мессенджеры не принимают
+  // data-URI, а фото хранятся именно так. Поэтому ведём тег на свою же
+  // ветку ?photo=… — она отдаёт тот же снимок обычным jpeg. У праздника —
+  // его собственное фото, иначе обложка, иначе заглушка бренда.
+  const image = (page && page.settings.photo >= 0 && photoUrl(card, origin, slug, page.settings.photo))
+    || photoUrl(card, origin, slug, -1)
+    || `${origin}/og-default.png`;
 
   return `
     <title>${escapeAttr(title)}</title>
@@ -226,7 +249,7 @@ export default async function handler(req, res) {
   let card = null;
   if (slug) card = await fetchCard(origin, slug);
 
-  const meta = buildMetaTags(card, origin, slug);
+  const meta = buildMetaTags(card, origin, slug, String(req.query?.o || ''));
 
   // Вставляем перед закрытием </head>, заменив стандартный <title>Визитка</title>.
   const injected = html

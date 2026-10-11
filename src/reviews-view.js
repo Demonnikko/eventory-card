@@ -57,40 +57,27 @@ function tailLabel(n) {
   return `Ещё ${n} ${word}`;
 }
 
-export function renderReviewsSection(reviews) {
+// Кружки отзывов для секции «Отзывы» визитки. Мало отзывов — все крупно;
+// много — первые четыре героями, остальные компактным хвостом со счётчиком,
+// чтобы клиент сразу видел общий объём.
+function renderReels(reviews) {
   if (!Array.isArray(reviews) || !reviews.length) return '';
-
-  // Мало отзывов — показываем всех крупно, без деления.
   if (reviews.length <= HERO_COUNT) {
-    return `
-    <section class="cp-block cp-reviews" data-section="Отзывы" data-reviews>
-      <h2 class="cp-block-title">Отзывы</h2>
-      <div class="cp-reels" role="list">
-        ${reviews.map((r, i) => reelMarkup(r, i, false)).join('')}
-      </div>
-    </section>
-  `;
+    return `<div class="cp-reels" role="list">${reviews.map((r, i) => reelMarkup(r, i, false)).join('')}</div>`;
   }
-
-  // Много — первые четыре героями, остальные компактным хвостом со счётчиком,
-  // чтобы клиент сразу видел общий объём отзывов.
   const heroes = reviews.slice(0, HERO_COUNT);
   const tail = reviews.slice(HERO_COUNT);
-
   return `
-    <section class="cp-block cp-reviews" data-section="Отзывы" data-reviews>
-      <h2 class="cp-block-title">Отзывы</h2>
-      <div class="cp-reels" role="list">
-        ${heroes.map((r, i) => reelMarkup(r, i, false)).join('')}
-      </div>
-      <div class="cp-reels-divider">
-        <span class="cp-reels-divider-label">${escapeHtml(tailLabel(tail.length))}</span>
-        <span class="cp-reels-divider-line" aria-hidden="true"></span>
-      </div>
-      <div class="cp-reels cp-reels--tail" role="list">
-        ${tail.map((r, i) => reelMarkup(r, HERO_COUNT + i, true)).join('')}
-      </div>
-    </section>
+    <div class="cp-reels" role="list">
+      ${heroes.map((r, i) => reelMarkup(r, i, false)).join('')}
+    </div>
+    <div class="cp-reels-divider">
+      <span class="cp-reels-divider-label">${escapeHtml(tailLabel(tail.length))}</span>
+      <span class="cp-reels-divider-line" aria-hidden="true"></span>
+    </div>
+    <div class="cp-reels cp-reels--tail" role="list">
+      ${tail.map((r, i) => reelMarkup(r, HERO_COUNT + i, true)).join('')}
+    </div>
   `;
 }
 
@@ -235,32 +222,16 @@ export function bindReviews(node, reviews) {
 }
 
 // Отзывы приходят с сети позже карточки. Раньше их появление перерисовывало
-// весь #app заново (node.innerHTML = ...) — карточка мигала. Здесь вставляем
-// ТОЛЬКО секцию отзывов в уже отрисованную карточку, ничего больше не трогая:
-// экран не мигает, отзывы просто «доезжают» на своё место.
+// весь #app заново — карточка мигала. Здесь кружки встают в уже готовую
+// секцию «Отзывы» ([data-reels-host]), ничего больше не трогая: экран не
+// мигает, отзывы просто «доезжают» на своё место. Секция без текстовых
+// цитат до этого момента скрыта — теперь ей есть что показать.
 export function injectReviews(node, reviews) {
   if (!Array.isArray(reviews) || !reviews.length) return;
-  const card = node.querySelector('.cp-card');
-  if (!card) return;
-  // Уже вставлено (например, повторный вызов) — не дублируем.
-  if (card.querySelector('[data-reviews]')) return;
-
-  const html = renderReviewsSection(reviews);
-  if (!html) return;
-  const tpl = document.createElement('template');
-  tpl.innerHTML = html.trim();
-  const section = tpl.content.firstElementChild;
-  if (!section) return;
-
-  // Место как в card-view.js: перед ценой; если цены нет — перед оффером или
-  // формой заявки, чтобы отзывы стояли ДО решения написать, а не после него;
-  // иначе перед сохранением контакта, иначе в конец карточки.
-  const anchor = card.querySelector('.cp-price')
-    || card.querySelector('[data-offer]')
-    || card.querySelector('[data-price-req]')
-    || card.querySelector('.cp-save');
-  if (anchor) card.insertBefore(section, anchor);
-  else card.appendChild(section);
-
+  const host = node.querySelector('[data-reels-host]');
+  if (!host || host.childElementCount) return;
+  host.innerHTML = renderReels(reviews);
+  const slot = host.closest('[data-reviews-slot]');
+  if (slot) slot.hidden = false;
   bindReviews(node, reviews);
 }

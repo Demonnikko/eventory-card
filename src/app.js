@@ -9,7 +9,7 @@
 // parseRoute оставался синхронным и не ждал загрузки чанка онбординга.
 import { isOnboarded } from './onboarding.js';
 import { mirrorRead } from './store.js';
-import { renderTabIcon } from './shared/components/icons.js';
+import { renderIcon, renderTabIcon } from './shared/components/icons.js';
 
 // Режим витрины читаем синхронно из localStorage-зеркала карточки: parseRoute
 // обязан оставаться синхронным (не ждать IndexedDB), а зеркало пишется при
@@ -49,7 +49,10 @@ function parseRoute() {
   // index.html, а маршрут разбираем здесь.
   const pathParts = window.location.pathname.split('/').filter(Boolean);
   if (pathParts[0] === 'v' && pathParts[1]) {
-    return { id: 'card-public', params: { id: decodeURIComponent(pathParts[1]) } };
+    return {
+      id: 'card-public',
+      params: { id: decodeURIComponent(pathParts[1]), occasion: decodeURIComponent(pathParts[2] || '') }
+    };
   }
   // /r/<token> — приглашение записать видеоотзыв. Открывает заказчик,
   // человек со стороны, поэтому тоже чистый путь без хэша.
@@ -61,13 +64,20 @@ function parseRoute() {
   const [path] = raw.split('?');
   const parts = path.split('/').filter(Boolean);
   if (parts[0] === 'v' && parts[1]) {
-    return { id: 'card-public', params: { id: decodeURIComponent(parts[1]) } };
+    return {
+      id: 'card-public',
+      params: { id: decodeURIComponent(parts[1]), occasion: decodeURIComponent(parts[2] || '') }
+    };
   }
   if (parts[0] === 'r' && parts[1]) {
     return { id: 'review-record', params: { id: decodeURIComponent(parts[1]) } };
   }
   const id = parts[0] || 'editor';
   const resolved = VIEW_LOADERS[id] ? id : 'editor';
+  // Предпросмотр страницы праздника: #/preview/<праздник>.
+  if (resolved === 'preview') {
+    return { id: 'preview', params: { occasion: decodeURIComponent(parts[1] || '') } };
+  }
 
   // Режим витрины: приложение открылось на стартовом экране (пустой хэш или
   // editor) — сразу показываем визитку с QR, минуя редактор. Явный переход на
@@ -87,16 +97,25 @@ function parseRoute() {
   return { id: resolved, params: {} };
 }
 
+// Плавающая стеклянная панель вкладок и рядом — главное действие артиста:
+// круглая кнопка QR. Достал телефон, нажал, показал — без поиска по меню.
 function renderTabbar(activeId) {
   // На публичной визитке таббар не нужен: её смотрит клиент, а не владелец.
   if (activeId === 'card-public') return '';
-  return TABS.map((tab) => `
-    <button type="button" role="tab" aria-selected="${tab.id === activeId ? 'true' : 'false'}"
-      class="ca-tab${tab.id === activeId ? ' is-active' : ''}" data-tab="${tab.id}">
-      ${renderTabIcon(tab.icon)}
-      <span>${tab.label}</span>
-    </button>
-  `).join('');
+  return `
+    <div class="ca-tabs" role="tablist" aria-label="Разделы приложения">
+      ${TABS.map((tab) => `
+        <button type="button" role="tab" aria-selected="${tab.id === activeId ? 'true' : 'false'}"
+          class="ca-tab${tab.id === activeId ? ' is-active' : ''}" data-tab="${tab.id}">
+          ${renderTabIcon(tab.icon, { size: 22 })}
+          <span>${tab.label}</span>
+        </button>
+      `).join('')}
+    </div>
+    <a class="ca-fab" href="#/present" aria-label="Показать QR-код визитки">
+      ${renderIcon('qrcode', { size: 26 })}
+    </a>
+  `;
 }
 
 // Переставляет золотую метку на нужную вкладку, не перерисовывая таббар
@@ -121,6 +140,23 @@ export function mountApp() {
   // экран поверх нового (редактор затирался «Откликом», таб-бар мог спрятаться
   // на обычной вкладке). Теперь устаревший переход просто прекращается.
   let routeSeq = 0;
+
+  function syncTabbar(id) {
+    const chromeless = id === 'card-public' || id === 'onboarding'
+      || id === 'present' || id === 'review-record' || id === 'privacy';
+    if (chromeless) {
+      tabbar.innerHTML = '';
+    } else if (!tabbar.querySelector('[data-tab]')) {
+      // Таббар пуст (первый заход или возврат с полноэкранного экрана) —
+      // рисуем кнопки. Между обычными вкладками разметка одинаковая, поэтому
+      // НЕ пересоздаём её: активную метку уже переставил markActiveTab, а
+      // повторный innerHTML заново проигрывал бы анимацию полоски.
+      tabbar.innerHTML = renderTabbar(id);
+    } else {
+      markActiveTab(tabbar, id);
+    }
+    tabbar.hidden = chromeless;
+  }
 
   async function route() {
     const seq = ++routeSeq;
@@ -152,6 +188,11 @@ export function mountApp() {
     if (!isCurrent()) return;
     currentView = view;
 
+    // Таббар зависит только от маршрута, поэтому рисуем его до mount(): экраны
+    // с сетевыми данными («Отклик», «Поделиться») ждут ответа внутри mount, и
+    // раньше на холодном старте панель появлялась лишь через секунды.
+    syncTabbar(id);
+
     // Против моргания при переключении вкладок: раньше роутер сначала рисовал
     // пустой каркас через render() (≈«Загрузка…»), а mount() затем грузил
     // данные из IndexedDB и перерисовывал #app ЗАНОВО — две замены DOM подряд,
@@ -182,22 +223,6 @@ export function mountApp() {
     } else {
       app.innerHTML = typeof view.render === 'function' ? view.render() : '';
     }
-    if (!isCurrent()) return;
-
-    const chromeless = id === 'card-public' || id === 'onboarding'
-      || id === 'present' || id === 'review-record' || id === 'privacy';
-    if (chromeless) {
-      tabbar.innerHTML = '';
-    } else if (!tabbar.querySelector('[data-tab]')) {
-      // Таббар пуст (первый заход или возврат с полноэкранного экрана) —
-      // рисуем кнопки. Между обычными вкладками разметка одинаковая, поэтому
-      // НЕ пересоздаём её: активную метку уже переставил markActiveTab, а
-      // повторный innerHTML заново проигрывал бы анимацию полоски.
-      tabbar.innerHTML = renderTabbar(id);
-    } else {
-      markActiveTab(tabbar, id);
-    }
-    tabbar.hidden = chromeless;
   }
 
   tabbar.addEventListener('click', (e) => {

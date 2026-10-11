@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFile, stat } from 'node:fs/promises';
 import { createCardDraft } from '../src/editor-draft.js';
 import { DEFAULT_BUSINESS_CARD, cardCompletion } from '../src/card-data.js';
-import { renderAskBlock, resetAsk } from '../src/card-ask.js';
 import { createEncryptedBackup, restoreEncryptedBackup } from '../src/card-backup.js';
 import {
   BUSINESS_CARD_PROFESSIONS,
@@ -27,16 +26,16 @@ test('автосохранение не теряет быстро заполне
 
   draft.schedule({ city: 'Ярославль' });
   draft.schedule({ bio: 'Шоу для событий' });
-  draft.schedule({ services: 'Сценическое шоу' });
+  draft.schedule({ tagline: 'Сценическое шоу' });
   await draft.flush();
 
   assert.equal(draft.card.city, 'Ярославль');
   assert.equal(draft.card.bio, 'Шоу для событий');
-  assert.equal(draft.card.services, 'Сценическое шоу');
+  assert.equal(draft.card.tagline, 'Сценическое шоу');
   assert.equal(saved.length, 1);
   assert.equal(saved[0].city, 'Ярославль');
   assert.equal(saved[0].bio, 'Шоу для событий');
-  assert.equal(saved[0].services, 'Сценическое шоу');
+  assert.equal(saved[0].tagline, 'Сценическое шоу');
 });
 
 test('шаблон профессии считается готовым оформлением', () => {
@@ -78,12 +77,18 @@ test('все фоны выбора профессии облегчены и го
   assert.ok(sizes.reduce((total, size) => total + size, 0) < 300 * 1024);
 });
 
-test('быстрый вопрос запрашивает контакт и объясняет, кто его увидит', () => {
-  resetAsk();
-  const html = renderAskBlock({ ...DEFAULT_BUSINESS_CARD, telegram: 'demo_eventory' });
-  assert.match(html, /data-ask-contact/);
-  assert.match(html, /Телефон или @telegram для ответа/);
-  assert.match(html, /Контакт не публикуется/);
+test('заявка «Проверить дату» — единственная форма и требует имя и телефон', async () => {
+  const [sheet, view] = await Promise.all([
+    readFile(new URL('../src/date-request.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/card-view.js', import.meta.url), 'utf8')
+  ]);
+  assert.match(view, /data-date-open/);
+  assert.match(view, /Проверить дату/);
+  assert.match(sheet, /Как к вам обращаться\?/);
+  assert.match(sheet, /Укажите телефон/);
+  assert.match(sheet, /Telegram или ВКонтакте — по желанию/);
+  assert.match(sheet, /privacy/);
+  assert.doesNotMatch(view, /data-ask|data-offer|data-price-request/);
 });
 
 test('явное сохранение повторяет неудачную фоновую запись', async () => {
@@ -327,8 +332,8 @@ test('релизные UI-контракты остаются включены',
 
   assert.doesNotMatch(editor, /\btoast\s*\(/);
   assert.doesNotMatch(preview, /renderUpsell\(['"]leads['"]\)/);
-  assert.match(editor, /data-gallery-input/);
-  assert.match(editor, /data-package-add/);
+  assert.match(editor, /\[data-gallery-input\]/);
+  assert.doesNotMatch(editor, /data-package-add|servicePackages/);
   assert.match(review, /data-consent/);
   assert.match(review, /videoBitsPerSecond:\s*900_000/);
   assert.match(reviewsData, /\/api\/card-review-upload/);
@@ -353,7 +358,8 @@ test('релизные UI-контракты остаются включены',
   assert.match(cardCss, /pr-card-settle/);
   assert.match(cardCss, /pr-sheen-pass/);
   assert.doesNotMatch(cardCss, /ca-present-sway|\.pr-screen\.is-flipped/);
-  assert.match(share, /QR уже на карточке/);
+  assert.match(share, /renderOccasionLinks/);
+  assert.doesNotMatch(share, /downloadVCard|data-vcard/);
   assert.match(share, /invite_store_failed/);
   assert.doesNotMatch(editor, /THEME_OPTIONS|renderThemes|data-theme/);
   // Мессенджеры и соцсети в карточке — фирменными цветными иконками
@@ -365,7 +371,7 @@ test('релизные UI-контракты остаются включены',
   assert.match(cardCss, /--bg:\s*#060607/);
   assert.doesNotMatch(cardCss, /#5d93ff|#6cc8a1|#e26b6b|#7ea8ff|#8edcba|#2d6e52/i);
   assert.match(html, /data-pwa-update-control/);
-  assert.match(html, /class="ca-header-mark" src="\/icon-192\.png"/);
+  assert.match(html, /<meta name="theme-color" content="#060607"/);
   assert.doesNotMatch(html, /by Eventory/);
   // Шаблоны онбординга осознанно НЕ preload'им в HTML (v1.6.2): они нужны
   // только на первом входе владельца, а грузились на каждой странице, включая

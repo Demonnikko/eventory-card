@@ -1,21 +1,19 @@
-// Метки показов, узнавание вернувшихся и ночные вопросы — одна функция.
+// Метки показов, статистика и заявки — одна функция.
 //
 // Разделено по action, а не по эндпоинтам: на Hobby-плане функции лимитированы,
 // а операции здесь мелкие и однородные.
 //
-//   GET  ?slug=…&key=…                 — сводка для владельца (метки, диалоги)
+//   GET  ?slug=…&key=…                 — сводка для владельца (метки, заявки)
 //   POST action=tag-create|tag-delete  — владелец заводит/убирает метку события
-//   POST action=track                  — гость открыл визитку (общий итог + метка)
-//   POST action=greet                  — узнавание вернувшегося гостя
-//   POST action=ask                    — вопрос от гостя, ответ визитки
-//   POST action=dialogs-read           — владелец прочитал диалоги
+//   POST action=track                  — гость открыл визитку (итог, праздник, канал)
+//   POST action=lead                   — заявка «Проверить дату»
 import {
   storeConfigured,
   listTags, saveTag, deleteTag, readTagStats,
-  readCardStats, trackCardOpen, trackTagOpen, readVisitor, saveVisitor,
-  listHotVisitors,
-  saveDialog, listDialogs, markDialogsRead,
-  saveLead, listLeads, markLeadsRead, deleteLead, setLeadTag, ownerProStatus
+  readCardStats, readCardDays, trackCardOpen, trackCardReach, trackTagOpen,
+  readVisitor, saveVisitor, listHotVisitors,
+  saveLead, listLeads, markLeadsRead, deleteLead, setLeadTag, ownerProStatus,
+  OCCASION_IDS, SOURCE_IDS
 } from './_tags-store.js';
 import { readPublicCard, leadKeyMatches, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
@@ -54,58 +52,9 @@ async function readBody(req) {
   }
 }
 
-/* ─────────── Автоответы ─────────── */
-
-// Визитка отвечает на три вопроса, которые задают всегда: свободен ли,
-// сколько стоит, что входит. Это не чат-бот: если вопрос не из этих трёх,
-// честно говорим, что ответит человек, и сохраняем вопрос владельцу.
-function buildAnswer(question, card) {
-  const q = String(question || '').toLowerCase();
-
-  const asksPrice = /(сколько|цена|стоит|стоимость|прайс|бюджет|ценник)/.test(q);
-  const asksDate = /(свободн|занят|дата|число|когда|график|календар)/.test(q);
-  const asksIncluded = /(что вход|что включ|входит ли|включен|программ|как проход)/.test(q);
-
-  if (asksDate) {
-    // Календарь живёт в CRM — здесь честно говорим, что дату подтвердит человек.
-    return {
-      kind: 'date',
-      text: card.responseTime
-        ? `Уточню по календарю и отвечу ${card.responseTime}. Напишите, пожалуйста, дату и город — так отвечу точнее.`
-        : 'Уточню по календарю и вернусь с ответом. Напишите, пожалуйста, дату и город.'
-    };
-  }
-
-  if (asksPrice) {
-    if (card.priceFrom) {
-      return {
-        kind: 'price',
-        text: `Работа от ${card.priceFrom}. Итог зависит от формата, площадки и длительности — расскажите про событие, и я посчитаю точнее.`
-      };
-    }
-    return {
-      kind: 'price',
-      text: 'Стоимость зависит от формата и длительности. Расскажите про событие — вернусь с точной цифрой.'
-    };
-  }
-
-  if (asksIncluded) {
-    const services = String(card.services || '')
-      .split('\n').map((s) => s.trim()).filter(Boolean);
-    if (services.length) {
-      return {
-        kind: 'included',
-        text: `Обычно это: ${services.slice(0, 4).join(', ')}. Под ваше событие соберу программу отдельно.`
-      };
-    }
-  }
-
-  return {
-    kind: 'other',
-    text: card.responseTime
-      ? `Отвечу лично ${card.responseTime}. Оставьте контакт — свяжусь с вами.`
-      : 'Отвечу лично в ближайшее время. Оставьте контакт — свяжусь с вами.'
-  };
+function pick(value, allowed) {
+  const id = String(value || '').trim().toLowerCase();
+  return allowed.includes(id) ? id : '';
 }
 
 export default async function handler(req, res) {
@@ -157,7 +106,7 @@ export default async function handler(req, res) {
         };
       }));
     } else {
-      leads = rawLeads.map(({ contact, phone, vk, telegram, visitorId, ...rest }) => rest);
+      leads = rawLeads.map(({ contact, phone, vk, telegram, messenger, visitorId, ...rest }) => rest);
     }
 
     // «Догони» — Pro: горячие гости, которые смотрели, но заявку НЕ оставили.
@@ -181,8 +130,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       summary: await readCardStats(slug),
+      days: await readCardDays(slug, 7),
       tags: withStats,
-      dialogs: await listDialogs(slug),
       leads,
       hot,
       ownerPro,
@@ -201,16 +150,13 @@ export default async function handler(req, res) {
 
   const limits = {
     track: { limit: 180, windowSeconds: 60 },
-    greet: { limit: 60, windowSeconds: 60 },
     // Ключ лимита — IP + визитка. На мероприятии гости часто выходят в сеть
     // через общий Wi-Fi площадки (один IP на всех): 8 в час там упирались в
-    // потолок раньше, чем заканчивались желающие узнать цену. 20 по-прежнему
+    // потолок раньше, чем заканчивались желающие проверить дату. 20 по-прежнему
     // режет спам, но не живых гостей.
-    ask: { limit: 20, windowSeconds: 3600 },
     lead: { limit: 20, windowSeconds: 3600 },
     'tag-create': { limit: 30, windowSeconds: 3600 },
     'tag-delete': { limit: 30, windowSeconds: 3600 },
-    'dialogs-read': { limit: 120, windowSeconds: 60 },
     'leads-read': { limit: 120, windowSeconds: 60 },
     'lead-delete': { limit: 60, windowSeconds: 60 }
   };
@@ -256,10 +202,21 @@ export default async function handler(req, res) {
       if (visitorId && section) {
         await saveVisitor(slug, visitorId, { tagId, section });
       }
+      // Гость перешёл на праздник внутри визитки — повод считаем, открытие нет.
+      const occasion = pick(body.occasion, OCCASION_IDS);
+      if (occasion) await trackCardReach(slug, { occasion, countDay: false });
       return res.status(200).json({ ok: true });
     }
 
     await trackCardOpen(slug, visitorId, event);
+    // Праздник и канал считаем только для открытия: переход в контакты и
+    // просмотры разделов не должны удваивать «откуда пришли».
+    if (event === 'open') {
+      await trackCardReach(slug, {
+        occasion: pick(body.occasion, OCCASION_IDS),
+        source: pick(body.source, SOURCE_IDS)
+      });
+    }
     if (tagId) {
       await trackTagOpen(slug, tagId, visitorId, event);
     }
@@ -271,50 +228,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  /* ─────────── Узнавание вернувшегося ─────────── */
-  if (action === 'greet') {
-    const rawVisitorId = String(body.visitor || '').trim();
-    const visitorId = /^[a-z0-9_-]{8,64}$/i.test(rawVisitorId) ? rawVisitorId : '';
-    if (!visitorId) return fail(res, 400, 'invalid_visitor');
-    const seen = await readVisitor(slug, visitorId);
-    // Первый визит — не здороваемся «снова», это выглядело бы фальшиво.
-    if (!seen || (Number(seen.visits) || 0) < 2) {
-      return res.status(200).json({ ok: true, returning: false });
-    }
-    return res.status(200).json({
-      ok: true,
-      returning: true,
-      visits: seen.visits,
-      lastAt: seen.lastAt,
-      interest: seen.interest || ''
-    });
-  }
-
-  /* ─────────── Вопрос от гостя ─────────── */
-  if (action === 'ask') {
-    const data = await readPublicCard(slug);
-    if (!data) return fail(res, 404, 'card_not_found');
-
-    const question = String(body.question || '').trim().slice(0, 300);
-    if (!question) return fail(res, 400, 'empty_question');
-    const contact = String(body.contact || '').trim().slice(0, 120);
-    if (!contact) return fail(res, 400, 'empty_contact');
-    if (!/(@[a-z0-9_]{5,32}|\+?[0-9][0-9()\s-]{6,}|[^\s@]+@[^\s@]+\.[^\s@]+)/i.test(contact)) {
-      return fail(res, 400, 'invalid_contact');
-    }
-
-    const answer = buildAnswer(question, data.card || {});
-    await saveDialog(slug, {
-      question,
-      answer: answer.text,
-      kind: answer.kind,
-      contact,
-      tagId: /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim()) ? String(body.tag).trim().toLowerCase() : ''
-    });
-    return res.status(200).json({ ok: true, answer: answer.text, kind: answer.kind });
-  }
-
-  /* ─────────── Заявка «Узнать цену» от гостя ─────────── */
+  /* ─────────── Заявка «Проверить дату» от гостя ─────────── */
   if (action === 'lead') {
     const data = await readPublicCard(slug);
     if (!data) return fail(res, 404, 'card_not_found');
@@ -322,39 +236,38 @@ export default async function handler(req, res) {
     const name = String(body.name || '').trim().slice(0, 80);
     if (!name) return fail(res, 400, 'empty_name');
     const phone = String(body.phone || '').trim().slice(0, 30);
-    const vk = String(body.vk || '').trim().slice(0, 120);
-    const telegram = String(body.telegram || '').trim().slice(0, 40);
-    // Телефон обязателен.
+    // Телефон обязателен: по нему ответят и в WhatsApp, и в MAX.
     if (!/\+?[0-9][0-9()\s-]{6,}/.test(phone)) return fail(res, 400, 'invalid_phone');
-    // Работаем в мессенджерах — нужен хотя бы один: ВКонтакте или Telegram.
-    if (!vk && !telegram) return fail(res, 400, 'messenger_required');
+    // Мессенджер — по желанию: обязательное второе поле теряло заявки.
+    const messenger = String(body.messenger || '').trim().slice(0, 120);
     // Читаемая строка контакта — её показываем Pro-владельцу (совместимость).
-    const contact = String(body.contact || '').trim().slice(0, 200)
-      || [phone && `☎ ${phone}`, vk && `ВК: ${vk}`, telegram && `TG: ${telegram}`].filter(Boolean).join(' · ');
-    // Дата события — необязательна: кто торопится, отправляет без неё.
+    const contact = [phone && `☎ ${phone}`, messenger].filter(Boolean).join(' · ');
     const eventDate = String(body.eventDate || '').trim().slice(0, 20);
+    const city = String(body.city || '').trim().slice(0, 60);
+    const format = String(body.format || '').trim().slice(0, 60);
 
     const tag = /^[a-f0-9]{8}$/i.test(String(body.tag || '').trim())
       ? String(body.tag).trim().toLowerCase() : '';
     const rawVisitor = String(body.visitor || '').trim();
     const leadVisitor = /^[a-z0-9_-]{8,64}$/i.test(rawVisitor) ? rawVisitor : '';
-    // Крючок: текст спецпредложения, по которому гость открыл форму. Пусто —
-    // пришёл сам. saveLead дополнительно обрежет по длине.
-    const offerLabel = String(body.offer || '').trim().slice(0, 140);
-    const saved = await saveLead(slug, { name, contact, phone, vk, telegram, eventDate, tagId: tag, visitorId: leadVisitor, offerLabel });
+    const saved = await saveLead(slug, {
+      name, contact, phone, messenger, eventDate, city, format,
+      occasion: pick(body.occasion, OCCASION_IDS),
+      source: pick(body.source, SOURCE_IDS),
+      tagId: tag,
+      visitorId: leadVisitor
+    });
     // Не прячем сбой хранилища: если заявка не записалась — говорим об этом,
     // иначе клиент думает «отправлено», а владелец её никогда не увидит.
     if (!saved) return fail(res, 503, 'lead_not_saved');
 
-    // Счётчик «обращений» на экране «Отклик» = contacts в аналитике. Инкрементим
-    // здесь, иначе цифра всегда 0 при живых заявках. По метке — ещё и в её стат.
+    // Счётчик «обращений» на экране «Отклик» = contacts в аналитике.
     await trackCardOpen(slug, '', 'contact');
     if (tag) await trackTagOpen(slug, tag, '', 'contact');
 
     // Тихо уведомляем владельца в Telegram (если он подключил). leadKey берём
     // из карточки на сервере — гостю он не виден. Контакт клиента НЕ шлём (он
-    // под Pro-барьером): в уведомлении только имя и дата. Fire-and-forget —
-    // заявка сохранена в любом случае, сбой Telegram гостя не касается.
+    // под Pro-барьером): в уведомлении только имя и дата.
     notifyOwnerTelegram(data.leadKey, name, eventDate);
 
     return res.status(200).json({ ok: true });
@@ -386,14 +299,6 @@ export default async function handler(req, res) {
     const tagId = /^[a-f0-9]{8}$/.test(rawTag) ? rawTag : '';
     const updated = await setLeadTag(slug, String(body.id || ''), tagId);
     if (!updated) return fail(res, 404, 'lead_not_found');
-    return res.status(200).json({ ok: true });
-  }
-
-  /* ─────────── Владелец прочитал диалоги ─────────── */
-  if (action === 'dialogs-read') {
-    const owner = await assertOwner(slug, String(body.key || ''));
-    if (!owner) return fail(res, 403, 'forbidden');
-    await markDialogsRead(slug);
     return res.status(200).json({ ok: true });
   }
 

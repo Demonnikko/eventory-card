@@ -1,4 +1,4 @@
-// Метки показов, автоответы и узнавание вернувшихся.
+// Метки показов, охват по праздникам и каналам, узнавание вернувшихся.
 //
 // Метка показа — это ответ на вопрос «откуда приходят клиенты». Владелец
 // заводит метку под конкретное событие («Свадьба Ани, 12 апреля»), получает
@@ -6,6 +6,7 @@
 // ссылке пишется в счётчик метки — и через месяц видно, какое мероприятие
 // действительно принесло обращения, а какое только время.
 import crypto from 'node:crypto';
+import { OCCASIONS } from '../src/shared/data/occasions.js';
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -33,8 +34,9 @@ const TAGS_KEY = (slug) => `eventory:card:${slug}:tags`;
 const TAG_STATS_KEY = (slug, tag) => `eventory:card:${slug}:tag:${tag}`;
 const CARD_STATS_KEY = (slug) => `eventory:card:${slug}:stats`;
 const VISITOR_KEY = (slug, visitor) => `eventory:card:${slug}:visitor:${visitor}`;
-const DIALOG_KEY = (slug) => `eventory:card:${slug}:dialogs`;
 const LEADS_KEY = (slug) => `eventory:card:${slug}:leads`;
+// Открытия по дням: hash «2026-10-11» → число. Для графика недели в «Отклике».
+const DAYS_KEY = (slug) => `eventory:card:${slug}:days`;
 // Индекс «горячих» гостей карточки (для «Догони»): Sorted Set, score = lastAt.
 // Только заинтересованные гости, не все анонимы — иначе индекс раздувается.
 const HOT_KEY = (slug) => `eventory:card:${slug}:hot`;
@@ -93,9 +95,13 @@ export async function deleteTag(slug, id) {
   return true;
 }
 
-// Статистика метки: открытия, уникальные посетители, переходы в контакты.
-async function readStats(key) {
-  if (!storeConfigured()) return { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
+// Праздники и каналы, которые считает «Отклик». Значения приходят из адреса
+// визитки (путь /v/<визитка>/<праздник> и ?src=…), поэтому принимаем только
+// известные: чужая строка не должна плодить поля в hash статистики.
+export const OCCASION_IDS = OCCASIONS.map((item) => item.id);
+export const SOURCE_IDS = ['qr', 'vk', 'max', 'wa', 'tg', 'insta', 'site', 'sales'];
+
+async function readHash(key) {
   const raw = await redis(['HGETALL', key]);
   const out = {};
   if (Array.isArray(raw)) {
@@ -103,6 +109,22 @@ async function readStats(key) {
   } else if (raw && typeof raw === 'object') {
     Object.entries(raw).forEach(([k, v]) => { out[k] = Number(v || 0); });
   }
+  return out;
+}
+
+function prefixed(hash, prefix, allowed) {
+  const out = {};
+  for (const id of allowed) {
+    const n = hash[`${prefix}${id}`];
+    if (n) out[id] = n;
+  }
+  return out;
+}
+
+// Статистика метки: открытия, уникальные посетители, переходы в контакты.
+async function readStats(key) {
+  if (!storeConfigured()) return { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
+  const out = await readHash(key);
   return {
     opens: out.opens || 0,
     visitors: out.visitors || 0,
@@ -115,8 +137,32 @@ export function readTagStats(slug, tagId) {
   return readStats(TAG_STATS_KEY(slug, tagId));
 }
 
-export function readCardStats(slug) {
-  return readStats(CARD_STATS_KEY(slug));
+// Сводка всей визитки: к общим числам добавляем, какие праздники открывали
+// и откуда пришли люди.
+export async function readCardStats(slug) {
+  const empty = { opens: 0, visitors: 0, contacts: 0, lastAt: 0, occasions: {}, sources: {} };
+  if (!storeConfigured()) return empty;
+  const out = await readHash(CARD_STATS_KEY(slug));
+  return {
+    opens: out.opens || 0,
+    visitors: out.visitors || 0,
+    contacts: out.contacts || 0,
+    lastAt: out.lastAt || 0,
+    occasions: prefixed(out, 'occ:', OCCASION_IDS),
+    sources: prefixed(out, 'src:', SOURCE_IDS)
+  };
+}
+
+// Открытия за последние days дней, от старого к новому: [{ day, opens }].
+export async function readCardDays(slug, days = 7) {
+  if (!storeConfigured()) return [];
+  const hash = await readHash(DAYS_KEY(slug));
+  const out = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const day = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    out.push({ day, opens: hash[day] || 0 });
+  }
+  return out;
 }
 
 // Одно открытие визитки по метке. visitorId — случайный идентификатор,
@@ -147,6 +193,23 @@ export function trackTagOpen(slug, tagId, visitorId, event = 'open') {
 
 export function trackCardOpen(slug, visitorId, event = 'open') {
   return trackStats(CARD_STATS_KEY(slug), visitorId, event);
+}
+
+// Открытие визитки по празднику и каналу + отметка дня для графика недели.
+// occasion и source уже проверены вызывающим (OCCASION_IDS / SOURCE_IDS).
+// countDay=false — переход на праздник внутри уже открытой визитки: повод
+// засчитываем, а новое открытие дня — нет.
+export async function trackCardReach(slug, { occasion = '', source = '', countDay = true } = {}) {
+  if (!storeConfigured()) return false;
+  const key = CARD_STATS_KEY(slug);
+  if (occasion) await redis(['HINCRBY', key, `occ:${occasion}`, '1']);
+  if (source) await redis(['HINCRBY', key, `src:${source}`, '1']);
+  if (countDay) {
+    const day = new Date().toISOString().slice(0, 10);
+    await redis(['HINCRBY', DAYS_KEY(slug), day, '1']);
+    await redis(['EXPIRE', DAYS_KEY(slug), String(YEAR)]);
+  }
+  return true;
 }
 
 /* ─────────── Узнавание вернувшихся ─────────── */
@@ -219,56 +282,9 @@ export async function saveVisitor(slug, visitorId, data = {}) {
   return next;
 }
 
-/* ─────────── Ночные вопросы ─────────── */
+/* ─────────── Заявки «Проверить дату» ─────────── */
 
-// Клиент спросил ночью — визитка ответила сама, а владелец утром видит
-// готовый диалог. Храним и вопрос, и то, что ответила визитка.
-export async function saveDialog(slug, entry) {
-  if (!storeConfigured()) return null;
-  const raw = await redis(['GET', DIALOG_KEY(slug)]);
-  let all = [];
-  try {
-    all = raw ? JSON.parse(raw) : [];
-  } catch {
-    all = [];
-  }
-  const item = {
-    id: crypto.randomBytes(6).toString('hex'),
-    question: String(entry.question || '').slice(0, 300),
-    answer: String(entry.answer || '').slice(0, 600),
-    kind: String(entry.kind || 'other').slice(0, 20),
-    contact: String(entry.contact || '').slice(0, 120),
-    tagId: String(entry.tagId || '').slice(0, 16),
-    createdAt: Date.now(),
-    read: false
-  };
-  const next = [item, ...(Array.isArray(all) ? all : [])].slice(0, 50);
-  await redis(['SET', DIALOG_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
-  return item;
-}
-
-export async function listDialogs(slug) {
-  if (!storeConfigured()) return [];
-  const raw = await redis(['GET', DIALOG_KEY(slug)]);
-  try {
-    const all = raw ? JSON.parse(raw) : [];
-    return Array.isArray(all) ? all : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function markDialogsRead(slug) {
-  if (!storeConfigured()) return false;
-  const all = await listDialogs(slug);
-  const next = all.map((d) => ({ ...d, read: true }));
-  await redis(['SET', DIALOG_KEY(slug), JSON.stringify(next), 'EX', String(YEAR)]);
-  return true;
-}
-
-/* ─────────── Заявки «Узнать цену» ─────────── */
-
-// Клиент нажал «Узнать цену» на визитке и оставил контакт. Храним по образцу
+// Клиент нажал «Проверить дату» на визитке и оставил контакт. Храним по образцу
 // диалогов: массив под ключом визитки, TTL год, новые сверху. Контакт клиента —
 // «кто это» — владелец видит только в Eventory за Pro (барьер навесим шагом 2);
 // здесь просто копим заявки и считаем их.
@@ -289,13 +305,16 @@ export async function saveLead(slug, entry) {
     phone: String(entry.phone || '').slice(0, 30),
     vk: String(entry.vk || '').slice(0, 120),
     telegram: String(entry.telegram || '').slice(0, 40),
+    // Мессенджер одной строкой: «@ник», ссылка ВКонтакте или номер.
+    messenger: String(entry.messenger || '').slice(0, 120),
     eventDate: String(entry.eventDate || '').slice(0, 20),
+    city: String(entry.city || '').slice(0, 60),
+    format: String(entry.format || '').slice(0, 60),
+    occasion: OCCASION_IDS.includes(entry.occasion) ? entry.occasion : '',
+    source: SOURCE_IDS.includes(entry.source) ? entry.source : '',
     tagId: String(entry.tagId || '').slice(0, 16),
     // Связь с профилем гостя: по нему в «Отклике» собираем досье (что смотрел).
     visitorId: String(entry.visitorId || '').slice(0, 64),
-    // Крючок «Догони»: если гость пришёл по спецпредложению — храним его текст,
-    // чтобы владелец видел в «Отклике», по какому условию клиент оставил контакт.
-    offerLabel: String(entry.offerLabel || '').slice(0, 140),
     createdAt: Date.now(),
     read: false
   };

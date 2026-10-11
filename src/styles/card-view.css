@@ -1,0 +1,937 @@
+/* Визитка глазами клиента: главная, страница праздника, нижняя панель.
+   Грузится вместе с кодом визитки (card-view.js) — экраны владельца её не
+   тянут. Палитра — «Графит и шампань» из card-app.css: графит, один акцент
+   шампанью, главные кнопки — металлом (--gold-leaf). Стекло только на
+   плавающих элементах поверх фото и на нижней панели. */
+
+/* ===== Страница ===== */
+body[data-route='card-public'] { padding-bottom: 0; }
+body[data-route='card-public'] .ca-header { display: none; }
+
+/* Шапка визитки — фото во всю ширину телефона, поэтому боковых полей нет:
+   они живут внутри .vz-body. Снизу запас под плавающую панель заявки. */
+body[data-route='card-public'] #app {
+  max-width: 560px;
+  padding: 0 0 calc(env(safe-area-inset-bottom) + 104px);
+}
+
+.cp-page {
+  animation: cp-page-in 0.6s var(--ease-soft) both;
+}
+
+@keyframes cp-page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ===== Шапка ===== */
+.vz-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.vz--occasion .vz-hero { min-height: 600px; }
+.vz-hero.is-plain { min-height: 440px; }
+
+.vz-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.vz-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  animation: vz-settle 1.6s var(--ease-soft) both;
+}
+
+@keyframes vz-settle {
+  from { transform: scale(1.06); }
+  to { transform: none; }
+}
+
+/* Фото уходит в фон визитки снизу — текст на нём читается всегда, а
+   граница между фото и страницей не видна. Сверху лёгкая тень под бренд. */
+.vz-hero-veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(6, 6, 7, 0.5) 0%,
+    rgba(6, 6, 7, 0) 22%,
+    rgba(6, 6, 7, 0) 40%,
+    rgba(6, 6, 7, 0.86) 76%,
+    var(--bg) 100%);
+}
+
+.vz-hero-texture {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(80% 60% at 50% 30%, rgba(217, 203, 176, 0.08), transparent 70%),
+    var(--vz-texture, none) center / cover no-repeat;
+  opacity: 0.5;
+}
+
+.vz-hero-monogram {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  font-family: var(--display);
+  font-size: 92px;
+  letter-spacing: 0.04em;
+  color: rgba(217, 203, 176, 0.16);
+}
+
+.vz-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: calc(env(safe-area-inset-top) + 14px) 16px 0 20px;
+}
+
+.vz--occasion .vz-hero-top { padding-left: 16px; }
+
+.vz-brand {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--accent);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* На странице праздника бренд уступает место кнопке «Все праздники». */
+.vz--occasion .vz-brand { font-size: 11px; letter-spacing: 0.16em; }
+
+/* Стеклянные элементы поверх фото: кнопка «поделиться» и «Все праздники». */
+.vz-glass-btn,
+.vz-glass-chip,
+.vz-play {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(22, 22, 25, 0.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.vz-glass-btn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  cursor: pointer;
+}
+
+.vz-glass-chip {
+  height: 40px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0 14px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.vz-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px 18px;
+}
+
+.vz-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.vz-name,
+.vz-headline {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.vz-name {
+  font-size: clamp(38px, 11.4vw, 48px);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+}
+
+.vz-headline {
+  font-size: clamp(28px, 8.6vw, 37px);
+  line-height: 1.13;
+}
+
+.vz-lead {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 16px;
+  line-height: 1.45;
+  color: #cfcfd3;
+}
+
+.vz-play {
+  margin-top: 4px;
+  height: 44px;
+  padding: 0 18px 0 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.vz-play-dot {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: var(--gold-leaf);
+  color: var(--on-accent);
+}
+
+/* ===== Тело ===== */
+.vz-body {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 16px 0;
+}
+
+.vz-section { margin-top: 36px; }
+
+/* Номера и отзывы листаются пальцем от края до края экрана. */
+.vz-section--bleed {
+  margin-left: -16px;
+  margin-right: -16px;
+}
+
+.vz-h2 {
+  margin: 0 4px;
+  font-family: var(--display);
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.vz-section--bleed > .vz-h2 { margin: 0 20px; }
+
+.vz-sub {
+  margin: 6px 4px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.vz-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.vz-chip {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.vz-chip--solid {
+  border-color: transparent;
+  background: var(--gold-leaf);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+/* ===== Доверие ===== */
+.vz-facts {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  padding: 14px 4px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+}
+
+.vz-fact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  text-align: center;
+  min-width: 0;
+}
+
+.vz-fact + .vz-fact { border-left: 1px solid var(--border); }
+
+.vz-fact-value {
+  font-family: var(--display);
+  font-size: 25px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.vz-fact-label {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.vz-clients {
+  margin: 12px 4px 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.vz-clients span { color: var(--muted); }
+
+.vz-trust {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.vz-trust-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.vz-trust-tile.is-wide { grid-column: span 2; }
+.vz-trust-tile.is-clients { gap: 7px; }
+
+.vz-trust-value {
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1.05;
+}
+
+.vz-trust-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.vz-trust-clients {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ===== Праздники ===== */
+.vz-bento {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.vz-tile {
+  position: relative;
+  isolation: isolate;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  transition: transform 0.2s var(--ease), border-color 0.25s var(--ease);
+}
+
+.vz-tile:active { transform: scale(0.98); }
+.vz-tile.is-lead,
+.vz-tile.is-wide { grid-column: span 2; }
+
+.vz-tile.is-lead {
+  min-height: 228px;
+  justify-content: flex-end;
+}
+
+.vz-tile.has-photo {
+  justify-content: flex-end;
+  border-color: transparent;
+}
+
+.vz-tile-img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vz-tile-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(6, 6, 7, 0.06) 0%, rgba(6, 6, 7, 0.9) 100%);
+}
+
+.vz-tile-icon {
+  display: grid;
+  color: var(--accent);
+}
+
+.vz-tile.is-lead .vz-tile-icon {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+}
+
+.vz-tile-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vz-tile-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.vz-tile.is-lead .vz-tile-title {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.12;
+}
+
+.vz-tile-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.vz-tile.has-photo .vz-tile-note { color: #cfcfd3; }
+
+.vz-tile-arrow {
+  display: grid;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+/* ===== Форматы ===== */
+.vz-formats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.vz-format {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.vz-format-time {
+  width: 56px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.vz-format-min {
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.vz-format-unit {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.vz-format-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vz-format-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.vz-format-desc {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.vz-footnote {
+  margin: 10px 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted-2);
+}
+
+/* ===== Лента: номера и цитаты ===== */
+.vz-strip {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 16px;
+  scrollbar-width: none;
+}
+
+.vz-strip::-webkit-scrollbar { display: none; }
+
+.vz-act {
+  position: relative;
+  flex: 0 0 62%;
+  max-width: 240px;
+  aspect-ratio: 3 / 4;
+  margin: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--surface);
+  scroll-snap-align: start;
+}
+
+.vz-act img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vz-act figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 44px 16px 14px;
+  background: linear-gradient(180deg, transparent, rgba(6, 6, 7, 0.9));
+  font-family: var(--display);
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.vz-highlight {
+  display: flex;
+  margin-top: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 26px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.vz-highlight-img {
+  width: 38%;
+  min-height: 168px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.vz-highlight-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  min-width: 0;
+}
+
+.vz-highlight-title {
+  font-family: var(--display);
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.vz-highlight-text {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #c2c2c7;
+}
+
+/* ===== Отзывы ===== */
+.vz-reviews[hidden] { display: none; }
+
+.vz-reels-host:empty { display: none; }
+
+.vz-reels-host {
+  margin-top: 14px;
+  padding: 0 16px;
+}
+
+.vz-quote {
+  flex: 0 0 78%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  scroll-snap-align: start;
+}
+
+.vz-quote blockquote {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.vz-quote figcaption {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ===== Площадка и цена ===== */
+.vz-needs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.vz-need {
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.vz-need-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.vz-need-text {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #c2c2c7;
+}
+
+.vz-note {
+  margin: 12px 4px 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #cfcfd3;
+}
+
+.vz-price {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 28px;
+  padding: 20px 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: 26px;
+  background: var(--surface);
+}
+
+.vz-price-title {
+  font-family: var(--display);
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.vz-price-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: #c2c2c7;
+}
+
+/* ===== Контакты ===== */
+.vz-contacts {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 10px;
+}
+
+.vz-contact {
+  min-height: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s var(--ease), border-color 0.25s var(--ease);
+}
+
+.vz-contact:active { transform: scale(0.97); }
+
+.vz-contact-icon {
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+/* Фирменные иконки мессенджеров приглушаем в тон шампани: синий Telegram
+   был бы единственным ярким цветом на всей визитке. */
+.vz-contact .brand-icon-img {
+  filter: grayscale(1) sepia(0.35) brightness(1.12) contrast(0.92);
+  opacity: 0.92;
+}
+
+.vz-save {
+  width: 100%;
+  height: 54px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--accent-border);
+  border-radius: 27px;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vz-save:active { background: var(--accent-soft); }
+
+/* ===== Нижняя панель «Проверить дату» ===== */
+.vz-cta {
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 26px;
+  background: var(--gold-leaf);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 24px -12px rgba(217, 203, 176, 0.6);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), filter 0.2s var(--ease);
+}
+
+.vz-cta:active { transform: scale(0.985); filter: brightness(0.96); }
+.vz-cta[disabled] { opacity: 0.7; cursor: wait; }
+
+.vz-bar {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 14px);
+  width: min(calc(100% - 28px), 532px);
+  height: 64px;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 32px;
+  background: linear-gradient(180deg, rgba(36, 36, 40, 0.62), rgba(16, 16, 19, 0.55));
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 16px 36px rgba(0, 0, 0, 0.55);
+  transform: translateX(-50%);
+  animation: vz-bar-in 0.6s var(--ease-soft) 0.35s both;
+}
+
+.vz-bar .vz-cta { flex: 1; }
+
+.vz-bar-call {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+@keyframes vz-bar-in {
+  from { opacity: 0; transform: translate(-50%, 24px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ===== Фокус и наведение ===== */
+.vz-tile:focus-visible,
+.vz-contact:focus-visible,
+.vz-cta:focus-visible,
+.vz-save:focus-visible,
+.vz-glass-btn:focus-visible,
+.vz-glass-chip:focus-visible,
+.vz-play:focus-visible,
+.vz-bar-call:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .vz-tile:hover,
+  .vz-contact:hover { border-color: var(--accent-border); }
+}
+
+/* ===== Предпросмотр в приложении владельца ===== */
+.ca-preview .vz {
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: var(--bg);
+  overflow: hidden;
+  padding-bottom: 28px;
+}
+
+.ca-preview .vz-hero-top { padding-top: 14px; }
+
+/* В предпросмотре внизу живёт таб-бар владельца — панель заявки встаёт над ним. */
+body[data-route='preview'] .vz-bar {
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 26px);
+}
+
+/* ===== Появление разделов =====
+   Блоки всплывают по порядку (--reveal-order): клиент листает — контент
+   «набирается», а не вываливается разом. */
+[data-reveal] {
+  animation: cp-reveal 0.8s var(--ease-soft) both;
+  animation-delay: calc(var(--reveal-order, 0) * 70ms);
+  will-change: transform, opacity;
+}
+
+@keyframes cp-reveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ===== Подпись ===== */
+.cp-footer {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+
+/* Подпись под визиткой — единственная реклама на публичной странице.
+   Приглушённая: клиент пришёл смотреть человека, а не наш продукт. */
+.cp-footer-brand,
+.cp-footer-privacy {
+  display: inline-block;
+  text-decoration: none;
+  transition: color 0.4s var(--ease);
+}
+
+.cp-footer-brand {
+  padding: 9px 14px 2px;
+  font-size: 10px;
+  letter-spacing: 0.17em;
+  color: rgba(224, 213, 190, 0.56);
+}
+
+.cp-footer-privacy {
+  padding: 2px 14px 10px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--muted-2);
+}
+
+.cp-footer-brand:active,
+.cp-footer-privacy:active { color: var(--muted); }
+
+@media (hover: hover) {
+  .cp-footer-brand:hover,
+  .cp-footer-privacy:hover { color: var(--muted); }
+}
+
+/* Уважаем системную настройку: движение выключается полностью */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  .cp-page,
+  .vz-hero-img,
+  .vz-bar {
+    animation: none !important;
+  }
+  .vz-tile,
+  .vz-contact,
+  .vz-cta { transition: none; }
+}

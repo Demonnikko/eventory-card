@@ -1,25 +1,31 @@
-// Публичная визитка /v/<slug> — то, что открывает клиент по ссылке или QR.
+// Публичная визитка /v/<визитка> и страница праздника /v/<визитка>/<праздник>
+// — то, что открывает клиент по ссылке из Sales или по QR.
 //
 // Единственный экран, который видят посторонние люди, поэтому здесь:
-// ненавязчивая подпись о CRM внизу и никакого интерфейса владельца.
+// ненавязчивая подпись о продукте внизу и никакого интерфейса владельца.
+// Переход «главная ↔ праздник» идёт без перезагрузки (history API): гость
+// листает визитку как приложение, а адрес в строке остаётся настоящим —
+// его можно переслать, и превью в мессенджере покажет нужный праздник.
 import { renderCardView, cleanupRevealHints } from './card-view.js';
 import { injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
-import { renderAskBlock, bindAsk, resetAsk, renderGreeting, renderSmartOffer } from './card-ask.js';
-import { renderPriceRequest, bindPriceRequest, resetPriceRequest, markOfferContext } from './price-request.js';
+import { openDateRequest, resetDateRequest } from './date-request.js';
 import { downloadVCard } from './vcard.js';
-import { trackOpen, trackSection, greetReturning, readTagFromUrl } from './insight-data.js';
+import { trackOpen, trackSection, readTagFromUrl, readSourceFromUrl } from './insight-data.js';
 import { upsellHref } from './crm-upsell.js';
+import { occasionBySlug, occasionTitle } from './shared/data/occasions.js';
+import { toast } from './shared/components/toast.js';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
-  greeting: null, tagId: '', slug: '',
+  slug: '', occasion: null, tagId: '', source: '', query: '',
   // Обложка, ужатая под аватарку контакта (см. prepareVcardPhoto).
   vcardPhoto: '',
   // Разделы, уже засчитанные в интерес за этот визит. Живёт на уровне визита,
-  // а не одного наблюдателя: карточку могут перерисовать (кэш → свежие данные),
-  // и без общей памяти один и тот же раздел засчитался бы дважды.
-  sentSections: new Set()
+  // а не одного наблюдателя: карточку перерисовывают (кэш → свежие данные,
+  // переход на праздник), и без общей памяти раздел засчитался бы дважды.
+  sentSections: new Set(),
+  node: null
 };
 
 // Кэш: по ссылке часто заходят из мессенджера с плохой сетью.
@@ -48,6 +54,13 @@ function sameCard(a, b) {
   }
 }
 
+// Праздник из адреса существует только если владелец его включил. Иначе
+// показываем главную — ссылка из старой рассылки не должна вести в пустоту.
+function activeOccasion() {
+  const occasion = state.occasion;
+  return occasion && state.card?.occasions?.[occasion.id]?.on ? occasion : null;
+}
+
 // Подпись под визиткой. Это единственная реклама на публичной странице:
 // клиент пришёл смотреть человека, а не наш продукт.
 function renderFooter() {
@@ -57,12 +70,6 @@ function renderFooter() {
       <a class="cp-footer-privacy" href="/#/privacy" target="_blank" rel="noopener">Конфиденциальность</a>
     </footer>
   `;
-}
-
-function currentOffer() {
-  return (offerAllowed() && state.greeting)
-    ? { ...state.greeting, offerText: state.card?.offerText || '' }
-    : null;
 }
 
 function renderContent() {
@@ -79,38 +86,17 @@ function renderContent() {
   }
   return `<div class="cp-page">${renderCardView(state.card, {
     interactive: true,
-    reviews: state.reviews,
-    greeting: state.greeting,
-    // Крючок: к greeting (visits/interest с сервера) добавляем текст оффера из
-    // карточки. Без offerText renderSmartOffer сам вернёт пусто — не показываем.
-    offer: currentOffer(),
-    priceRequest: renderPriceRequest(state.card),
-    ask: renderAskBlock(state.card)
+    occasion: activeOccasion(),
+    slug: state.slug,
+    query: state.query
   })}${renderFooter()}</div>`;
-}
-
-// Умный оффер показываем горячему гостю ОДИН раз — чтобы не превратить визитку
-// в назойливый поп-ап. Отметку о показе храним в браузере гостя на 7 дней.
-const OFFER_SEEN_KEY = 'eventory-card:offer-seen';
-
-function offerAllowed() {
-  try {
-    const seen = Number(localStorage.getItem(OFFER_SEEN_KEY)) || 0;
-    return Date.now() - seen > 7 * 86400000;
-  } catch {
-    return true;
-  }
-}
-
-function markOfferSeen() {
-  try {
-    localStorage.setItem(OFFER_SEEN_KEY, String(Date.now()));
-  } catch { /* приватный режим — просто покажем снова в следующий раз */ }
 }
 
 function updateMeta(card) {
   const name = card?.name || 'Визитка';
-  document.title = card?.role ? `${name} — ${card.role}` : name;
+  const occasion = activeOccasion();
+  if (occasion) document.title = `${occasionTitle(occasion)} · ${name}`;
+  else document.title = card?.role ? `${name} — ${card.role}` : name;
   allowZoom();
 }
 
@@ -118,8 +104,8 @@ function updateMeta(card) {
 // приложение, и щипок/двойной тап там читаются как сбой, а не как масштаб.
 // Но публичную визитку клиент открывает обычной ссылкой в браузере — это
 // страница, а не приложение, и запрет масштаба лишает возможности увеличить
-// текст (цены, услуги) тех, кто плохо видит. Поэтому на публичном экране
-// возвращаем зум — точечно, не трогая режим владельца.
+// текст тех, кто плохо видит. Поэтому на публичном экране возвращаем зум —
+// точечно, не трогая режим владельца.
 const VIEWPORT_ZOOM = 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual';
 let viewportLocked = '';
 
@@ -156,143 +142,158 @@ async function fetchCardJson(url) {
 // его на экране дольше порога — так «пролистнул мимо» не путается с «изучал».
 // Каждый раздел шлём один раз за визит, чтобы один экран не накручивал счётчик.
 const SECTION_DWELL_MS = 2000;
+let sectionObserver = null;
 
-function observeSections(node, slug, tagId) {
+function observeSections(node) {
+  sectionObserver?.disconnect();
   if (typeof IntersectionObserver === 'undefined') return;
-  // Только ещё не подключённые секции — функцию можно звать повторно (после
-  // догрузки отзывов), не боясь задвоить наблюдение одного раздела.
-  const sections = node.querySelectorAll('[data-section]:not([data-section-seen])');
+  const sections = node.querySelectorAll('[data-section]');
   if (!sections.length) return;
 
   const timers = new WeakMap();
   const sent = state.sentSections;
+  const occasion = activeOccasion();
 
-  const io = new IntersectionObserver((entries) => {
+  sectionObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       const el = entry.target;
-      const name = el.getAttribute('data-section') || '';
-      if (!name || sent.has(name)) {
-        io.unobserve(el);
+      const base = el.getAttribute('data-section') || '';
+      // На странице праздника интерес подписываем праздником: «Форматы ·
+      // Корпоратив» владельцу понятнее, чем просто «Форматы».
+      const name = occasion ? `${base} · ${occasionTitle(occasion)}` : base;
+      if (!base || sent.has(name)) {
+        sectionObserver?.unobserve(el);
         return;
       }
-
       if (entry.isIntersecting) {
-        // Появился на экране — запускаем отсчёт «досмотра».
         if (!timers.has(el)) {
-          const t = setTimeout(() => {
+          timers.set(el, setTimeout(() => {
             if (sent.has(name) || !el.isConnected) return;
             sent.add(name);
-            trackSection(slug, tagId, name);
-            io.unobserve(el);
-          }, SECTION_DWELL_MS);
-          timers.set(el, t);
+            trackSection(state.slug, state.tagId, name.slice(0, 60));
+            sectionObserver?.unobserve(el);
+          }, SECTION_DWELL_MS));
         }
       } else {
-        // Ушёл с экрана раньше порога — отсчёт сбрасываем.
         const t = timers.get(el);
         if (t) { clearTimeout(t); timers.delete(el); }
       }
     });
-  }, { threshold: 0.5 });
+  }, { threshold: 0.4 });
 
-  sections.forEach((el) => {
-    el.setAttribute('data-section-seen', '1');
-    io.observe(el);
-  });
+  sections.forEach((el) => sectionObserver.observe(el));
 }
 
-// Кнопка умного оффера открывает ту же форму заявки. Вынесено отдельно: оффер
-// может появиться и в первой отрисовке, и позже — когда сервер узнает гостя.
-function bindOffer(node) {
-  const offerBtn = node.querySelector('[data-offer-cta]');
-  if (!offerBtn || offerBtn.dataset.bound) return;
-  offerBtn.dataset.bound = '1';
-  offerBtn.addEventListener('click', () => {
-    markOfferSeen();
-    // Запоминаем показанный текст предложения — пришьётся к заявке, чтобы
-    // владелец видел, по какому спецусловию пришёл клиент.
-    const label = node.querySelector('[data-offer]')?.getAttribute('data-offer-label') || '';
-    markOfferContext(label);
-    node.querySelector('[data-offer]')?.setAttribute('hidden', '');
-    const toggle = node.querySelector('[data-price-toggle]');
-    toggle?.click();
-    toggle?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+function saveContact() {
+  downloadVCard({
+    ...state.card,
+    coverPhoto: state.vcardPhoto || state.card.coverPhoto,
+    publishedSlug: state.slug
   });
+  trackOpen(state.slug, state.tagId, { event: 'contact' });
 }
 
-// Всё, чем гость пользуется на визитке, привязываем СРАЗУ после отрисовки.
-// Раньше это ждало отзывов и узнавания гостя: карточка уже была на экране, а
-// «Узнать цену», «Быстрый вопрос» и «Сохранить контакт» молчали — на слабой
-// сети секундами, а при зависшем запросе навсегда. Гость жал главную кнопку,
-// ничего не происходило, и он уходил.
+async function shareCard() {
+  const url = window.location.href.split('#')[0];
+  const title = document.title;
+  if (navigator.share) {
+    await navigator.share({ title, url }).catch(() => {});
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.show('Ссылка скопирована', { ok: true });
+  } catch {
+    toast.show('Скопируйте ссылку из адресной строки');
+  }
+}
+
+// Переход между главной и праздником без перезагрузки страницы.
+function navigateTo(occasionSlug, { push = true } = {}) {
+  const occasion = occasionBySlug(occasionSlug);
+  state.occasion = occasion;
+  if (push) {
+    const path = occasion
+      ? `/v/${encodeURIComponent(state.slug)}/${encodeURIComponent(occasion.slug)}`
+      : `/v/${encodeURIComponent(state.slug)}`;
+    window.history.pushState({ occasion: occasion?.slug || '' }, '', `${path}${state.query}`);
+  }
+  updateMeta(state.card);
+  renderAndBind(state.node);
+  window.scrollTo(0, 0);
+  // Повод засчитываем как интерес и как праздник визита, но не как новое
+  // открытие визитки: человек уже здесь.
+  const active = activeOccasion();
+  if (active) trackSection(state.slug, state.tagId, `Праздник · ${occasionTitle(active)}`, active.id);
+}
+
+function onPopState() {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts[0] !== 'v' || decodeURIComponent(parts[1] || '') !== state.slug) return;
+  navigateTo(decodeURIComponent(parts[2] || ''), { push: false });
+}
+
+// Всё, чем гость пользуется на визитке, привязываем СРАЗУ после отрисовки:
+// отзывы догружаются отдельно, и кнопки не должны их ждать.
 function bindInteractive(node) {
   if (!state.card) return;
-  const { slug, tagId } = state;
 
-  bindAsk(node, { slug, tagId });
-  bindPriceRequest(node, { slug, tagId });
-  bindOffer(node);
+  node.querySelector('[data-date-open]')?.addEventListener('click', () => {
+    openDateRequest({
+      card: state.card,
+      slug: state.slug,
+      tagId: state.tagId,
+      source: state.source,
+      occasion: activeOccasion()?.id || '',
+      onSaveContact: saveContact
+    });
+  });
 
-  // Смарт-метрика: следим, какие разделы гость реально досмотрел (не просто
-  // проскроллил). По этому строится интерес — что предлагать именно ему.
-  observeSections(node, slug, tagId);
+  node.querySelectorAll('[data-save-contact]').forEach((btn) => {
+    btn.addEventListener('click', saveContact);
+  });
 
   // Переход в контакты — отдельный сигнал: он показывает, что визитка
   // сработала, а не просто открылась.
-  node.querySelectorAll('.cp-contact').forEach((el) => {
+  node.querySelectorAll('[data-contact]').forEach((el) => {
     el.addEventListener('click', () => {
-      trackOpen(slug, tagId, { event: 'contact' });
+      trackOpen(state.slug, state.tagId, { event: 'contact' });
     }, { once: true });
   });
 
-  // Сохранение контакта — самое полезное для гостя действие: он уходит
-  // с заполненной карточкой, а не со ссылкой, которую потом не найдёт.
-  const saveBtn = node.querySelector('[data-save-contact]');
-  if (saveBtn) {
-    saveBtn.addEventListener('click', () => {
-      downloadVCard({
-        ...state.card,
-        coverPhoto: state.vcardPhoto || state.card.coverPhoto,
-        publishedSlug: slug
-      });
-      trackOpen(slug, tagId, { event: 'contact' });
+  node.querySelector('[data-share-card]')?.addEventListener('click', shareCard);
+
+  node.querySelectorAll('[data-occasion-link]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      event.preventDefault();
+      navigateTo(link.dataset.occasionLink);
     });
-  }
+  });
+
+  node.querySelector('[data-occasion-back]')?.addEventListener('click', (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+    event.preventDefault();
+    // Пришли на праздник с главной — шаг назад по истории; по прямой ссылке
+    // истории нет, тогда просто переходим на главную.
+    if (window.history.state && 'occasion' in window.history.state) window.history.back();
+    else navigateTo('');
+  });
+
+  observeSections(node);
 }
 
 function renderAndBind(node) {
   node.innerHTML = renderContent();
   cleanupRevealHints(node);
   bindInteractive(node);
-}
-
-// Узнавание гостя приходит с сервера позже карточки. Вставляем только его и
-// персональное предложение — каждое на своё место, не перерисовывая визитку:
-// вернувшийся гость мог уже начать заполнять форму, и полная перерисовка
-// закрыла бы ему клавиатуру и сбила курсор.
-function injectGreeting(node) {
-  const card = node.querySelector('.cp-card');
-  if (!card || !state.greeting) return;
-
-  if (!card.querySelector('[data-greet]')) {
-    card.querySelector('.cp-hero')?.insertAdjacentHTML('afterend', renderGreeting(state.greeting));
-  }
-
-  const offer = currentOffer();
-  const offerHtml = offer ? renderSmartOffer(offer) : '';
-  const priceReq = card.querySelector('[data-price-req]');
-  // Оффер ведёт в форму заявки — без формы показывать его незачем.
-  if (offerHtml && priceReq && !card.querySelector('[data-offer]')) {
-    priceReq.insertAdjacentHTML('beforebegin', offerHtml);
-    bindOffer(node);
-  }
+  if (state.reviews.length) injectReviews(node, state.reviews);
 }
 
 // Фото для сохранённого контакта. В лёгкой карточке обложка — ссылка, а vCard
 // принимает только встроенную картинку. Готовим её заранее, в фоне: файл по
 // кнопке должен скачаться сразу, пока жест гостя свеж (iOS отменяет загрузку,
-// начатую после паузы на сеть). Заодно ужимаем до размера аватарки контакта:
-// полноразмерная обложка часто не влезала в лимит vCard и терялась.
+// начатую после паузы на сеть). Заодно ужимаем до размера аватарки контакта.
 const VCARD_PHOTO_SIDE = 400;
 
 function prepareVcardPhoto(card, slug) {
@@ -327,22 +328,25 @@ export const publicCard = {
   },
   unmount() {
     restoreZoom();
+    sectionObserver?.disconnect();
+    window.removeEventListener('popstate', onPopState);
+    document.querySelector('[data-date-sheet]')?.remove();
   },
   async mount(node, ctx = {}) {
     const slug = ctx.params?.id || '';
-    state.loading = true;
-    state.error = '';
-    state.card = null;
-    state.reviews = [];
-    state.greeting = null;
-    state.slug = slug;
-    state.vcardPhoto = '';
-    state.sentSections = new Set();
+    Object.assign(state, {
+      loading: true, error: '', card: null, reviews: [], slug,
+      occasion: occasionBySlug(ctx.params?.occasion || ''),
+      vcardPhoto: '', sentSections: new Set(), node,
+      // Метка события и канал из адреса: по ним считаем, откуда гость.
+      tagId: readTagFromUrl(),
+      source: readSourceFromUrl(),
+      query: window.location.search || ''
+    });
     document.title = 'Визитка';
-    // Метка события из адреса: по ней считаем, с какого мероприятия гость.
-    state.tagId = readTagFromUrl();
-    resetAsk();
-    resetPriceRequest();
+    resetDateRequest();
+    window.removeEventListener('popstate', onPopState);
+    window.addEventListener('popstate', onPopState);
 
     if (!slug) {
       state.loading = false;
@@ -368,13 +372,14 @@ export const publicCard = {
     if (!data?.ok || !data.card) {
       data = await fetchCardJson(`/api/card-get?slug=${encodeURIComponent(slug)}`);
     }
+    if (state.slug !== slug) return;
     const fresh = data?.ok && data.card ? data.card : null;
 
     state.loading = false;
     if (fresh) {
       // Та же карточка, что уже показана из кэша, — не перерисовываем: иначе
       // заново проигрываются анимации появления, а гость, успевший открыть
-      // форму, теряет курсор.
+      // шторку, теряет введённое.
       const unchanged = Boolean(cached) && sameCard(cached, fresh);
       state.card = fresh;
       state.error = '';
@@ -384,7 +389,6 @@ export const publicCard = {
     } else if (!cached) {
       // Если кэш уже показан, сетевую ошибку не показываем — человек читает
       // визитку, а не наши сообщения.
-      // Нет сети — честно так и говорим; иначе визитки по этой ссылке нет.
       const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
       state.error = offline ? 'network' : 'not_found';
       node.innerHTML = renderContent();
@@ -393,25 +397,14 @@ export const publicCard = {
     if (!state.card) return;
 
     // Учёт открытия — тихо, в фоне, не задерживая показ визитки.
-    trackOpen(slug, state.tagId);
+    trackOpen(slug, state.tagId, { occasion: activeOccasion()?.id || '', source: state.source });
     prepareVcardPhoto(state.card, slug);
 
-    // Отзывы и узнавание догружаем параллельно: видео тяжёлое, а карточка уже
-    // на экране и полностью работает. Придут — встанут на свои места.
-    const [reviews, greeting] = await Promise.all([
-      fetchReviews(slug),
-      greetReturning(slug)
-    ]);
-    if (state.slug !== slug) return;
-
+    // Видеоотзывы догружаем отдельно: видео тяжёлое, а визитка уже на экране
+    // и полностью работает. Придут — встанут на своё место.
+    const reviews = await fetchReviews(slug);
+    if (state.slug !== slug || !reviews.length) return;
     state.reviews = reviews;
-    state.greeting = greeting;
-
-    if (reviews.length) {
-      injectReviews(node, reviews);
-      // Отзывы принесли свой раздел — подключаем его к смарт-метрике.
-      observeSections(node, slug, state.tagId);
-    }
-    if (greeting) injectGreeting(node);
+    injectReviews(node, reviews);
   }
 };

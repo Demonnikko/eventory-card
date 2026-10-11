@@ -1,22 +1,24 @@
-// «Отклик» — экран владельца: откуда приходят люди и что они спрашивали.
+// «Отклик» — экран владельца: кто открывал визитку, какой праздник смотрят,
+// откуда пришли и кто оставил заявку.
 //
 // Главная мысль экрана: визитка перестаёт быть картинкой и начинает
-// приносить данные. Владелец заводит метку под мероприятие, раздаёт по ней
-// ссылку или QR — и через месяц видит, какое событие реально дало клиентов.
+// приносить данные. Ссылки праздников из Sales и QR в режиме показа
+// подписаны каналом — поэтому видно, что реально приводит клиентов.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
 import { hapticLight, hapticSuccess } from './shared/lib/haptic.js';
 import { getCard } from './card-data.js';
-import { fetchInsight, createTag, deleteTag, deleteLead, setLeadTag, markDialogsRead, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
+import { fetchInsight, createTag, deleteTag, deleteLead, setLeadTag, markLeadsRead, taggedUrl, telegramLink, telegramStatus, telegramUnlink } from './insight-data.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
+import { OCCASIONS, occasionById, occasionTitle } from './shared/data/occasions.js';
 
 const state = {
   card: null,
-  summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0 },
+  summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0, occasions: {}, sources: {} },
+  days: [],
   tags: [],
-  dialogs: [],
   leads: [],
   hot: [],           // горячие гости без заявки («Догони»)
   ownerPro: false,
@@ -78,15 +80,6 @@ function contactHref(raw) {
   const phone = value.replace(/[^\d+]/g, '');
   if (phone.replace(/\D/g, '').length >= 7) return `tel:${phone}`;
   return '';
-}
-
-function renderDialogContact(dialog) {
-  const contact = String(dialog.contact || '').trim();
-  if (!contact) return '';
-  const href = contactHref(contact);
-  return href
-    ? `<a class="in-dialog-contact" href="${escapeAttr(href)}" target="_blank" rel="noopener">Ответить: ${escapeHtml(contact)}</a>`
-    : `<span class="in-dialog-contact">Контакт: ${escapeHtml(contact)}</span>`;
 }
 
 /* ─────────── Метки ─────────── */
@@ -181,6 +174,16 @@ function vkHref(raw) {
   return id ? `https://vk.com/${id}` : '';
 }
 
+// «@ник», t.me/…, vk.com/… или номер — ведём туда, куда человек и просил.
+function messengerHref(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  if (/^@?[a-z0-9_]{5,32}$/i.test(value) && value.startsWith('@')) return `https://t.me/${value.slice(1)}`;
+  if (/t\.me\//i.test(value)) return `https://t.me/${value.replace(/^.*t\.me\//i, '')}`;
+  if (/vk\.(com|ru)\//i.test(value)) return /^https?:/i.test(value) ? value : `https://${value}`;
+  return contactHref(value);
+}
+
 // Одна кликабельная строка контакта: иконка + значение (можно тапнуть и выделить
 // для копирования). Каждый канал отдельно — чтобы владелец легко проверил клиента.
 function leadContactRow(icon, label, value, href) {
@@ -197,9 +200,10 @@ function renderLeadContactOpen(lead) {
   const phone = String(lead.phone || '').trim();
   const vk = String(lead.vk || '').trim();
   const tg = String(lead.telegram || '').trim();
+  const messenger = String(lead.messenger || '').trim();
 
   // Старые заявки без структурных полей — показываем строку contact как есть.
-  if (!phone && !vk && !tg) {
+  if (!phone && !vk && !tg && !messenger) {
     const value = String(lead.contact || '').trim();
     if (!value) return '<span class="in-lead-contact-open">контакт не указан</span>';
     const href = contactHref(value);
@@ -214,6 +218,7 @@ function renderLeadContactOpen(lead) {
       ${leadContactRow('phone', 'Телефон', phone, phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : '')}
       ${leadContactRow('vk', 'ВКонтакте', vk, vkHref(vk))}
       ${leadContactRow('telegram', 'Telegram', tg, tgId ? `https://t.me/${tgId}` : '')}
+      ${leadContactRow('share', 'Мессенджер', messenger, messengerHref(messenger))}
     </div>
   `;
 }
@@ -291,15 +296,6 @@ function renderLeadSource(leadId, tagId) {
     </label>`;
   // Если метка уже есть — показываем бейдж И даём сменить; если нет — только выбор.
   return badge ? `${badge}${select}` : select;
-}
-
-// Крючок: гость пришёл по спецпредложению — показываем, по какому именно, чтобы
-// владелец знал, что клиенту обещано (и клиент не мог придумать условия задним
-// числом). Видно всегда — это текст самого владельца, не контакт под Pro.
-function renderLeadOffer(offerLabel) {
-  const text = String(offerLabel || '').trim();
-  if (!text) return '';
-  return `<span class="in-lead-src in-lead-src--offer">${renderIcon('pulse')} По предложению: ${escapeHtml(text)}</span>`;
 }
 
 // Градус интереса 0–100: насколько клиент «горячий». Складываем из активности
@@ -392,64 +388,46 @@ function renderHotChase() {
   return `
     <section class="in-section">
       <div class="in-section-head">
-        <span class="in-section-title">Догони — смотрели, но молчат</span>
+        <h2 class="in-section-title">Смотрели, но молчат</h2>
       </div>
-      <p class="in-section-sub">Заинтересованные гости без заявки. Контакта нет, но интерес виден — стоит напомнить о себе.</p>
+      <p class="in-section-sub">Гости без заявки: заходили не раз и изучали визитку. Контакта нет, но интерес виден — стоит напомнить о себе там, где вы с ними общались.</p>
       <div class="in-chases">${rows}</div>
     </section>
   `;
 }
 
-// Сводка «Заявки по меткам»: по каждой метке — сколько заявок и конверсия из
-// заходов. Данные уже в tag.stats (opens/contacts). Метки без заявок — тоже
-// показываем: владелец видит, что этот QR раздаётся, но клиентов не приводит.
-function renderLeadsByTag() {
-  const tags = state.tags.filter((t) => (t.stats?.opens || 0) > 0 || (t.stats?.contacts || 0) > 0);
-  if (!tags.length) return '';
-  const rows = tags
-    .slice()
-    .sort((a, b) => (b.stats?.contacts || 0) - (a.stats?.contacts || 0))
-    .map((t) => {
-      const opens = t.stats?.opens || 0;
-      const leads = t.stats?.contacts || 0;
-      const conv = opens ? Math.round((leads / opens) * 100) : 0;
-      const active = leads > 0;
-      return `
-        <div class="in-tagsum${active ? ' is-active' : ''}">
-          <div class="in-tagsum-top">
-            <span class="in-tagsum-name">${renderIcon('qr')} ${escapeHtml(t.label)}</span>
-            <span class="in-tagsum-count">${leads ? `${leads} ${plural(leads, 'заявка', 'заявки', 'заявок')}` : '0 заявок'}</span>
-          </div>
-          <div class="in-tagsum-meta">${opens} ${plural(opens, 'заход', 'захода', 'заходов')} · конверсия ${conv}%</div>
-        </div>
-      `;
-    })
-    .join('');
-  return `
-    <section class="in-section">
-      <div class="in-section-head">
-        <span class="in-section-title">Заявки по меткам</span>
-      </div>
-      <div class="in-tagsums">${rows}</div>
-    </section>
-  `;
+const SOURCE_LABELS = {
+  vk: { title: 'ВКонтакте', sub: 'рассылка и сообщения' },
+  max: { title: 'MAX', sub: 'рассылка и сообщения' },
+  wa: { title: 'WhatsApp', sub: 'рассылка и сообщения' },
+  tg: { title: 'Telegram', sub: 'рассылка и сообщения' },
+  sales: { title: 'Sales', sub: 'автоматическая рассылка' },
+  qr: { title: 'QR-код', sub: 'режим показа на телефоне' },
+  insta: { title: 'Instagram', sub: 'ссылка в профиле' },
+  site: { title: 'Сайт', sub: 'ссылка на сайте' }
+};
+
+const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+
+function leadMeta(lead) {
+  return [
+    formatEventDate(lead.eventDate),
+    lead.city,
+    lead.format
+  ].filter(Boolean).join(' · ');
 }
 
-// Заявки — горячие лиды, поэтому стоят выше вопросов. Контакт клиента («кто
-// это») — Pro: имя и дата видны всем, а контакт сервер режет для не-Pro и
-// показывается под замком «Открыть в Eventory Pro».
+// Заявки — горячие лиды, поэтому стоят сразу под сводкой. Контакт клиента
+// («кто это») — Pro: имя, праздник и дата видны всем, а контакт сервер режет
+// для не-Pro и показывается под замком «Открыть в Eventory Pro».
 function renderLeads() {
-  // Пока заявок нет, экран без этого блока выглядел случайным набором
-  // карточек: владелец не понимал, что «Отклик» — это про клиентов. Держим
-  // место главного раздела и объясняем, что сюда придёт.
   if (!state.leads.length) {
     return `
       <section class="in-section in-leads-empty">
         <div class="in-section-head">
-          <span class="in-section-title">Заявки на цену</span>
+          <h2 class="in-section-title">Заявки</h2>
         </div>
-        <p class="in-section-sub">Здесь появятся клиенты, которые нажали «Узнать цену» на вашей визитке — с именем, датой события и контактом.</p>
-        <p class="in-empty-hint">Пока заявок нет. Раздайте визитку или QR-код — и они начнут приходить сюда.</p>
+        <p class="in-section-sub">Здесь появятся люди, которые нажали «Проверить дату»: праздник, дата, город и контакт.</p>
       </section>
     `;
   }
@@ -458,20 +436,22 @@ function renderLeads() {
   return `
     <section class="in-section">
       <div class="in-section-head">
-        <span class="in-section-title">Заявки на цену</span>
-        ${unread ? `<span class="in-badge in-badge--hot">${unread}</span>` : ''}
+        <h2 class="in-section-title">Заявки</h2>
+        ${unread ? `<span class="in-badge in-badge--hot">${unread} ${plural(unread, 'новая', 'новые', 'новых')}</span>` : ''}
       </div>
-      <p class="in-section-sub">Клиенты хотят узнать стоимость. С Eventory Pro их контакты видны прямо здесь.</p>
 
       <div class="in-leads">
-        ${state.leads.slice(0, 20).map((l) => `
+        ${state.leads.slice(0, 20).map((l) => {
+          const occasion = occasionById(l.occasion);
+          const meta = leadMeta(l);
+          return `
           <div class="in-lead${l.read ? '' : ' is-new'}">
             <div class="in-lead-top">
-              <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}</span>
-              ${l.eventDate ? `<span class="in-lead-date">${escapeHtml(formatEventDate(l.eventDate))}</span>` : ''}
+              <span class="in-lead-name">${escapeHtml(l.name || 'Без имени')}${occasion ? ` <span class="in-lead-occ">· ${escapeHtml(occasionTitle(occasion))}</span>` : ''}</span>
+              <span class="in-lead-status${l.read ? '' : ' is-new'}">${l.read ? 'Просмотрена' : 'Новая'}</span>
             </div>
+            ${meta ? `<p class="in-lead-meta">${escapeHtml(meta)}</p>` : ''}
             ${renderLeadSource(l.id, l.tagId)}
-            ${renderLeadOffer(l.offerLabel)}
             ${state.ownerPro ? renderLeadContactOpen(l) : `
               <div class="in-lead-contact-lock">
                 <span class="in-lead-contact-blur">${escapeHtml(l.contact || 'контакт скрыт')}</span>
@@ -480,11 +460,12 @@ function renderLeads() {
             `}
             ${state.ownerPro ? renderLeadDossier(l) : ''}
             <div class="in-lead-foot">
-              <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}</span>
+              <span class="in-lead-time">${escapeHtml(formatDate(l.createdAt))}${l.source && SOURCE_LABELS[l.source] ? ` · ${escapeHtml(SOURCE_LABELS[l.source].title)}` : ''}</span>
               <button type="button" class="in-lead-delete" data-lead-delete="${escapeAttr(l.id)}" aria-label="Удалить заявку">${renderIcon('trash')}</button>
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
 
       ${state.ownerPro ? '' : `
@@ -501,32 +482,98 @@ function renderLeads() {
   `;
 }
 
-/* ─────────── Диалоги ─────────── */
+/* ─────────── Сводка ─────────── */
 
-function renderDialogs() {
-  if (!state.dialogs.length) return '';
-  const unread = state.dialogs.filter((d) => !d.read).length;
+function renderSummary() {
+  const summary = state.summary || {};
+  const days = state.days.length ? state.days : [];
+  const week = days.reduce((sum, d) => sum + (d.opens || 0), 0);
+  const peak = Math.max(1, ...days.map((d) => d.opens || 0));
+  const unread = state.leads.filter((l) => !l.read).length;
+  return `
+    <div class="in-bento">
+      <div class="in-tile in-tile--wide">
+        <div class="in-tile-main">
+          <span class="in-tile-label">Открыли визитку</span>
+          <span class="in-tile-value">${summary.opens || 0}</span>
+          <span class="in-tile-note">${week ? `${week} за последние 7 дней` : 'За 7 дней открытий нет'}${summary.visitors ? ` · ${summary.visitors} ${plural(summary.visitors, 'человек', 'человека', 'человек')}` : ''}</span>
+        </div>
+        ${days.length ? `
+          <div class="in-bars" role="img" aria-label="Открытия по дням за неделю">
+            ${days.map((d, i) => {
+              const h = Math.max(6, Math.round(((d.opens || 0) / peak) * 72));
+              const wd = WEEKDAYS[new Date(`${d.day}T12:00:00`).getDay()];
+              return `
+                <span class="in-bar${i === days.length - 1 ? ' is-today' : ''}">
+                  <span class="in-bar-fill" style="height:${h}px"></span>
+                  <span class="in-bar-day">${wd}</span>
+                </span>
+              `;
+            }).join('')}
+          </div>
+        ` : ''}
+      </div>
+      <div class="in-tile">
+        <span class="in-tile-label">Заявки</span>
+        <span class="in-tile-value is-accent">${state.leads.length}</span>
+        <span class="in-tile-note">${unread ? `${unread} ${plural(unread, 'новая', 'новые', 'новых')}` : 'новых нет'}</span>
+      </div>
+      <div class="in-tile">
+        <span class="in-tile-label">Обращения</span>
+        <span class="in-tile-value">${summary.contacts || 0}</span>
+        <span class="in-tile-note">звонки, сообщения, контакт</span>
+      </div>
+    </div>
+  `;
+}
 
+function renderBars(title, rows, empty) {
+  if (!rows.length) {
+    return `
+      <section class="in-section">
+        <div class="in-section-head"><h2 class="in-section-title">${escapeHtml(title)}</h2></div>
+        <p class="in-section-sub">${escapeHtml(empty)}</p>
+      </section>
+    `;
+  }
+  const total = rows.reduce((sum, r) => sum + r.count, 0) || 1;
   return `
     <section class="in-section">
-      <div class="in-section-head">
-        <span class="in-section-title">Спрашивали</span>
-        ${unread ? `<span class="in-badge">${unread}</span>` : ''}
-      </div>
-      <p class="in-section-sub">Визитка ответила сама — вы можете продолжить лично.</p>
-
-      <div class="in-dialogs">
-        ${state.dialogs.slice(0, 12).map((d) => `
-          <div class="in-dialog${d.read ? '' : ' is-new'}">
-            <p class="in-dialog-q">${escapeHtml(d.question)}</p>
-            <p class="in-dialog-a">${escapeHtml(d.answer)}</p>
-            ${renderDialogContact(d)}
-            <span class="in-dialog-time">${escapeHtml(formatDate(d.createdAt))}</span>
-          </div>
-        `).join('')}
+      <div class="in-section-head"><h2 class="in-section-title">${escapeHtml(title)}</h2></div>
+      <div class="in-meter">
+        ${rows.map((r, i) => {
+          const pct = Math.round((r.count / total) * 100);
+          return `
+            <div class="in-meter-row">
+              <div class="in-meter-top">
+                <span class="in-meter-name">${escapeHtml(r.title)}${r.sub ? `<span class="in-meter-sub">${escapeHtml(r.sub)}</span>` : ''}</span>
+                <span class="in-meter-count">${r.count}</span>
+              </div>
+              <div class="in-meter-track" aria-hidden="true"><span class="${i === 0 ? 'is-top' : ''}" style="width:${pct}%"></span></div>
+            </div>
+          `;
+        }).join('')}
       </div>
     </section>
   `;
+}
+
+function renderOccasionStats() {
+  const counts = state.summary?.occasions || {};
+  const rows = OCCASIONS
+    .map((o) => ({ title: occasionTitle(o), count: Number(counts[o.id]) || 0 }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
+  return renderBars('Какой праздник смотрят', rows, 'Появится, когда люди начнут открывать страницы праздников.');
+}
+
+function renderSourceStats() {
+  const counts = state.summary?.sources || {};
+  const rows = Object.entries(SOURCE_LABELS)
+    .map(([id, label]) => ({ title: label.title, sub: label.sub, count: Number(counts[id]) || 0 }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
+  return renderBars('Откуда пришли', rows, 'Ссылки из Sales и QR в режиме показа подписаны каналом — здесь будет видно, что приводит людей.');
 }
 
 function renderUpsell(pointId) {
@@ -543,63 +590,43 @@ function renderUpsell(pointId) {
 }
 
 function renderContent() {
-  if (state.loading) return '<div class="ca-loading">Загружаем…</div>';
+  const head = '<div class="ca-page-head"><h1 class="ca-page-title">Отклик</h1></div>';
+  if (state.loading) return `${head}<div class="ca-loading">Загружаем…</div>`;
 
   if (!state.card?.publishedSlug) {
     return `
+      ${head}
       <div class="ca-empty">
         <p class="ca-empty-title">Сначала опубликуйте визитку</p>
-        <p class="ca-empty-text">После публикации здесь появится статистика: кто открывал визитку и с какого мероприятия.</p>
+        <p class="ca-empty-text">После публикации здесь появится статистика: кто открывал визитку, какой праздник смотрят и откуда пришли.</p>
         <a class="ca-btn ca-btn--primary" href="#/editor">К визитке</a>
       </div>
     `;
   }
 
-  const summary = state.summary || {};
-  const hasSummary = Boolean(summary.opens || summary.visitors || summary.contacts);
-
   return `
+    ${head}
     <div class="in-page">
-      ${hasSummary ? `
-        <div class="in-total">
-          <span class="in-total-label">Вся визитка</span>
-          <div class="in-summary-stats">
-            <div class="in-stat">
-              <span class="in-total-value">${summary.opens || 0}</span>
-              <span class="in-stat-label">открытий</span>
-            </div>
-            <div class="in-stat">
-              <span class="in-total-value">${summary.visitors || 0}</span>
-              <span class="in-stat-label">человек</span>
-            </div>
-            <div class="in-stat${summary.contacts ? ' is-hot' : ''}">
-              <span class="in-total-value">${summary.contacts || 0}</span>
-              <span class="in-stat-label">обращений</span>
-            </div>
-          </div>
-        </div>
-      ` : ''}
-
+      ${renderSummary()}
       ${renderLeads()}
-      ${renderTelegramConnect()}
+      ${renderOccasionStats()}
+      ${renderSourceStats()}
       ${renderHotChase()}
-      ${renderLeadsByTag()}
+      ${renderTelegramConnect()}
 
       <section class="in-section">
         <div class="in-section-head">
-          <span class="in-section-title">Мероприятия</span>
+          <h2 class="in-section-title">Мероприятия</h2>
         </div>
-        <p class="in-section-sub">Заведите метку под событие и раздавайте визитку по её ссылке —
-          увидите, какое мероприятие приносит клиентов.</p>
+        <p class="in-section-sub">Метка под событие — своя ссылка и QR. Через месяц видно, какое мероприятие принесло клиентов.</p>
 
         ${state.tags.length
           ? `<div class="in-tags">${state.tags.map(renderTag).join('')}</div>`
-          : '<p class="in-empty-hint">Пока ни одного мероприятия.</p>'}
+          : ''}
 
         ${renderForm()}
       </section>
 
-      ${renderDialogs()}
       ${renderUpsell('analytics')}
     </div>
   `;
@@ -611,7 +638,7 @@ export const insight = {
   id: 'insight',
   title: 'Отклик',
   render() {
-    return '<div class="ca-loading">Загружаем…</div>';
+    return renderContent();
   },
   async mount(node, ctx = {}) {
     const isCurrent = typeof ctx.isCurrent === 'function' ? ctx.isCurrent : () => true;
@@ -630,9 +657,9 @@ export const insight = {
     if (!state.loaded || state.loadedFor !== cardKey) {
       state.loaded = false;
       state.loading = true;
-      state.summary = { opens: 0, visitors: 0, contacts: 0, lastAt: 0 };
+      state.summary = { opens: 0, visitors: 0, contacts: 0, lastAt: 0, occasions: {}, sources: {} };
+      state.days = [];
       state.tags = [];
-      state.dialogs = [];
       state.leads = [];
       state.hot = [];
       state.tgConnected = false;
@@ -659,8 +686,8 @@ export const insight = {
         // (своя защита в telegramStatus → false), поэтому в общем try безопасен.
         const [data, tgConnected] = await Promise.all([fetchInsight(), telegramStatus()]);
         state.summary = data.summary || state.summary;
+        state.days = data.days || [];
         state.tags = data.tags || [];
-        state.dialogs = data.dialogs || [];
         state.leads = data.leads || [];
         state.hot = data.hot || [];
         state.tgConnected = tgConnected;
@@ -668,8 +695,8 @@ export const insight = {
         // Пришёл ответ → синхронизируем и локальную память под него.
         state.ownerPro = data.ownerPro === true;
         writeLocalProUntil(data.ownerPro === true ? data.proUntil : 0);
-        // Владелец увидел вопросы — снимаем пометку «новое».
-        if (state.dialogs.some((d) => !d.read)) markDialogsRead().catch(() => {});
+        // Владелец увидел заявки — снимаем пометку «новое» на сервере. На экране
+        // она остаётся до следующего захода: сразу видно, что пришло нового.
         if (state.leads.some((l) => !l.read)) markLeadsRead().catch(() => {});
       } catch { /* нет сети — покажем пустой экран, без ошибки на весь экран */ }
     }

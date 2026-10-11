@@ -1,16 +1,20 @@
-// Редактор визитки — главный экран бесплатного приложения.
+// Редактор визитки — главный экран приложения артиста.
 //
-// Отличие от редактора в CRM: без разделов Pro, без Telegram-синхронизации,
-// без лидов внутри. Всё, что требует системы, вынесено в блоки CRM.
+// Сверху — визитка одной плиткой (фото, имя, готовность), ниже — разделы-
+// аккордеоны в том порядке, в каком визитку читает клиент, внизу —
+// публикация. Всё сохраняется само (editor-draft.js); на публичную визитку
+// правки уходят по кнопке «Опубликовать изменения».
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
+import { hapticLight } from './shared/lib/haptic.js';
 import {
   compressImage,
-  BUSINESS_CARD_PROFESSIONS,
   BUSINESS_CARD_GALLERY_MAX_BYTES,
+  CARD_LIMITS,
   rotateBusinessCardLeadKey
 } from './shared/data/businessCard.js';
+import { enabledOccasions } from './shared/data/occasions.js';
 import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST, cardPublicUrl, hasUnpublishedChanges } from './card-data.js';
 import { createCardDraft } from './editor-draft.js';
 import {
@@ -19,208 +23,175 @@ import {
   restoreEncryptedBackup,
   downloadBackupFile
 } from './card-backup.js';
-import { activeUpsell, upsellHref, CRM_NAME } from './crm-upsell.js';
 import { renderPaperCard } from './paper-card.js';
+import {
+  section, statusDone, statusNew,
+  renderBasics, renderMedia, renderActs, renderContacts,
+  renderOccasions, renderTrust, renderProgram
+} from './editor-sections.js';
 
 const state = {
   card: null,
   busy: false,
-  openSection: 'basics',
+  openSection: '',
+  openOccasion: '',
   professionsOpen: false   // список профессий развёрнут (по кнопке «Изменить»)
 };
 
 let draft = null;
 
-function field({ name, label, value, type = 'text', textarea = false, rows = 3, placeholder = '', maxlength = 0, hint = '' }) {
-  const attrs = [
-    `name="${escapeAttr(name)}"`,
-    placeholder ? `placeholder="${escapeAttr(placeholder)}"` : '',
-    maxlength ? `maxlength="${maxlength}"` : ''
-  ].filter(Boolean).join(' ');
-  const control = textarea
-    ? `<textarea class="ca-input" rows="${rows}" ${attrs}>${escapeHtml(value || '')}</textarea>`
-    : `<input class="ca-input" type="${escapeAttr(type)}" value="${escapeAttr(value || '')}" ${attrs} />`;
-  return `
-    <label class="ca-field">
-      <span class="ca-field-label">${escapeHtml(label)}</span>
-      ${control}
-      ${hint ? `<span class="ca-field-hint">${escapeHtml(hint)}</span>` : ''}
-    </label>
-  `;
+// Пустая строка для каждого списка: человек нажал «Добавить» и печатает.
+const LIST_BLANKS = {
+  facts: { value: '', label: '' },
+  formats: { minutes: '', title: '', description: '' },
+  requirements: { title: '', text: '' },
+  quotes: { text: '', author: '' }
+};
+
+// Подсказка «осталось» ведёт прямо в нужный раздел.
+const CHECKLIST_SECTION = {
+  name: 'basics',
+  role: 'basics',
+  contact: 'contacts',
+  cover: 'media',
+  trust: 'trust',
+  offer: 'occasions'
+};
+
+/* ─────────── Верх экрана ─────────── */
+
+function publishStatus(card) {
+  if (!card.publishedSlug) return '<span class="ca-status">Черновик</span>';
+  return hasUnpublishedChanges(card)
+    ? '<span class="ca-status is-pending"><span class="ca-status-dot" aria-hidden="true"></span>Есть изменения</span>'
+    : '<span class="ca-status is-live"><span class="ca-status-dot" aria-hidden="true"></span>Опубликована</span>';
 }
 
-function section({ id, title, sub, body }) {
-  const open = state.openSection === id;
-  const bodyId = `ca-section-${id}`;
+function initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+function renderProfileTile(card) {
+  const { percent } = cardCompletion(card);
+  const meta = [card.role, card.city].filter(Boolean).join(' · ');
   return `
-    <section class="ca-section${open ? ' is-open' : ''}" data-section="${escapeAttr(id)}">
-      <button class="ca-section-head" type="button" data-toggle-section="${escapeAttr(id)}"
-        aria-expanded="${open ? 'true' : 'false'}" aria-controls="${escapeAttr(bodyId)}">
-        <span class="ca-section-titles">
-          <span class="ca-section-title">${escapeHtml(title)}</span>
-          ${sub ? `<span class="ca-section-sub">${escapeHtml(sub)}</span>` : ''}
+    <section class="ca-profile" data-profile>
+      <div class="ca-profile-row">
+        ${card.coverPhoto
+          ? `<img class="ca-profile-photo" src="${escapeAttr(card.coverPhoto)}" alt="" />`
+          : `<span class="ca-profile-photo is-empty" aria-hidden="true">${escapeHtml(initials(card.name) || '·')}</span>`}
+        <span class="ca-profile-copy">
+          <span class="ca-profile-name" data-profile-name>${escapeHtml(card.name || 'Ваше имя')}</span>
+          <span class="ca-profile-meta" data-profile-meta>${escapeHtml(meta || 'Расскажите, кто вы')}</span>
         </span>
-        <span class="ca-section-chevron" aria-hidden="true">${renderIcon('chevron-right')}</span>
-      </button>
-      <div class="ca-section-body" id="${escapeAttr(bodyId)}" ${open ? '' : 'hidden'}>${body}</div>
+        <a class="ca-round-link" href="#/preview" aria-label="Посмотреть визитку глазами клиента">
+          ${renderIcon('eye', { size: 20 })}
+        </a>
+      </div>
+      <div class="ca-profile-progress" data-progress>
+        <div class="ca-profile-progress-top">
+          <span>Готово</span>
+          <span>${percent}%</span>
+        </div>
+        <div class="ca-progress-bar"><span style="width:${percent}%"></span></div>
+      </div>
     </section>
   `;
 }
 
-function renderProgress(card) {
-  const { done, total, percent } = cardCompletion(card);
-  // Список вместо строки «Осталось: A, B, C»: видно и что уже сделано, и что
-  // осталось. Сделанное приглушаем галочкой, оставшееся держим акцентным —
-  // так понятно, куда идти дальше, и виден пройденный путь.
-  const items = CARD_CHECKLIST.map((item) => {
-    const ok = item.done(card);
-    return `
-      <li class="ca-check${ok ? ' is-done' : ''}">
-        <span class="ca-check-mark" aria-hidden="true">${ok ? renderIcon('check') : ''}</span>
-        <span>${escapeHtml(item.label)}</span>
-      </li>
-    `;
-  }).join('');
-
+function renderMissing(card) {
+  const { missing } = cardCompletion(card);
+  if (!missing.length) return '';
+  const next = missing[0];
   return `
-    <div class="ca-progress">
-      <div class="ca-progress-top">
-        <span class="ca-progress-label">Готовность визитки</span>
-        <span class="ca-progress-value">${done} из ${total}</span>
-      </div>
-      <div class="ca-progress-bar"><span style="width:${percent}%"></span></div>
-      ${done === total
-        ? '<div class="ca-progress-missing is-done">Визитка заполнена — можно публиковать</div>'
-        : `<ul class="ca-checklist">${items}</ul>`}
-    </div>
+    <button type="button" class="ca-hint" data-hint-section="${escapeAttr(CHECKLIST_SECTION[next.id] || 'basics')}">
+      <span class="ca-hint-icon" aria-hidden="true">${renderIcon('sparkle', { size: 18 })}</span>
+      <span class="ca-hint-text">Осталось: ${escapeHtml(next.label.toLowerCase())}${missing.length > 1 ? ` и ещё ${missing.length - 1}` : ''}</span>
+      ${renderIcon('chevron-right', { size: 18 })}
+    </button>
   `;
 }
 
-// Блок перехода в CRM. Намеренно оформлен как подсказка, а не как замок:
-// пользователь ничего не теряет, ему показывают следующий шаг.
-function renderUpsell(pointId) {
-  const point = activeUpsell(pointId);
-  if (!point) return '';
-  return `
-    <a class="ca-upsell" href="${escapeAttr(upsellHref(pointId, state.card?.leadKey))}" target="_blank" rel="noopener">
-      <span class="ca-upsell-eyebrow">${escapeHtml(point.eyebrow)}</span>
-      <span class="ca-upsell-title">${escapeHtml(point.title)}</span>
-      <span class="ca-upsell-text">${escapeHtml(point.text)}</span>
-      <span class="ca-upsell-cta">${escapeHtml(point.cta)} ${renderIcon('chevron-right')}</span>
-    </a>
-  `;
+/* ─────────── Разделы ─────────── */
+
+function filledCount(list, key) {
+  return (list || []).filter((item) => String(item[key] || '').trim()).length;
 }
 
-function renderCover(card) {
-  return `
-    <div class="ca-cover">
-      ${card.coverPhoto
-        ? `<img class="ca-cover-img" src="${escapeAttr(card.coverPhoto)}" alt="" />`
-        : '<div class="ca-cover-empty">Фото или обложка</div>'}
-      <div class="ca-cover-actions">
-        <button type="button" class="ca-btn ca-btn--ghost" data-cover-trigger>
-          ${card.coverPhoto ? 'Заменить фото' : 'Добавить фото'}</button>
-        <input type="file" accept="image/*" hidden data-cover-input />
-        ${card.coverPhoto ? '<button type="button" class="ca-btn ca-btn--ghost" data-cover-remove>Убрать</button>' : ''}
-      </div>
-    </div>
-  `;
+function plural(n, one, few, many) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
 }
 
-function renderGallery(card) {
-  const photos = Array.isArray(card.galleryPhotos) ? card.galleryPhotos : [];
-  const captions = Array.isArray(card.galleryCaptions) ? card.galleryCaptions : [];
-  return `
-    <div class="ca-gallery-editor">
-      <div class="ca-editor-subhead">
-        <span>Галерея работ</span>
-        <span>${photos.length} из 6</span>
-      </div>
-      ${photos.length ? `
-        <div class="ca-gallery-list">
-          ${photos.map((photo, index) => `
-            <div class="ca-gallery-row">
-              <img src="${escapeAttr(photo)}" alt="Работа ${index + 1}" />
-              <input class="ca-input" type="text" maxlength="100"
-                value="${escapeAttr(captions[index] || '')}" placeholder="Подпись к работе"
-                aria-label="Подпись к работе ${index + 1}" data-gallery-caption="${index}" />
-              <button type="button" class="ca-icon-btn" aria-label="Удалить работу ${index + 1}"
-                data-gallery-remove="${index}">${renderIcon('trash')}</button>
-            </div>
-          `).join('')}
-        </div>
-      ` : '<p class="ca-note">Добавьте лучшие работы — они появятся отдельной галереей на визитке.</p>'}
-      ${photos.length < 6 ? `
-        <button type="button" class="ca-btn ca-btn--ghost ca-gallery-add" data-gallery-trigger>
-          ${renderIcon('upload')} Добавить фото</button>
-        <input type="file" accept="image/*" multiple hidden data-gallery-input />
-      ` : ''}
-    </div>
-  `;
+function renderSections(card) {
+  const open = state.openSection;
+  const occasions = enabledOccasions(card);
+  const facts = filledCount(card.facts, 'value');
+  const formats = filledCount(card.formats, 'title');
+  const photos = card.galleryPhotos.length;
+  const contacts = [card.phone, card.telegram, card.vk, card.max, card.email, card.website].filter(Boolean).length;
+
+  return [
+    section({
+      id: 'basics', icon: 'user', title: 'Кто вы', open: open === 'basics',
+      sub: [card.name, card.role].filter(Boolean).join(', ') || 'Имя, специализация, город',
+      status: card.name && card.role ? statusDone : '',
+      body: renderBasics(card, state.professionsOpen)
+    }),
+    section({
+      id: 'media', icon: 'image', title: 'Фото и видео', open: open === 'media',
+      sub: card.coverPhoto ? (card.videoUrl ? 'Обложка и выступление' : 'Обложка — добавьте видео') : 'Главное фото визитки',
+      status: card.coverPhoto ? statusDone : '',
+      body: renderMedia(card)
+    }),
+    section({
+      id: 'acts', icon: 'play', title: 'Номера', open: open === 'acts',
+      sub: photos ? `${photos} ${plural(photos, 'фото', 'фото', 'фото')} из ${CARD_LIMITS.gallery}` : 'Фото номеров и работ',
+      status: photos ? statusDone : '',
+      body: renderActs(card)
+    }),
+    section({
+      id: 'contacts', icon: 'phone', title: 'Контакты', open: open === 'contacts',
+      sub: contacts ? ['Телефон', 'Telegram', 'ВКонтакте', 'MAX', 'Почта', 'Сайт'].filter((_, i) => [card.phone, card.telegram, card.vk, card.max, card.email, card.website][i]).join(', ') : 'Как с вами связаться',
+      status: card.phone || card.telegram || card.email ? statusDone : '',
+      body: renderContacts(card)
+    }),
+    section({
+      id: 'occasions', icon: 'sparkle', title: 'Праздники', open: open === 'occasions',
+      sub: occasions.length ? `${occasions.length} ${plural(occasions.length, 'страница', 'страницы', 'страниц')}: ${occasions.map((o) => o.title.toLowerCase()).join(', ')}` : 'Страницы под корпоратив, свадьбы, выпускные',
+      status: occasions.length ? statusDone : statusNew,
+      body: renderOccasions(card, state.openOccasion)
+    }),
+    section({
+      id: 'trust', icon: 'note', title: 'Доверие', open: open === 'trust',
+      sub: facts || card.clients ? [facts ? `${facts} ${plural(facts, 'факт', 'факта', 'фактов')}` : '', card.clients ? 'клиенты' : '', filledCount(card.quotes, 'text') ? 'отзывы' : ''].filter(Boolean).join(', ') : 'Факты, клиенты, отзывы',
+      status: facts || card.clients ? statusDone : '',
+      body: renderTrust(card)
+    }),
+    section({
+      id: 'program', icon: 'calendar', title: 'Форматы и площадка', open: open === 'program',
+      sub: formats ? `${formats} ${plural(formats, 'формат', 'формата', 'форматов')}${filledCount(card.requirements, 'title') ? ', требования к площадке' : ''}` : 'Сколько длится и что нужно',
+      status: formats ? statusDone : '',
+      body: renderProgram(card, card.leadKey)
+    }),
+    section({
+      id: 'backup', icon: 'download', title: 'Резервная копия', open: open === 'backup',
+      sub: 'Перенос на другой телефон',
+      body: renderBackup()
+    })
+  ].join('');
 }
 
-function renderServicePackages(card) {
-  const packages = Array.isArray(card.servicePackages) ? card.servicePackages : [];
-  return `
-    <div class="ca-packages">
-      <div class="ca-editor-subhead">
-        <span>Пакеты услуг</span>
-        <span>${packages.length} из 3</span>
-      </div>
-      ${packages.map((item, index) => `
-        <div class="ca-package">
-          <div class="ca-package-head">
-            <span>Пакет ${index + 1}</span>
-            <button type="button" class="ca-icon-btn" aria-label="Удалить пакет ${index + 1}"
-              data-package-remove="${index}">${renderIcon('trash')}</button>
-          </div>
-          <input class="ca-input" type="text" maxlength="80" value="${escapeAttr(item.title || '')}"
-            placeholder="Название" aria-label="Название пакета ${index + 1}"
-            data-package-index="${index}" data-package-field="title" />
-          <input class="ca-input" type="text" maxlength="40" value="${escapeAttr(item.price || '')}"
-            placeholder="Цена" aria-label="Цена пакета ${index + 1}"
-            data-package-index="${index}" data-package-field="price" />
-          <textarea class="ca-input" rows="2" maxlength="180" placeholder="Что входит"
-            aria-label="Описание пакета ${index + 1}" data-package-index="${index}"
-            data-package-field="description">${escapeHtml(item.description || '')}</textarea>
-        </div>
-      `).join('')}
-      ${packages.length < 3
-        ? '<button type="button" class="ca-btn ca-btn--ghost ca-package-add" data-package-add>Добавить пакет</button>'
-        : ''}
-    </div>
-  `;
-}
-
-// Профессию выбирают один раз, а семь кнопок занимали четыре ряда на самом
-// видном месте редактора. После выбора сворачиваем список до выбранной строки
-// с «изменить» — верх экрана освобождается под собственно поля визитки.
-function renderProfessions(card, expanded = false) {
-  const current = BUSINESS_CARD_PROFESSIONS.find((p) => p.id === card.profession);
-  if (current && !expanded) {
-    return `
-      <div class="ca-chips is-picked">
-        <span class="ca-chip is-active is-static">${escapeHtml(current.label)}</span>
-        <button type="button" class="ca-chip-change" data-profession-edit>Изменить</button>
-      </div>
-    `;
-  }
-  return `
-    <div class="ca-chips">
-      ${BUSINESS_CARD_PROFESSIONS.map((p) => `
-        <button type="button" class="ca-chip${card.profession === p.id ? ' is-active' : ''}" data-profession="${escapeAttr(p.id)}">
-          ${escapeHtml(p.label)}
-        </button>
-      `).join('')}
-    </div>
-  `;
-}
+/* ─────────── Публикация ─────────── */
 
 // Первая публикация — кульминация всей сборки: визитка перестаёт быть
-// черновиком и становится доступной людям. Тостом внизу экрана это событие
-// не отличалось от «ссылка скопирована», поэтому показываем момент: сама
-// карточка, живой адрес и следующий шаг. Обновление визитки — рутина, там
-// по-прежнему тост.
+// черновиком и становится доступной людям. Поэтому показываем момент: сама
+// карточка, живой адрес и следующий шаг. Обновление визитки — рутина, там тост.
 function renderPublishedMoment(card) {
   const url = cardPublicUrl(card.publishedSlug);
   return `
@@ -234,7 +205,7 @@ function renderPublishedMoment(card) {
         <p class="ca-published-lead">Теперь её можно открыть по ссылке или показать QR-кодом.</p>
         <p class="ca-published-url">${escapeHtml(url)}</p>
         <div class="ca-published-actions">
-          <button type="button" class="ca-btn ca-btn--primary" data-published-share>Ссылка и QR-код</button>
+          <button type="button" class="ca-btn ca-btn--primary" data-published-share>Ссылки и QR-код</button>
           <button type="button" class="ca-btn ca-btn--ghost" data-published-close>Позже</button>
         </div>
       </div>
@@ -244,11 +215,10 @@ function renderPublishedMoment(card) {
 
 // Три честных состояния публикации. Главное — «есть изменения, которых
 // клиенты ещё не видят»: редактор сохраняет правки на телефоне сразу, а на
-// публичную визитку они попадают только по кнопке. Без этого состояния плашка
-// говорила «опубликована», и владелец был уверен, что клиенты видят новую цену.
+// публичную визитку они попадают только по кнопке.
 function renderPublishState(card, dirty) {
   if (!card.publishedSlug) {
-    return '<div class="ca-publish-hint" data-publish-state>Опубликуйте — получите ссылку и QR-код</div>';
+    return '<div class="ca-publish-hint" data-publish-state>Опубликуйте — получите ссылки и QR-код</div>';
   }
   return dirty
     ? `<div class="ca-publish-live is-pending" data-publish-state>
@@ -281,7 +251,7 @@ function renderPublishBar(card) {
       <button type="button" class="${publishButtonClass(card, dirty)}" data-publish ${state.busy ? 'disabled' : ''}>
         ${publishLabel(card, dirty)}
       </button>
-      ${published ? '<button type="button" class="ca-btn ca-btn--ghost" data-open-share>Ссылка и QR-код</button>' : ''}
+      ${published ? '<a class="ca-btn ca-btn--ghost" href="#/share">Ссылки и QR-код</a>' : ''}
       ${published ? '<button type="button" class="ca-key-rotate" data-rotate-key>Сменить ключ доступа</button>' : ''}
     </div>
   `;
@@ -294,18 +264,32 @@ let publishStateTimer = 0;
 
 function schedulePublishState(node) {
   clearTimeout(publishStateTimer);
-  publishStateTimer = setTimeout(() => refreshPublishState(node), 250);
+  publishStateTimer = setTimeout(() => refreshLiveBits(node), 250);
 }
 
-function refreshPublishState(node) {
+function refreshLiveBits(node) {
   if (!state.card || state.busy) return;
-  const dirty = hasUnpublishedChanges(state.card);
+  const card = state.card;
+  const dirty = hasUnpublishedChanges(card);
   const status = node.querySelector('[data-publish-state]');
-  if (status) status.outerHTML = renderPublishState(state.card, dirty);
+  if (status) status.outerHTML = renderPublishState(card, dirty);
   const btn = node.querySelector('[data-publish]');
   if (btn) {
-    btn.className = publishButtonClass(state.card, dirty);
-    btn.textContent = publishLabel(state.card, dirty);
+    btn.className = publishButtonClass(card, dirty);
+    btn.textContent = publishLabel(card, dirty);
+  }
+  const chip = node.querySelector('[data-head-status]');
+  if (chip) chip.innerHTML = publishStatus(card);
+  const progress = node.querySelector('[data-progress]');
+  if (progress) {
+    const { percent } = cardCompletion(card);
+    progress.querySelector('.ca-profile-progress-top span:last-child').textContent = `${percent}%`;
+    progress.querySelector('.ca-progress-bar span').style.width = `${percent}%`;
+  }
+  const hint = node.querySelector('[data-hint-host]');
+  if (hint) {
+    hint.innerHTML = renderMissing(card);
+    bindHint(node);
   }
 }
 
@@ -336,94 +320,27 @@ function renderContent() {
   if (!card) return '<div class="ca-loading">Загружаем визитку…</div>';
 
   return `
-    <form class="ca-form" data-card-form>
-      <!-- Живой макет визитки. В онбординге карточка обретала лицо на глазах,
-           а в редакторе исчезала — человек заполнял анкету вслепую и видел
-           результат только на отдельной вкладке. Держим её здесь и обновляем
-           при вводе, чтобы связь с результатом не терялась. -->
-      <div class="ca-paper-stage" data-paper-stage>
-        ${renderPaperCard({ name: card.name, profession: card.profession, role: card.role })}
+    <div class="ca-editor">
+      <div class="ca-page-head">
+        <h1 class="ca-page-title">Моя визитка</h1>
+        <span data-head-status>${publishStatus(card)}</span>
       </div>
-
-      ${renderProgress(card)}
-
-      ${section({
-        id: 'basics',
-        title: 'Кто вы',
-        sub: 'Имя, специализация, город',
-        body: `
-          ${renderProfessions(card, state.professionsOpen)}
-          ${field({ name: 'name', label: 'Имя', value: card.name, placeholder: 'Как вас зовут', maxlength: 80 })}
-          ${field({ name: 'role', label: 'Чем занимаетесь', value: card.role, placeholder: 'Ведущий, фотограф, декоратор…', maxlength: 80 })}
-          ${field({ name: 'city', label: 'Город', value: card.city, placeholder: 'Москва', maxlength: 80 })}
-          ${field({ name: 'tagline', label: 'Короткая подпись', value: card.tagline, placeholder: 'Свадьбы и корпоративы под ключ', maxlength: 90 })}
-        `
-      })}
-
-      ${section({
-        id: 'look',
-        title: 'Оформление',
-        sub: 'Фото и галерея',
-        body: `${renderCover(card)}${renderGallery(card)}`
-      })}
-
-      ${section({
-        id: 'contacts',
-        title: 'Контакты',
-        sub: 'Как с вами связаться',
-        body: `
-          ${field({ name: 'phone', label: 'Телефон', value: card.phone, type: 'tel', placeholder: '+7 900 000-00-00' })}
-          ${field({ name: 'telegram', label: 'Telegram', value: card.telegram, placeholder: '@username' })}
-          ${field({ name: 'vk', label: 'ВКонтакте', value: card.vk, placeholder: 'vk.com/username' })}
-          ${field({ name: 'max', label: 'MAX', value: card.max, placeholder: 'max.ru/u/username' })}
-          ${field({ name: 'email', label: 'Email', value: card.email, type: 'email', placeholder: 'mail@example.com' })}
-          ${field({ name: 'website', label: 'Сайт или соцсеть', value: card.website, placeholder: 'https://' })}
-        `
-      })}
-
-      ${section({
-        id: 'about',
-        title: 'О себе и услуги',
-        sub: 'Что вы делаете и сколько это стоит',
-        body: `
-          ${field({ name: 'bio', label: 'О себе', value: card.bio, textarea: true, rows: 5, maxlength: 800, placeholder: 'Коротко о вашем опыте' })}
-          ${field({ name: 'services', label: 'Услуги', value: card.services, textarea: true, rows: 4, maxlength: 800, placeholder: 'Каждая услуга с новой строки' })}
-          ${field({ name: 'priceFrom', label: 'Цена от', value: card.priceFrom, placeholder: '30 000 ₽', maxlength: 40 })}
-          ${renderServicePackages(card)}
-          ${renderUpsell('quote')}
-        `
-      })}
-
-      ${section({
-        id: 'leads',
-        title: 'Заявки',
-        sub: 'Что происходит после клика',
-        body: `
-          ${field({ name: 'ctaText', label: 'Текст кнопки', value: card.ctaText, placeholder: 'Оставить заявку', maxlength: 40 })}
-          <p class="ca-note">Клиент нажимает кнопку и пишет вам напрямую — в Telegram или по телефону. Это работает бесплатно и без ограничений.</p>
-          ${field({ name: 'offerText', label: 'Спецпредложение для «горячих»', value: card.offerText, textarea: true, rows: 2, maxlength: 140, placeholder: 'Скидка 10% при брони на этой неделе', hint: 'Гостю, кто заходил несколько раз, но молчит, визитка сама покажет это предложение — чтобы он оставил контакт. Пишите своё условие; пусто — предложение не показывается.' })}
-          ${renderUpsell('leads')}
-        `
-      })}
-
-      ${section({
-        id: 'backup',
-        title: 'Резервная копия',
-        sub: 'Перенос и восстановление',
-        body: renderBackup()
-      })}
-
+      ${renderProfileTile(card)}
+      <div data-hint-host>${renderMissing(card)}</div>
+      <form class="ca-form" data-card-form novalidate>
+        ${renderSections(card)}
+      </form>
       ${renderPublishBar(card)}
-    </form>
+    </div>
   `;
 }
 
-// Обновляем только сам макет, не трогая форму: при вводе имени полный
-// rerender сбросил бы фокус и позицию курсора.
+/* ─────────── Момент публикации ─────────── */
+
 // Момент публикации живёт поверх редактора и снимается по любой кнопке.
 // Держим его отдельным узлом, а не частью формы: rerender редактора не должен
 // его гасить, пока человек читает адрес своей визитки.
-function showPublishedMoment(node) {
+function showPublishedMoment() {
   const host = document.createElement('div');
   host.innerHTML = renderPublishedMoment(state.card);
   const overlay = host.firstElementChild;
@@ -441,26 +358,13 @@ function showPublishedMoment(node) {
     close();
     window.location.hash = '#/share';
   });
-  // Тап по затемнению — тоже выход: модальное окно не должно запирать.
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  // Жест «назад» или переход по вкладке не должен оставлять окно висеть
-  // поверх другого экрана.
   window.addEventListener('hashchange', close);
   document.addEventListener('keydown', onKey);
-  // Фокус на главном действии: экранный диктор сразу прочтёт окно, а на
-  // компьютере Enter откроет ссылку и QR.
   overlay.querySelector('[data-published-share]')?.focus({ preventScroll: true });
 }
 
-function refreshPaperCard(node) {
-  const stage = node.querySelector('[data-paper-stage]');
-  if (!stage) return;
-  stage.innerHTML = renderPaperCard({
-    name: state.card.name,
-    profession: state.card.profession,
-    role: state.card.role
-  });
-}
+/* ─────────── Черновик ─────────── */
 
 function updateDraft(patch) {
   state.card = draft.schedule(patch);
@@ -476,6 +380,15 @@ async function flushDraft() {
   if (!draft) return state.card;
   state.card = await draft.flush();
   return state.card;
+}
+
+function listCopy(list) {
+  return (state.card[list] || []).map((item) => ({ ...item }));
+}
+
+function occasionPatch(id, changes) {
+  const current = state.card.occasions?.[id] || { photo: -1, highlightPhoto: -1 };
+  return { occasions: { ...state.card.occasions, [id]: { ...current, ...changes } } };
 }
 
 export const editor = {
@@ -499,24 +412,48 @@ export const editor = {
   }
 };
 
+// Полная перерисовка — только после действий, меняющих структуру (фото,
+// строка списка, праздник). Позицию прокрутки сохраняем: человек не должен
+// оказаться наверху экрана из-за того, что добавил строку.
 function rerender(node) {
+  const y = window.scrollY;
   node.innerHTML = renderContent();
   bind(node);
+  window.scrollTo(0, y);
 }
 
-function bind(node) {
-  const form = node.querySelector('[data-card-form]');
-  if (!form) return;
+function bindHint(node) {
+  node.querySelector('[data-hint-section]')?.addEventListener('click', (event) => {
+    openSection(node, event.currentTarget.dataset.hintSection, { scroll: true });
+  });
+}
 
-  // Автосохранение: пользователь бесплатного продукта не должен думать
-  // о кнопке «Сохранить» — карточка живёт локально и пишется сразу.
+function openSection(node, id, { scroll = false } = {}) {
+  state.openSection = id;
+  node.querySelectorAll('.ca-section').forEach((sec) => {
+    const isOpen = sec.dataset.section === id;
+    sec.classList.toggle('is-open', isOpen);
+    const body = sec.querySelector('.ca-section-body');
+    if (body) body.hidden = !isOpen;
+    sec.querySelector('[data-toggle-section]')?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+  if (scroll) {
+    node.querySelector(`.ca-section[data-section="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function bindInput(node, form) {
+  // Автосохранение: человек не должен думать о кнопке «Сохранить» — визитка
+  // живёт локально и пишется сразу.
   form.addEventListener('input', (e) => {
     const el = e.target;
-    if (el.dataset.packageField) {
-      const index = Number(el.dataset.packageIndex);
-      const packages = state.card.servicePackages.map((item) => ({ ...item }));
-      packages[index] = { ...(packages[index] || {}), [el.dataset.packageField]: el.value };
-      updateDraft({ servicePackages: packages });
+    if (el.dataset.list) {
+      const items = listCopy(el.dataset.list);
+      const index = Number(el.dataset.index);
+      items[index] = { ...(items[index] || {}), [el.dataset.key]: el.value };
+      updateDraft({ [el.dataset.list]: items });
+    } else if (el.dataset.occ) {
+      updateDraft(occasionPatch(el.dataset.occ, { [el.dataset.occField]: el.value }));
     } else if (el.dataset.galleryCaption != null) {
       const captions = [...state.card.galleryCaptions];
       captions[Number(el.dataset.galleryCaption)] = el.value;
@@ -526,10 +463,12 @@ function bind(node) {
     } else {
       return;
     }
-    const bar = node.querySelector('.ca-progress');
-    if (bar) bar.outerHTML = renderProgress(state.card);
-    // Макет перерисовываем точечно: полный rerender увёл бы курсор из поля.
-    if (el.name === 'name' || el.name === 'role') refreshPaperCard(node);
+    if (el.name === 'name' || el.name === 'role' || el.name === 'city') {
+      const nameEl = node.querySelector('[data-profile-name]');
+      const metaEl = node.querySelector('[data-profile-meta]');
+      if (nameEl) nameEl.textContent = state.card.name || 'Ваше имя';
+      if (metaEl) metaEl.textContent = [state.card.role, state.card.city].filter(Boolean).join(' · ') || 'Расскажите, кто вы';
+    }
     schedulePublishState(node);
   });
 
@@ -540,26 +479,21 @@ function bind(node) {
       toast.show('Не удалось сохранить изменение', { error: true });
     });
   });
+}
 
+function bindSections(node) {
   node.querySelectorAll('[data-toggle-section]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.toggleSection;
-      state.openSection = state.openSection === id ? '' : id;
-      // Раньше переключение секции перерисовывало ВСЮ форму (node.innerHTML):
-      // она мигала, скролл прыгал, галерея с фото пересоздавалась ради
-      // открытия текстовой секции. Теперь просто показываем/прячем тела
-      // секций — форма остаётся на месте.
-      node.querySelectorAll('.ca-section').forEach((sec) => {
-        const open = sec.dataset.section === state.openSection;
-        sec.classList.toggle('is-open', open);
-        const body = sec.querySelector('.ca-section-body');
-        if (body) body.hidden = !open;
-        const head = sec.querySelector('[data-toggle-section]');
-        if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
+      // Переключение секции не перерисовывает форму: она не мигает, а скролл
+      // и фото в галерее остаются на месте.
+      openSection(node, state.openSection === id ? '' : id);
     });
   });
+  bindHint(node);
+}
 
+function bindProfession(node) {
   node.querySelectorAll('[data-profession]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const next = state.card.profession === btn.dataset.profession ? '' : btn.dataset.profession;
@@ -570,12 +504,13 @@ function bind(node) {
       rerender(node);
     });
   });
-
   node.querySelector('[data-profession-edit]')?.addEventListener('click', () => {
     state.professionsOpen = true;
     rerender(node);
   });
+}
 
+function bindCover(node) {
   const coverInput = node.querySelector('[data-cover-input]');
   if (coverInput) {
     node.querySelector('[data-cover-trigger]')?.addEventListener('click', () => coverInput.click());
@@ -587,24 +522,29 @@ function bind(node) {
         await persist({ coverPhoto: dataUrl });
         rerender(node);
       } catch {
-        toast.show('Не удалось обработать фото');
+        toast.show('Не удалось обработать фото', { error: true });
       }
     });
   }
-
-  const coverRemove = node.querySelector('[data-cover-remove]');
-  if (coverRemove) {
-    coverRemove.addEventListener('click', async () => {
-      await persist({ coverPhoto: '' });
+  node.querySelector('[data-cover-remove]')?.addEventListener('click', async () => {
+    await persist({ coverPhoto: '' });
+    rerender(node);
+  });
+  node.querySelectorAll('[data-cover-position]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      hapticLight();
+      await persist({ coverPosition: btn.dataset.coverPosition });
       rerender(node);
     });
-  }
+  });
+}
 
+function bindGallery(node) {
   const galleryInput = node.querySelector('[data-gallery-input]');
   if (galleryInput) {
     node.querySelector('[data-gallery-trigger]')?.addEventListener('click', () => galleryInput.click());
     galleryInput.addEventListener('change', async () => {
-      const remaining = 6 - state.card.galleryPhotos.length;
+      const remaining = CARD_LIMITS.gallery - state.card.galleryPhotos.length;
       const files = Array.from(galleryInput.files || []).slice(0, remaining);
       if (!files.length) return;
       galleryInput.disabled = true;
@@ -632,37 +572,74 @@ function bind(node) {
   node.querySelectorAll('[data-gallery-remove]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const index = Number(btn.dataset.galleryRemove);
+      // Праздники ссылаются на фото по номеру: удалённое фото уходит в обложку,
+      // а следующие сдвигаются на одно место — иначе страница показала бы
+      // соседний снимок.
+      const shift = (value) => (value === index ? -1 : value > index ? value - 1 : value);
+      const occasions = Object.fromEntries(Object.entries(state.card.occasions || {}).map(([id, item]) => [
+        id, { ...item, photo: shift(item.photo), highlightPhoto: shift(item.highlightPhoto) }
+      ]));
       await persist({
         galleryPhotos: state.card.galleryPhotos.filter((_, i) => i !== index),
-        galleryCaptions: state.card.galleryCaptions.filter((_, i) => i !== index)
+        galleryCaptions: state.card.galleryCaptions.filter((_, i) => i !== index),
+        occasions
       });
       rerender(node);
     });
   });
+}
 
-  const packageAdd = node.querySelector('[data-package-add]');
-  if (packageAdd) {
-    packageAdd.addEventListener('click', async () => {
-      const number = state.card.servicePackages.length + 1;
-      await persist({
-        servicePackages: [...state.card.servicePackages, {
-          title: `Пакет ${number}`,
-          price: '',
-          description: ''
-        }]
-      });
-      rerender(node);
-    });
-  }
-
-  node.querySelectorAll('[data-package-remove]').forEach((btn) => {
+function bindLists(node) {
+  node.querySelectorAll('[data-list-add]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const index = Number(btn.dataset.packageRemove);
-      await persist({ servicePackages: state.card.servicePackages.filter((_, i) => i !== index) });
+      const list = btn.dataset.listAdd;
+      await persist({ [list]: [...listCopy(list), { ...LIST_BLANKS[list] }] });
+      rerender(node);
+      // Курсор сразу в новую строку: человек нажал «Добавить», чтобы печатать.
+      const inputs = node.querySelectorAll(`[data-list="${list}"]`);
+      const keys = Object.keys(LIST_BLANKS[list]);
+      inputs[inputs.length - keys.length]?.focus();
+    });
+  });
+  node.querySelectorAll('[data-list-remove]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const list = btn.dataset.listRemove;
+      const index = Number(btn.dataset.index);
+      await persist({ [list]: listCopy(list).filter((_, i) => i !== index) });
       rerender(node);
     });
   });
+}
 
+function bindOccasions(node) {
+  node.querySelectorAll('[data-occ-toggle]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.occToggle;
+      const on = !(state.card.occasions?.[id]?.on);
+      hapticLight();
+      // Только что включённый праздник сразу раскрываем — его стоит настроить.
+      state.openOccasion = on ? id : (state.openOccasion === id ? '' : state.openOccasion);
+      await persist(occasionPatch(id, { on }));
+      rerender(node);
+    });
+  });
+  node.querySelectorAll('[data-occ-open]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.occOpen;
+      state.openOccasion = state.openOccasion === id ? '' : id;
+      rerender(node);
+    });
+  });
+  node.querySelectorAll('[data-occ-photo]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      hapticLight();
+      await persist(occasionPatch(btn.dataset.occPhoto, { [btn.dataset.occField]: Number(btn.dataset.value) }));
+      rerender(node);
+    });
+  });
+}
+
+function bindBackup(node) {
   const backupPassword = node.querySelector('[data-backup-password]');
   const backupExport = node.querySelector('[data-backup-export]');
   if (backupExport && backupPassword) {
@@ -720,74 +697,78 @@ function bind(node) {
       }
     });
   }
-
-  const publishBtn = node.querySelector('[data-publish]');
-  if (publishBtn) {
-    publishBtn.addEventListener('click', async () => {
-      if (state.busy) return;
-      try {
-        await flushDraft();
-      } catch {
-        toast.show('Не удалось сохранить визитку', { error: true });
-        return;
-      }
-      if (!state.card.name) {
-        toast.show('Добавьте имя — без него визитку не опубликовать');
-        return;
-      }
-      if (!state.card.phone && !state.card.telegram && !state.card.email) {
-        toast.show('Добавьте телефон, Telegram или email для связи');
-        return;
-      }
-      // Первая это публикация или обновление — решаем ДО запроса: после него
-      // publishedSlug уже проставлен.
-      const firstTime = !state.card.publishedSlug;
-      state.busy = true;
-      rerender(node);
-      try {
-        const { card } = await publishCard(state.card);
-        state.card = card;
-        if (firstTime) showPublishedMoment(node);
-        else toast.show('Визитка обновлена');
-      } catch (err) {
-        toast.show(err?.message === 'card_too_large'
-          ? 'Слишком тяжёлое фото — уменьшите его'
-          : 'Не удалось опубликовать. Попробуйте ещё раз', { error: true });
-      } finally {
-        state.busy = false;
-        rerender(node);
-      }
-    });
-  }
-
-  const shareBtn = node.querySelector('[data-open-share]');
-  if (shareBtn) {
-    shareBtn.addEventListener('click', () => {
-      window.location.hash = '#/share';
-    });
-  }
-
-  const rotateBtn = node.querySelector('[data-rotate-key]');
-  if (rotateBtn) {
-    rotateBtn.addEventListener('click', async () => {
-      if (state.busy) return;
-      if (!window.confirm('Сменить ключ доступа к заявкам? Старый ключ перестанет работать. Если у вас подключён Eventory Pro — после смены зайдите в Eventory по ссылке из визитки ещё раз, чтобы контакты снова открылись.')) return;
-      state.busy = true;
-      rerender(node);
-      try {
-        const card = await rotateBusinessCardLeadKey(state.card);
-        state.card = card;
-        toast.show('Ключ доступа обновлён');
-      } catch (err) {
-        toast.show(err?.message === 'not_published'
-          ? 'Сначала опубликуйте визитку'
-          : 'Не удалось сменить ключ. Попробуйте ещё раз', { error: true });
-      } finally {
-        state.busy = false;
-        rerender(node);
-      }
-    });
-  }
 }
 
-export { state as editorState, CRM_NAME, CARD_CHECKLIST };
+function bindPublish(node) {
+  node.querySelector('[data-publish]')?.addEventListener('click', async () => {
+    if (state.busy) return;
+    try {
+      await flushDraft();
+    } catch {
+      toast.show('Не удалось сохранить визитку', { error: true });
+      return;
+    }
+    if (!state.card.name) {
+      toast.show('Добавьте имя — без него визитку не опубликовать');
+      openSection(node, 'basics', { scroll: true });
+      return;
+    }
+    if (!state.card.phone && !state.card.telegram && !state.card.email) {
+      toast.show('Добавьте телефон, Telegram или почту для связи');
+      openSection(node, 'contacts', { scroll: true });
+      return;
+    }
+    // Первая это публикация или обновление — решаем ДО запроса: после него
+    // publishedSlug уже проставлен.
+    const firstTime = !state.card.publishedSlug;
+    state.busy = true;
+    rerender(node);
+    try {
+      const { card } = await publishCard(state.card);
+      state.card = card;
+      if (firstTime) showPublishedMoment();
+      else toast.show('Визитка обновлена', { ok: true });
+    } catch (err) {
+      toast.show(err?.message === 'card_too_large'
+        ? 'Слишком тяжёлые фото — уберите одно или замените'
+        : 'Не удалось опубликовать. Попробуйте ещё раз', { error: true });
+    } finally {
+      state.busy = false;
+      rerender(node);
+    }
+  });
+
+  node.querySelector('[data-rotate-key]')?.addEventListener('click', async () => {
+    if (state.busy) return;
+    if (!window.confirm('Сменить ключ доступа к заявкам? Старый ключ перестанет работать. Если у вас подключён Eventory Pro — после смены зайдите в Eventory по ссылке из визитки ещё раз, чтобы контакты снова открылись.')) return;
+    state.busy = true;
+    rerender(node);
+    try {
+      state.card = await rotateBusinessCardLeadKey(state.card);
+      toast.show('Ключ доступа обновлён', { ok: true });
+    } catch (err) {
+      toast.show(err?.message === 'not_published'
+        ? 'Сначала опубликуйте визитку'
+        : 'Не удалось сменить ключ. Попробуйте ещё раз', { error: true });
+    } finally {
+      state.busy = false;
+      rerender(node);
+    }
+  });
+}
+
+function bind(node) {
+  const form = node.querySelector('[data-card-form]');
+  if (!form) return;
+  bindInput(node, form);
+  bindSections(node);
+  bindProfession(node);
+  bindCover(node);
+  bindGallery(node);
+  bindLists(node);
+  bindOccasions(node);
+  bindBackup(node);
+  bindPublish(node);
+}
+
+export { state as editorState, CARD_CHECKLIST };

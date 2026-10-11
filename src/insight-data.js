@@ -1,4 +1,4 @@
-// Метки показов, узнавание гостей и ночные вопросы — сторона браузера.
+// Метки показов, статистика и заявки — сторона браузера.
 import { getCard, cardPublicUrl } from './card-data.js';
 
 const VISITOR_KEY = 'eventory-card:visitor';
@@ -45,7 +45,7 @@ function post(payload) {
 export async function fetchInsight() {
   const card = await getCard();
   if (!card.publishedSlug || !card.leadKey) {
-    return { summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0 }, tags: [], dialogs: [] };
+    return { summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0, occasions: {}, sources: {} }, days: [], tags: [], leads: [] };
   }
   return request(
     `/api/card-insight?slug=${encodeURIComponent(card.publishedSlug)}&key=${encodeURIComponent(card.leadKey)}`
@@ -66,11 +66,6 @@ export async function deleteTag(id) {
   return post({ action: 'tag-delete', slug: card.publishedSlug, key: card.leadKey, id });
 }
 
-export async function markDialogsRead() {
-  const card = await getCard();
-  return post({ action: 'dialogs-read', slug: card.publishedSlug, key: card.leadKey });
-}
-
 // Ссылка под конкретное событие: та же визитка, но с меткой в адресе.
 export function taggedUrl(slug, tagId) {
   const base = cardPublicUrl(slug);
@@ -80,51 +75,36 @@ export function taggedUrl(slug, tagId) {
 /* ─────────── Гость ─────────── */
 
 // Учёт открытия. Тихий: ошибки не показываем — гость пришёл смотреть
-// визитку, а не наши сообщения.
-export function trackOpen(slug, tagId, { event = 'open', interest = '' } = {}) {
+// визитку, а не наши сообщения. occasion — праздник страницы, source — канал
+// из адреса (?src=vk): по ним «Отклик» показывает, что смотрят и откуда идут.
+export function trackOpen(slug, tagId, { event = 'open', occasion = '', source = '' } = {}) {
   const visitor = visitorId();
   if (!slug) return Promise.resolve();
-  return post({ action: 'track', slug, tag: tagId, visitor, event, interest })
+  return post({ action: 'track', slug, tag: tagId, visitor, event, occasion, source })
     .catch(() => { /* учёт не критичен */ });
 }
 
-// Гость досмотрел раздел визитки (галерея, цены, отзывы, конкретный пакет).
-// Фундамент смарт-метрики: по разделам считаем интерес гостя. section — понятное
-// название раздела, оно же ляжет в интерес («Свадебное шоу», «Цены»).
-export function trackSection(slug, tagId, section) {
+// Гость досмотрел раздел визитки (форматы, номера, отзывы). По разделам копится
+// интерес гостя: в «Отклике» видно, что именно человек изучал.
+// occasion — гость перешёл на праздник внутри визитки: сервер засчитает повод,
+// но не новое открытие.
+export function trackSection(slug, tagId, section, occasion = '') {
   const visitor = visitorId();
   if (!slug || !section) return Promise.resolve();
-  return post({ action: 'track', slug, tag: tagId, visitor, event: 'view', section })
+  return post({ action: 'track', slug, tag: tagId, visitor, event: 'view', section, occasion })
     .catch(() => { /* учёт не критичен */ });
 }
 
-export async function greetReturning(slug) {
-  const visitor = visitorId();
-  if (!slug || !visitor) return null;
-  try {
-    const data = await post({ action: 'greet', slug, visitor });
-    return data.returning ? data : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function askQuestion(slug, { question, contact = '', tagId = '' }) {
-  return post({ action: 'ask', slug, question, contact, tag: tagId });
-}
-
-// Заявка «Узнать цену» от гостя: имя + контакт + (необязательно) дата события.
-export async function sendLead(slug, { name, phone = '', vk = '', telegram = '', eventDate = '', tagId = '', offerLabel = '' }) {
-  // Читаемая строка контакта — её видит Pro-владелец в заявке сейчас. Отдельные
-  // поля phone/vk/telegram сохраняются структурно для будущей sales-системы.
-  const contact = [
-    phone && `☎ ${phone}`,
-    vk && `ВК: ${vk}`,
-    telegram && `TG: ${telegram}`
-  ].filter(Boolean).join(' · ');
-  // visitor — тот же id, по которому копился интерес гостя. Кладём его в заявку,
-  // чтобы в «Отклике» собрать досье: этот клиент = вот что он смотрел.
-  return post({ action: 'lead', slug, name, contact, phone, vk, telegram, eventDate, tag: tagId, offer: offerLabel, visitor: visitorId() });
+// Заявка «Проверить дату». visitor — тот же id, по которому копился интерес
+// гостя: в «Отклике» по нему собирается досье «этот клиент смотрел вот это».
+export async function sendLead(slug, {
+  name, phone = '', messenger = '', eventDate = '', city = '', format = '',
+  occasion = '', source = '', tagId = ''
+}) {
+  return post({
+    action: 'lead', slug, name, phone, messenger, eventDate, city, format,
+    occasion, source, tag: tagId, visitor: visitorId()
+  });
 }
 
 export async function markLeadsRead() {
@@ -208,6 +188,17 @@ export async function referralStats() {
 export function readTagFromUrl() {
   try {
     return new URLSearchParams(window.location.search).get('t') || '';
+  } catch {
+    return '';
+  }
+}
+
+// Канал из адреса (?src=vk): Sales и режим показа QR подписывают ссылки,
+// чтобы «Отклик» знал, откуда пришёл человек. Неизвестное значение сервер
+// отбросит сам, здесь только читаем.
+export function readSourceFromUrl() {
+  try {
+    return (new URLSearchParams(window.location.search).get('src') || '').toLowerCase().slice(0, 12);
   } catch {
     return '';
   }

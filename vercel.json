@@ -6,6 +6,10 @@
       "destination": "https://eventory-mvp.vercel.app/api/$1"
     },
     {
+      "source": "/v/:slug/:occasion",
+      "destination": "/api/og?slug=:slug&o=:occasion"
+    },
+    {
       "source": "/v/:slug",
       "destination": "/api/og?slug=:slug"
     },

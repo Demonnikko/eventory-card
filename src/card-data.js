@@ -6,23 +6,29 @@ import {
   DEFAULT_BUSINESS_CARD,
   normalizeBusinessCard,
   createLeadKey,
-  publicCardPayload,
-  buildVCard
+  publicCardPayload
 } from './shared/data/businessCard.js';
+import { enabledOccasions } from './shared/data/occasions.js';
 import { getRecord, putRecord, mirrorSave, mirrorRead } from './store.js';
 
 const CARD_ID = 'business-card';
 
-export { DEFAULT_BUSINESS_CARD, normalizeBusinessCard, buildVCard };
+export { DEFAULT_BUSINESS_CARD, normalizeBusinessCard };
 
 // Публичная ссылка ведёт на домен ЭТОГО приложения, а не основного продукта:
 // у визитки свой домен, и cardPublicUrl из общего модуля указывает на CRM.
 // В браузере берём текущий origin — так ссылка верна и локально, и в проде.
-export function cardPublicUrl(slug) {
+//
+// occasionSlug ведёт сразу на страницу праздника (/v/<визитка>/korporativ),
+// source — откуда человек пришёл (qr, vk…): по нему «Отклик» считает каналы.
+export function cardPublicUrl(slug, { occasionSlug = '', source = '' } = {}) {
   const cleanSlug = String(slug || '').trim();
   if (!cleanSlug) return '';
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/v/${encodeURIComponent(cleanSlug)}`;
+  const path = occasionSlug
+    ? `/v/${encodeURIComponent(cleanSlug)}/${encodeURIComponent(occasionSlug)}`
+    : `/v/${encodeURIComponent(cleanSlug)}`;
+  return `${origin}${path}${source ? `?src=${encodeURIComponent(source)}` : ''}`;
 }
 
 // Карточка одна на все вкладки. Держим её в памяти, чтобы переключение
@@ -55,7 +61,7 @@ export async function saveCard(card) {
 // crmEnabled всегда false: встроенный приём заявок в CRM — платная функция,
 // бесплатная визитка публикуется в режиме прямых контактов.
 export async function publishCard(card) {
-  const payload = publicCardPayload(card, null);
+  const payload = publicCardPayload(card);
   const body = {
     card: { ...payload, crmEnabled: false },
     leadKey: card.leadKey || ''
@@ -100,7 +106,7 @@ export async function publishCard(card) {
 const PUBLISHED_PRINT_KEY = 'eventory-card:published-print:';
 
 export function publicFingerprint(card) {
-  const text = JSON.stringify(publicCardPayload(card, null));
+  const text = JSON.stringify(publicCardPayload(card));
   let hash = 5381;
   for (let i = 0; i < text.length; i += 1) {
     hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
@@ -136,11 +142,11 @@ export function hasUnpublishedChanges(card) {
 // Показывает пользователю, что ещё стоит заполнить до публикации.
 export const CARD_CHECKLIST = [
   { id: 'name', label: 'Имя', done: (c) => Boolean(c.name) },
-  { id: 'role', label: 'Чем вы занимаетесь', done: (c) => Boolean(c.role || c.headline) },
+  { id: 'role', label: 'Чем вы занимаетесь', done: (c) => Boolean(c.role) },
   { id: 'contact', label: 'Контакт для связи', done: (c) => Boolean(c.phone || c.telegram || c.email) },
   { id: 'cover', label: 'Фото или оформление', done: (c) => Boolean(c.coverPhoto || c.profession) },
-  { id: 'about', label: 'О себе', done: (c) => Boolean(c.bio) },
-  { id: 'services', label: 'Услуги или цена', done: (c) => Boolean(c.services || c.priceFrom || c.servicePackages?.length) }
+  { id: 'trust', label: 'Факты о себе', done: (c) => (c.facts || []).some((f) => f.value) || Boolean(c.clients) },
+  { id: 'offer', label: 'Праздники или форматы', done: (c) => enabledOccasions(c).length > 0 || (c.formats || []).some((f) => f.title) }
 ];
 
 export function cardCompletion(card) {

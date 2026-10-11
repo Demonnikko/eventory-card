@@ -1,12 +1,7 @@
 import { normalizePhone, normalizeTelegram, normalizeVk, normalizeMax } from './profile.js';
-
-// Собрать занятость по месяцам из событий (последние 3 + следующие 9 месяцев = 12 плиток)
+import { OCCASIONS } from './occasions.js';
 
 const CARD_ID = 'business-card';
-
-// Редактор визитки заморожен в браузере/PWA до запуска отдельного продукта.
-// Данные и публичные ссылки сохраняются для безопасной миграции.
-export const BUSINESS_CARD_AVAILABLE = false;
 
 export const BUSINESS_CARD_PROFESSIONS = [
   { id: 'host', label: 'Ведущий', background: 'speech' },
@@ -51,24 +46,6 @@ export function businessCardOnboardingTemplateUrl(profession) {
     || BUSINESS_CARD_ONBOARDING_TEMPLATE_BY_PROFESSION.host;
 }
 
-// Один и тот же профиль можно показывать в разных точках, но для артиста
-// важно понимать, что реально даёт обращения. Каналы остаются намеренно
-// короткими: это не отдельные лендинги, а подпись к персональному QR.
-export const CARD_QR_CHANNELS = [
-  { id: 'card', label: 'Визитка', note: 'Для печати и показа с телефона' },
-  { id: 'venue', label: 'Площадка', note: 'Для банкетного зала или стойки' },
-  { id: 'instagram', label: 'Instagram', note: 'Для шапки профиля и сторис' },
-  { id: 'agency', label: 'Агентство', note: 'Для партнёров и организаторов' }
-];
-
-const CARD_QR_CHANNEL_IDS = new Set(CARD_QR_CHANNELS.map((item) => item.id));
-
-export const SOCIAL_TYPES = [
-  'instagram', 'telegram', 'whatsapp', 'vk', 'youtube',
-  'tiktok', 'linkedin', 'behance', 'dribbble', 'threads',
-  'twitter', 'website'
-];
-
 // Галерея хранится вместе с визиткой в Redis. 68 КБ на файл оставляют запас
 // для шести фото, обложки и текстовых данных в общем лимите публикации 1 МБ.
 export const BUSINESS_CARD_GALLERY_MAX_BYTES = 68 * 1024;
@@ -79,42 +56,49 @@ export const DEFAULT_BUSINESS_CARD = {
   profession: '',
   name: '',
   role: '',
-  company: '',
+  company: '',            // бренд над именем: «KOSTYUK PROJECT»
   city: '',
-  headline: 'Event-профессионал',
   tagline: '',
-  bio: '',
-  highlights: '',
+  bio: '',                // не показывается на визитке, уходит в сохранённый контакт
   phone: '',
   email: '',
   telegram: '',
   vk: '',
   max: '',
   website: '',
-  portfolioUrl: '',
-  videoUrl: '',
-  services: '',
-  priceFrom: '',
-  responseTime: 'в течение дня',
-  servicePackages: [],     // [{ title, price, description }] до 3 пакетов
-  socials: [],            // [{type, url}]
+  videoUrl: '',           // ссылка на выступление: кнопка «Смотреть выступление»
   avatarPhoto: '',        // legacy: новые визитки используют только обложку
   coverPhoto: '',         // data:image/jpeg;base64,...
   coverPosition: 'top',   // 'top' | 'center' | 'bottom'
-  galleryPhotos: [],      // data:image/jpeg;base64,... до 6 фото
-  galleryCaptions: [],    // подписи к кейсам, индекс совпадает с galleryPhotos
-  cardMode: 'landing',    // 'landing' | 'leadgen' | 'contact'
-  ctaText: 'Оставить заявку',
+  galleryPhotos: [],      // номера и работы: data:image/jpeg;base64,... до 6 фото
+  galleryCaptions: [],    // название номера, индекс совпадает с galleryPhotos
+  // Доверие: короткие факты («10 лет» · «на сцене») и строка клиентов.
+  facts: [],              // [{ value, label }] до 3
+  clients: '',
+  // Форматы выступления без цены: «20 минут · Сценический блок».
+  formats: [],            // [{ minutes, title, description }] до 4
+  // Что нужно от площадки — снимает страх организатора.
+  requirements: [],       // [{ title, text }] до 4
+  requirementsNote: '',
+  quotes: [],             // [{ text, author }] до 3 — текстовые отзывы
+  // Праздники: { [id]: { on, note, headline, text, photo, highlightTitle,
+  // highlightText, highlightPhoto } }. Каталог — shared/data/occasions.js.
+  occasions: {},
   leadEnabled: true,
-  leadTitle: 'Расскажите о событии',
-  leadSubtitle: 'Я отвечу и подготовлю предложение',
   crmEnabled: false,      // встроенная заявка и CRM доступны только в Pro
   crmModeSynced: false,   // локальный маркер миграции старых публикаций
   leadKey: '',
-  showSchedule: false,   // показывать график занятости на публичной визитке
-  kioskMode: false,      // режим витрины: иконка открывает сразу present с QR
+  kioskMode: false,       // режим витрины: иконка открывает сразу present с QR
   publishedSlug: '',
   publishedAt: null
+};
+
+export const CARD_LIMITS = {
+  facts: 3,
+  formats: 4,
+  requirements: 4,
+  quotes: 3,
+  gallery: 6
 };
 
 function clean(value, max = 240) {
@@ -161,38 +145,75 @@ function cleanGalleryCaptions(input) {
   return input.slice(0, 6).map((value) => clean(value, 100));
 }
 
-function cleanServicePackages(input) {
+// Списки (факты, форматы, требования, цитаты) в редакторе живут построчно:
+// человек нажал «Добавить» и ещё не начал печатать — пустая строка должна
+// пережить автосохранение. Поэтому здесь пустые строки сохраняются, а
+// отбрасываются только при публикации (см. filled в publicCardPayload).
+function cleanList(input, limit, shape) {
   if (!Array.isArray(input)) return [];
   return input
     .filter((item) => item && typeof item === 'object')
-    .map((item) => ({
-      title: clean(item.title, 80),
-      price: clean(item.price, 40),
-      description: clean(item.description, 180)
-    }))
-    .filter((item) => item.title || item.price || item.description)
-    .slice(0, 3);
+    .slice(0, limit)
+    .map(shape);
 }
 
-function cleanSocials(input, { keepDrafts = true } = {}) {
-  if (!Array.isArray(input)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const item of input) {
+const cleanFacts = (input) => cleanList(input, CARD_LIMITS.facts, (item) => ({
+  value: clean(item.value, 12),
+  label: clean(item.label, 24)
+}));
+
+const cleanFormats = (input) => cleanList(input, CARD_LIMITS.formats, (item) => ({
+  minutes: clean(item.minutes, 6),
+  title: clean(item.title, 48),
+  description: clean(item.description, 90)
+}));
+
+const cleanRequirements = (input) => cleanList(input, CARD_LIMITS.requirements, (item) => ({
+  title: clean(item.title, 24),
+  text: clean(item.text, 70)
+}));
+
+const cleanQuotes = (input) => cleanList(input, CARD_LIMITS.quotes, (item) => ({
+  text: clean(item.text, 220),
+  author: clean(item.author, 60)
+}));
+
+// Номер фото для праздника: -1 — обложка визитки, 0…5 — фото из «Номеров».
+function cleanPhotoIndex(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= -1 && n < CARD_LIMITS.gallery ? n : -1;
+}
+
+// Настройки праздников. Чужие ключи отбрасываем: страница существует только
+// для праздников из общего каталога, иначе Sales не угадал бы её адрес.
+function cleanOccasions(input) {
+  const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const out = {};
+  for (const { id } of OCCASIONS) {
+    const item = source[id];
     if (!item || typeof item !== 'object') continue;
-    const type = String(item.type || '').toLowerCase();
-    if (!SOCIAL_TYPES.includes(type) || seen.has(type)) continue;
-    const url = cleanUrl(item.url);
-    if (!url) {
-      if (!keepDrafts) continue;
-      seen.add(type);
-      out.push({ type, url: '' });
-      if (out.length >= 10) break;
-      continue;
-    }
-    seen.add(type);
-    out.push({ type, url });
-    if (out.length >= 10) break;
+    out[id] = {
+      on: item.on === true,
+      note: clean(item.note, 60),
+      headline: clean(item.headline, 90),
+      text: clean(item.text, 220),
+      photo: cleanPhotoIndex(item.photo),
+      highlightTitle: clean(item.highlightTitle, 40),
+      highlightText: clean(item.highlightText, 140),
+      highlightPhoto: cleanPhotoIndex(item.highlightPhoto)
+    };
+  }
+  return out;
+}
+
+// Публикуются только заполненные строки: пустая заготовка из редактора не
+// должна превращаться в пустую плитку на визитке клиента.
+const filled = (list, key) => list.filter((item) => String(item[key] || '').trim());
+
+function publicOccasions(occasions) {
+  const out = {};
+  for (const [id, item] of Object.entries(occasions)) {
+    if (item.on) out[id] = item;
   }
   return out;
 }
@@ -207,8 +228,25 @@ export function createLeadKey() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Поля прежних версий визитки, у которых больше нет ни экрана, ни места на
+// публичной странице: цена «от», услуги и пакеты (их заменили праздники и
+// форматы), спецпредложение и быстрые вопросы (их заменила одна заявка
+// «Проверить дату»), соцсети и график из CRM. Убираем при чтении, чтобы
+// они не жили в данных мёртвым грузом и не уезжали в резервные копии.
+const RETIRED_FIELDS = [
+  'headline', 'highlights', 'portfolioUrl', 'services', 'priceFrom',
+  'responseTime', 'servicePackages', 'socials', 'cardMode', 'ctaText',
+  'offerText', 'leadTitle', 'leadSubtitle', 'showSchedule', 'schedule'
+];
+
+function withoutRetired(input) {
+  const rest = { ...input };
+  for (const key of RETIRED_FIELDS) delete rest[key];
+  return rest;
+}
+
 export function normalizeBusinessCard(input = {}) {
-  // Один фирменный визуальный язык: тёплый графит и золото из иконки.
+  // Один фирменный визуальный язык: графит и шампань.
   // Старые карточки с альтернативными темами автоматически обновляются.
   const theme = DEFAULT_BUSINESS_CARD.theme;
   const professionIds = new Set(BUSINESS_CARD_PROFESSIONS.map((item) => item.id));
@@ -216,31 +254,23 @@ export function normalizeBusinessCard(input = {}) {
   const leadKey = /^[a-f0-9]{32}$/i.test(String(input.leadKey || '')) ? String(input.leadKey).toLowerCase() : '';
   return {
     ...DEFAULT_BUSINESS_CARD,
-    ...input,
+    ...withoutRetired(input),
     id: CARD_ID,
     theme,
     profession,
     name: clean(input.name, 80),
     role: clean(input.role, 80),
-    company: clean(input.company, 80),
+    company: clean(input.company, 40),
     city: clean(input.city, 80),
-    headline: clean(input.headline, 120),
     tagline: clean(input.tagline, 90),
     bio: clean(input.bio, 800),
-    highlights: clean(input.highlights, 600),
     phone: normalizePhone(input.phone),
     email: cleanEmail(input.email),
     telegram: normalizeTelegram(input.telegram),
     vk: normalizeVk(input.vk),
     max: normalizeMax(input.max),
     website: cleanUrl(input.website),
-    portfolioUrl: cleanUrl(input.portfolioUrl),
     videoUrl: cleanUrl(input.videoUrl),
-    services: clean(input.services, 800),
-    priceFrom: clean(input.priceFrom, 40),
-    responseTime: clean(input.responseTime, 60) || DEFAULT_BUSINESS_CARD.responseTime,
-    servicePackages: cleanServicePackages(input.servicePackages),
-    socials: cleanSocials(input.socials),
     avatarPhoto: '',
     coverPhoto: cleanDataUrl(input.coverPhoto, 320 * 1024),
     coverPosition: ['top', 'center', 'bottom'].includes(String(input.coverPosition || ''))
@@ -248,26 +278,26 @@ export function normalizeBusinessCard(input = {}) {
       : DEFAULT_BUSINESS_CARD.coverPosition,
     galleryPhotos: cleanGallery(input.galleryPhotos),
     galleryCaptions: cleanGalleryCaptions(input.galleryCaptions),
-    cardMode: ['landing', 'leadgen', 'contact'].includes(String(input.cardMode || '')) ? String(input.cardMode) : 'landing',
-    ctaText: clean(input.ctaText, 40) || DEFAULT_BUSINESS_CARD.ctaText,
-    // Спецпредложение для горячих гостей — текст владельца, визитка его не сочиняет.
-    offerText: clean(input.offerText, 140),
+    facts: cleanFacts(input.facts),
+    clients: clean(input.clients, 160),
+    formats: cleanFormats(input.formats),
+    requirements: cleanRequirements(input.requirements),
+    requirementsNote: clean(input.requirementsNote, 120),
+    quotes: cleanQuotes(input.quotes),
+    occasions: cleanOccasions(input.occasions),
     leadEnabled: input.leadEnabled !== false,
-    leadTitle: clean(input.leadTitle, 70) || DEFAULT_BUSINESS_CARD.leadTitle,
-    leadSubtitle: clean(input.leadSubtitle, 130) || DEFAULT_BUSINESS_CARD.leadSubtitle,
     crmEnabled: input.crmEnabled === true,
     crmModeSynced: input.crmModeSynced === true,
     leadKey,
-    showSchedule: input.showSchedule === true,
     kioskMode: input.kioskMode === true,
     publishedSlug: /^[a-z0-9_-]{6,32}$/i.test(String(input.publishedSlug || '')) ? String(input.publishedSlug) : '',
     publishedAt: Number.isFinite(Number(input.publishedAt)) ? Number(input.publishedAt) : null
   };
 }
 
-
-
-export function publicCardPayload(card, scheduleGrid = null) {
+// Что уходит на сервер и видит клиент. Только то, что рисует визитка, плюс
+// bio — оно не показывается, но попадает в сохранённый гостем контакт.
+export function publicCardPayload(card) {
   const c = normalizeBusinessCard(card);
   return {
     theme: c.theme,
@@ -276,70 +306,30 @@ export function publicCardPayload(card, scheduleGrid = null) {
     role: c.role,
     company: c.company,
     city: c.city,
-    headline: c.headline,
     tagline: c.tagline,
     bio: c.bio,
-    highlights: c.highlights,
     phone: c.phone,
     email: c.email,
     telegram: c.telegram,
     vk: c.vk,
     max: c.max,
     website: c.website,
-    portfolioUrl: c.portfolioUrl,
     videoUrl: c.videoUrl,
-    services: c.services,
-    priceFrom: c.priceFrom,
-    responseTime: c.responseTime,
-    servicePackages: c.servicePackages,
-    socials: c.socials,
     avatarPhoto: '',
     coverPhoto: c.coverPhoto,
     coverPosition: c.coverPosition,
     galleryPhotos: c.galleryPhotos,
     galleryCaptions: c.galleryCaptions,
-    cardMode: c.cardMode,
-    ctaText: c.ctaText,
-    // Без этого поля спецпредложение оставалось на телефоне владельца и до
-    // гостей не доходило: крючок на публичной визитке молчал.
-    offerText: c.offerText,
+    facts: filled(c.facts, 'value'),
+    clients: c.clients,
+    formats: filled(c.formats, 'title'),
+    requirements: filled(c.requirements, 'title'),
+    requirementsNote: c.requirementsNote,
+    quotes: filled(c.quotes, 'text'),
+    occasions: publicOccasions(c.occasions),
     leadEnabled: c.leadEnabled,
-    leadTitle: c.leadTitle,
-    leadSubtitle: c.leadSubtitle,
-    crmEnabled: c.crmEnabled,
-    showSchedule: c.showSchedule,
-    schedule: c.showSchedule && Array.isArray(scheduleGrid) ? scheduleGrid : null
+    crmEnabled: c.crmEnabled
   };
-}
-
-// Канонный прод-домен публичной визитки. QR и внешние ссылки ВСЕГДА ведут сюда,
-// независимо от того, с какого деплоя открыто приложение (staging/превью/прод).
-// Иначе QR, сгенерированный со staging-домена, вёл клиента на мёртвый адрес.
-export const CARD_PUBLIC_ORIGIN = 'https://eventory-mvp.vercel.app';
-
-// Внешние ссылки используют чистый путь: он короче и выглядит как обычная
-// персональная страница. Старые ссылки с #/v/ продолжают поддерживаться роутером.
-export function cardPublicUrl(slug, source = '') {
-  const cleanSlug = String(slug || '').trim();
-  if (!cleanSlug) return '';
-  const cleanSource = String(source || '').trim().toLowerCase();
-  const url = `${CARD_PUBLIC_ORIGIN}/v/${encodeURIComponent(cleanSlug)}`;
-  return CARD_QR_CHANNEL_IDS.has(cleanSource)
-    ? `${url}?src=${encodeURIComponent(cleanSource)}`
-    : url;
-}
-
-// Внутренняя навигация в приложении — хеш-роут, не триггерит перезагрузку.
-export function cardAppUrl(slug) {
-  const cleanSlug = String(slug || '').trim();
-  return cleanSlug ? `#/v/${encodeURIComponent(cleanSlug)}` : '';
-}
-
-// Экран для показа с телефона: визуальная карточка с QR. Используется
-// в «Командах» и быстрых действиях, поэтому адрес всегда ведёт на прод.
-export function cardPresentationUrl(slug) {
-  const cleanSlug = String(slug || '').trim();
-  return cleanSlug ? `${CARD_PUBLIC_ORIGIN}/#/qr/${encodeURIComponent(cleanSlug)}` : '';
 }
 
 // Стабильный id устройства визитки. Нужен для партнёрки (идентифицировать
@@ -360,36 +350,6 @@ export function cardDeviceId() {
   return getDeviceIdSafe();
 }
 
-export async function publishBusinessCard(card, { crmEnabled } = {}) {
-  const source = normalizeBusinessCard({
-    ...card,
-    leadKey: card?.leadKey || createLeadKey(),
-    crmEnabled: typeof crmEnabled === 'boolean' ? crmEnabled : card?.crmEnabled
-  });
-  const scheduleGrid = source.showSchedule ? await buildScheduleGrid() : null;
-  const payload = publicCardPayload(source, scheduleGrid);
-  const res = await fetch('/api/card-publish', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      slug: source.publishedSlug || '',
-      leadKey: source.leadKey,
-      card: payload,
-      deviceId: getDeviceIdSafe()
-    })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) throw new Error(data?.error || `publish_${res.status}`);
-  const saved = await saveBusinessCard({
-    ...source,
-    crmModeSynced: true,
-    leadKey: data.leadKey || source.leadKey,
-    publishedSlug: data.slug,
-    publishedAt: Date.now()
-  });
-  return { card: saved, url: data.url || cardPublicUrl(data.slug) };
-}
-
 // Ротация leadKey (защита если ключ утёк). Возвращает обновлённую карточку
 // с новым leadKey. Если карточка не опубликована или ключ не совпал — throws.
 export async function rotateBusinessCardLeadKey(card) {
@@ -406,97 +366,6 @@ export async function rotateBusinessCardLeadKey(card) {
   if (!res.ok || !data?.ok) throw new Error(data?.error || `rotate_${res.status}`);
   const saved = await saveBusinessCard({ ...source, leadKey: data.leadKey });
   return saved;
-}
-
-export async function fetchBusinessCardLeads(card) {
-  const c = normalizeBusinessCard(card);
-  if (!c.publishedSlug || !c.leadKey) return { leads: [], count: 0, sources: {}, metrics: {} };
-  const qs = new URLSearchParams({ slug: c.publishedSlug });
-  const res = await fetch(`/api/card-lead?${qs.toString()}`, {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${c.leadKey}`
-    }
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) throw new Error(data?.error || `leads_${res.status}`);
-  return {
-    leads: Array.isArray(data.leads) ? data.leads : [],
-    count: Number(data.count || 0),
-    sources: data.sources && typeof data.sources === 'object' ? data.sources : {},
-    metrics: data.metrics && typeof data.metrics === 'object' ? data.metrics : {}
-  };
-}
-
-export async function updateBusinessCardLeadStatus(card, leadId, status) {
-  const c = normalizeBusinessCard(card);
-  if (!c.publishedSlug || !c.leadKey || !leadId) throw new Error('invalid_request');
-  const res = await fetch('/api/card-lead?action=lead-status', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${c.leadKey}`
-    },
-    body: JSON.stringify({ slug: c.publishedSlug, leadId: String(leadId), status: String(status) })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) throw new Error(data?.error || `lead_status_${res.status}`);
-  return data.lead;
-}
-
-// Артист запрашивает ссылку на отзыв для завершённого заказа. Возвращает URL.
-// Бросает 'already_reviewed', если по этому заказу отзыв уже оставлен.
-export async function requestReviewLink(card, orderId) {
-  const c = normalizeBusinessCard(card);
-  if (!c.publishedSlug || !c.leadKey) throw new Error('not_published');
-  if (!orderId) throw new Error('invalid_request');
-  const res = await fetch('/api/card-lead?action=review-token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${c.leadKey}`
-    },
-    body: JSON.stringify({ slug: c.publishedSlug, orderId: String(orderId) })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) throw new Error(data?.error || `review_token_${res.status}`);
-  return { url: data.url, telegramUrl: data.telegramUrl || '', token: data.token };
-}
-
-// Публичное чтение отзывов визитки (для публичной страницы и формы отзыва).
-export async function fetchCardReviews(slug) {
-  const safe = String(slug || '').trim();
-  if (!safe) return { reviews: [], count: 0, average: 0 };
-  const res = await fetch(`/api/card-lead?action=reviews&slug=${encodeURIComponent(safe)}`);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) return { reviews: [], count: 0, average: 0 };
-  return {
-    reviews: Array.isArray(data.reviews) ? data.reviews : [],
-    count: Number(data.count || 0),
-    average: Number(data.average || 0)
-  };
-}
-
-// Публикация отзыва посетителем по одноразовому токену.
-// auth — сырые OAuth-данные ({ provider:'telegram', telegram:<widgetUser> } или
-// { provider:'vk' }). Сервер их проверяет и сам ставит author/verified.
-export async function submitCardReview(token, review, auth) {
-  const res = await fetch('/api/card-lead?action=review', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, review, auth })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) throw new Error(data?.error || `review_${res.status}`);
-  return data.review;
-}
-
-// Забирает проверенное VK-имя после redirect (callback положил во временный ключ).
-export async function claimVkReviewAuth(token) {
-  const res = await fetch(`/api/card-lead?action=review-vk-claim&token=${encodeURIComponent(token)}`);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) return null;
-  return { author: data.author };
 }
 
 // Сжимает картинку через canvas. Возвращает data:image/jpeg base64.
@@ -549,61 +418,3 @@ export async function compressImage(file, { maxDim = 1200, quality = 0.85, maxBy
     URL.revokeObjectURL(url);
   }
 }
-
-// Формирует vCard 3.0 для скачивания "В контакты".
-export function buildVCard(card) {
-  const c = normalizeBusinessCard(card);
-  const esc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
-  const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
-  if (c.name) lines.push(`FN:${esc(c.name)}`);
-  if (c.name) {
-    const parts = c.name.trim().split(/\s+/);
-    const last = parts.slice(1).join(' ');
-    const first = parts[0] || '';
-    lines.push(`N:${esc(last)};${esc(first)};;;`);
-  }
-  if (c.company) lines.push(`ORG:${esc(c.company)}`);
-  if (c.role) lines.push(`TITLE:${esc(c.role)}`);
-  if (c.phone) lines.push(`TEL;TYPE=CELL:${esc(c.phone)}`);
-  if (c.email) lines.push(`EMAIL;TYPE=INTERNET:${esc(c.email)}`);
-  if (c.website) lines.push(`URL:${esc(c.website)}`);
-  if (c.telegram) {
-    const tg = String(c.telegram).replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '');
-    lines.push(`URL;TYPE=Telegram:https://t.me/${esc(tg)}`);
-  }
-  if (c.vk) lines.push(`URL;TYPE=VK:${esc(String(c.vk))}`);
-  if (c.max) lines.push(`URL;TYPE=MAX:${esc(String(c.max))}`);
-  if (c.city) lines.push(`ADR;TYPE=WORK:;;${esc(c.city)};;;;`);
-  if (c.bio) lines.push(`NOTE:${esc(c.bio)}`);
-  lines.push('END:VCARD');
-  return lines.join('\r\n');
-}
-
-export function downloadVCard(card) {
-  const vcf = buildVCard(card);
-  const blob = new Blob([vcf], { type: 'text/vcard;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const filename = (card.name || 'contact').replace(/[^a-z0-9_-]/gi, '_') || 'contact';
-  a.download = `${filename}.vcf`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-}
-
-// Лейблы и иконки для соцсетей. Используются на public-странице.
-export const SOCIAL_META = {
-  instagram: { label: 'Instagram', color: '#E1306C' },
-  telegram: { label: 'Telegram', color: '#2AABEE' },
-  whatsapp: { label: 'WhatsApp', color: '#25D366' },
-  vk: { label: 'VK', color: '#4C75A3' },
-  youtube: { label: 'YouTube', color: '#FF0000' },
-  tiktok: { label: 'TikTok', color: '#000' },
-  linkedin: { label: 'LinkedIn', color: '#0A66C2' },
-  behance: { label: 'Behance', color: '#053EFF' },
-  dribbble: { label: 'Dribbble', color: '#EA4C89' },
-  threads: { label: 'Threads', color: '#000' },
-  twitter: { label: 'X / Twitter', color: '#000' },
-  website: { label: 'Сайт', color: '#888' }
-};
