@@ -103,9 +103,6 @@ export const DEFAULT_BUSINESS_CARD = {
   // праздники — customOccasions: [{ id, title, slug }].
   occasions: {},
   customOccasions: [],
-  leadEnabled: true,
-  crmEnabled: false,      // встроенная заявка и CRM доступны только в Pro
-  crmModeSynced: false,   // локальный маркер миграции старых публикаций
   leadKey: '',
   kioskMode: false,       // режим витрины: иконка открывает сразу present с QR
   publishedSlug: '',
@@ -331,13 +328,15 @@ export function createLeadKey() {
 // публичной странице: цена «от», услуги и пакеты (их заменили праздники и
 // форматы), спецпредложение и быстрые вопросы (их заменила одна заявка
 // «Проверить дату»), соцсети, график из CRM и аватар (визитка давно живёт
-// одной обложкой). Убираем при чтении, чтобы
+// одной обложкой), флаги старого приёма заявок (заявки визитки идут в
+// «Отклик»; закрытие старого пути — crmEnabled:false в publishCard).
+// Убираем при чтении, чтобы
 // они не жили в данных мёртвым грузом и не уезжали в резервные копии.
 const RETIRED_FIELDS = [
   'headline', 'highlights', 'portfolioUrl', 'services', 'priceFrom',
   'responseTime', 'servicePackages', 'socials', 'cardMode', 'ctaText',
   'offerText', 'leadTitle', 'leadSubtitle', 'showSchedule', 'schedule',
-  'avatarPhoto'
+  'avatarPhoto', 'leadEnabled', 'crmEnabled', 'crmModeSynced'
 ];
 
 function withoutRetired(input) {
@@ -392,9 +391,6 @@ export function normalizeBusinessCard(input = {}) {
     quotes: cleanQuotes(input.quotes),
     occasions: cleanOccasions(legacy.occasions, customOccasions),
     customOccasions,
-    leadEnabled: input.leadEnabled !== false,
-    crmEnabled: input.crmEnabled === true,
-    crmModeSynced: input.crmModeSynced === true,
     leadKey,
     kioskMode: input.kioskMode === true,
     publishedSlug: /^[a-z0-9_-]{6,32}$/i.test(String(input.publishedSlug || '')) ? String(input.publishedSlug) : '',
@@ -437,9 +433,7 @@ export function publicCardPayload(card) {
     included: filled(c.included, 'text'),
     quotes: filled(c.quotes, 'text'),
     occasions: publicOccasions(c.occasions),
-    customOccasions: publicCustomOccasions(c.customOccasions, c.occasions),
-    leadEnabled: c.leadEnabled,
-    crmEnabled: c.crmEnabled
+    customOccasions: publicCustomOccasions(c.customOccasions, c.occasions)
   };
 }
 

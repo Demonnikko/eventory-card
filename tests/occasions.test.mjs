@@ -289,6 +289,28 @@ test('на сервер уходят только включённые праз�
   }
 });
 
+test('снятые функции не живут ни в данных, ни в публикации, ни в коде экранов', async () => {
+  const { readFile, readdir } = await import('node:fs/promises');
+  const retired = ['offerText', 'ctaText', 'leadTitle', 'leadSubtitle', 'servicePackages', 'priceFrom',
+    'responseTime', 'socials', 'portfolioUrl', 'cardMode', 'showSchedule', 'avatarPhoto',
+    'leadEnabled', 'crmModeSynced'];
+  const legacy = Object.fromEntries(retired.map((key) => [key, 'x']));
+  const card = normalizeBusinessCard({ name: 'Дмитрий', ...legacy });
+  const payload = publicCardPayload(card);
+  for (const key of retired) {
+    assert.equal(key in card, false, `в данных осталось ${key}`);
+    assert.equal(key in payload, false, `в публикацию ушло ${key}`);
+  }
+  // В коде экранов снятых полей нет: они упоминаются только в списке на
+  // вычистку (businessCard.js).
+  const dir = new URL('../src/', import.meta.url);
+  const files = (await readdir(dir)).filter((name) => name.endsWith('.js'));
+  for (const name of files) {
+    const text = await readFile(new URL(name, dir), 'utf8');
+    for (const key of retired) assert.doesNotMatch(text, new RegExp(`\\b${key}\\b`), `${name}: ${key}`);
+  }
+});
+
 test('ссылка на праздник и канал собирается без лишних частей', () => {
   assert.equal(cardPublicUrl(''), '');
   assert.equal(cardPublicUrl('abc123'), '/v/abc123');
