@@ -202,7 +202,9 @@ export function renderOccasionPage(card, occasion, ctx) {
       ${renderHero(card, {
         photo,
         position,
-        top: `${back}${brandMark(card)}`,
+        // Бренд всегда справа: и с кнопкой «Все праздники», и без неё (по ссылке
+        // из Sales). Слева остаётся место шарам гирлянды.
+        top: `${back || '<span></span>'}${brandMark(card)}`,
         chip: occasionInSeason(occasion, ctx.now) ? 'Сезон · бронируют сейчас' : '',
         eyebrow: title,
         title: settings.headline || title,
