@@ -1,0 +1,210 @@
+/* Праздничная анимация шапки (occasion-fx.js).
+   Слой лежит между фото и текстом: .vz-hero-top и .vz-hero-copy подняты
+   выше (card-view.css). Анимируются только transform и opacity — это
+   дёшево даже на старых телефонах. Внизу шапки частицы гаснут маской,
+   чтобы не обрезаться о край. */
+
+.vz-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+}
+
+.vz-fx.is-paused,
+.vz-fx.is-paused * { animation-play-state: paused !important; }
+
+/* ===== Гирлянда ===== */
+.fx-wire {
+  position: absolute;
+  top: env(safe-area-inset-top);
+  left: 0;
+  width: 100%;
+  height: 46px;
+  overflow: visible;
+}
+
+.fx-wire path {
+  stroke: rgba(48, 58, 46, 0.95);
+  stroke-width: 1.5px;
+}
+
+.fx-bulb {
+  position: absolute;
+  left: var(--x);
+  top: calc(env(safe-area-inset-top) + var(--y));
+  width: 7px;
+  height: 11px;
+  margin-left: -3.5px;
+  border-radius: 45% 45% 50% 50% / 40% 40% 60% 60%;
+  background: var(--c);
+  box-shadow: 0 0 6px 1px var(--c), 0 0 18px 4px rgba(246, 213, 142, 0.28);
+  animation: fx-twinkle var(--dur) ease-in-out var(--delay) infinite alternate;
+}
+
+/* Цоколь лампочки. */
+.fx-bulb::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 1.5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: #3b3a35;
+}
+
+@keyframes fx-twinkle {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+.fx-bauble {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 6px);
+  left: var(--x);
+  width: var(--size);
+  height: calc(var(--thread) + var(--size));
+  margin-left: calc(var(--size) / -2);
+  transform-origin: 50% 0;
+  animation: fx-swing 4.4s ease-in-out var(--delay) infinite alternate;
+}
+
+/* Нить. */
+.fx-bauble::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: var(--thread);
+  background: linear-gradient(180deg, rgba(239, 230, 211, 0.55), rgba(239, 230, 211, 0.22));
+}
+
+.fx-bauble-ball {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  box-shadow: inset -3px -4px 8px rgba(0, 0, 0, 0.45), 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Колпачок шара. */
+.fx-bauble-ball::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 32%;
+  height: 5px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #e8dcc2, #8f8167);
+}
+
+/* Блик. */
+.fx-bauble-ball::after {
+  content: '';
+  position: absolute;
+  top: 17%;
+  left: 22%;
+  width: 28%;
+  height: 22%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.fx-bauble--gold .fx-bauble-ball { background: radial-gradient(circle at 35% 30%, #fbf1d9, #d9c08a 45%, #8a7444 100%); }
+.fx-bauble--red .fx-bauble-ball { background: radial-gradient(circle at 35% 30%, #f1a090, #b23a2e 50%, #5a1611 100%); }
+.fx-bauble--silver .fx-bauble-ball { background: radial-gradient(circle at 35% 30%, #ffffff, #c9c9cf 45%, #6b6b72 100%); }
+
+@keyframes fx-swing {
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(5deg); }
+}
+
+/* ===== Падающие частицы ===== */
+.fx-flake,
+.fx-confetti,
+.fx-petal {
+  position: absolute;
+  top: -24px;
+  left: var(--x);
+  width: var(--size);
+  height: var(--size);
+  will-change: transform;
+}
+
+.fx-flake {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  opacity: 0.7;
+  animation: fx-fall var(--dur) linear var(--delay) infinite;
+}
+
+.fx-confetti {
+  height: calc(var(--size) * 1.6);
+  border-radius: 1px;
+  background: var(--c);
+  opacity: 0.85;
+  animation: fx-confetti var(--dur) linear var(--delay) infinite;
+}
+
+.fx-petal {
+  height: calc(var(--size) * 0.8);
+  border-radius: 80% 0 80% 0;
+  background: var(--c);
+  opacity: 0.85;
+  animation: fx-petal var(--dur) ease-in-out var(--delay) infinite;
+}
+
+@keyframes fx-fall {
+  to { transform: translate3d(var(--drift), 760px, 0); }
+}
+
+/* Конфетти кувыркается, а не просто падает. */
+@keyframes fx-confetti {
+  to { transform: translate3d(var(--drift), 760px, 0) rotate3d(1, 0.6, 0.2, var(--spin)); }
+}
+
+/* Лепесток плывёт из стороны в сторону, как настоящий. */
+@keyframes fx-petal {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  25% { transform: translate3d(calc(var(--drift) * 0.6), 190px, 0) rotate(calc(var(--spin) * 0.25)); }
+  50% { transform: translate3d(calc(var(--drift) * -0.3), 380px, 0) rotate(calc(var(--spin) * 0.5)); }
+  75% { transform: translate3d(calc(var(--drift) * 0.8), 570px, 0) rotate(calc(var(--spin) * 0.75)); }
+  100% { transform: translate3d(var(--drift), 760px, 0) rotate(var(--spin)); }
+}
+
+/* ===== Блёстки ===== */
+.fx-sparkle {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size);
+  height: var(--size);
+  fill: #f3e2b8;
+  filter: drop-shadow(0 0 4px rgba(246, 213, 142, 0.8));
+  opacity: 0;
+  animation: fx-sparkle var(--dur) ease-in-out var(--delay) infinite;
+}
+
+@keyframes fx-sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  50% { opacity: 0.95; transform: scale(1) rotate(45deg); }
+}
+
+/* «Уменьшение движения»: гирлянда светит неподвижно, частиц нет. */
+@media (prefers-reduced-motion: reduce) {
+  .fx-bulb,
+  .fx-bauble { animation: none; }
+  .fx-flake,
+  .fx-confetti,
+  .fx-petal,
+  .fx-sparkle { display: none; }
+}

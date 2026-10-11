@@ -5,6 +5,9 @@ import {
   OCCASION_SLUG_RE,
   MAX_CUSTOM_OCCASIONS,
   OCCASION_TITLE_MAX,
+  OCCASION_COVER_RE,
+  COVER_POSITIONS,
+  OCCASION_FX,
   isOccasionId
 } from './occasions.js';
 
@@ -94,9 +97,10 @@ export const DEFAULT_BUSINESS_CARD = {
   requirementsNote: '',
   included: [],           // [{ text }] до 4 — что входит в цену: «Реквизит», «Логотип в номере»
   quotes: [],             // [{ text, author, occasion }] до 3 — отзыв можно привязать к празднику
-  // Праздники: { [id]: { on, note, headline, text, photo, video,
-  // momentTitle, momentText, momentPhoto, acts, highlightTitle, highlightText,
-  // highlightPhoto, urgency } }. Каталог — shared/data/occasions.js, свои
+  // Праздники: { [id]: { on, note, headline, text, photo, cover,
+  // coverPosition, fx, video, momentTitle, momentText, momentPhoto, acts,
+  // highlightTitle, highlightText, highlightPhoto, urgency } }. cover — своя
+  // обложка праздника ссылкой на Vercel Blob, fx — анимация шапки. Каталог — shared/data/occasions.js, свои
   // праздники — customOccasions: [{ id, title, slug }].
   occasions: {},
   customOccasions: [],
@@ -280,6 +284,9 @@ function cleanOccasions(input, customOccasions) {
       headline: clean(item.headline, 90),
       text: clean(item.text, 220),
       photo: cleanPhotoIndex(item.photo),
+      cover: OCCASION_COVER_RE.test(String(item.cover || '')) ? String(item.cover) : '',
+      coverPosition: COVER_POSITIONS.includes(item.coverPosition) ? item.coverPosition : 'top',
+      fx: OCCASION_FX.includes(item.fx) ? item.fx : 'auto',
       video: cleanUrl(item.video),
       momentTitle: clean(item.momentTitle, 60),
       momentText: clean(item.momentText, 160),

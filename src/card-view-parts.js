@@ -102,8 +102,10 @@ export function optionalPhoto(card, index) {
   return index >= 0 ? photoAt(card, index) : '';
 }
 
-export function coverPositionValue(card) {
-  return { top: 'center 18%', center: 'center', bottom: 'center 82%' }[card.coverPosition] || 'center 18%';
+// Кадр обложки: «лицо сверху», центр или ниже. Принимает визитку или
+// настройки праздника — у обоих поле coverPosition.
+export function coverPositionValue(source) {
+  return { top: 'center 18%', center: 'center', bottom: 'center 82%' }[source?.coverPosition] || 'center 18%';
 }
 
 /* ─────────── Шапка ─────────── */
@@ -141,13 +143,15 @@ function renderHeroMedia(card, photo, position) {
   `;
 }
 
-export function renderHero(card, { photo, position, top, chip = '', eyebrow, title, titleClass, lead, video }) {
+// overlay — праздничная анимация (occasion-fx.js): между фото и текстом.
+export function renderHero(card, { photo, position, top, chip = '', eyebrow, title, titleClass, lead, video, overlay = '' }) {
   return `
     <header class="vz-hero${photo ? ' has-photo' : ' is-plain'}">
       <div class="vz-hero-media" aria-hidden="${photo ? 'false' : 'true'}">
         ${renderHeroMedia(card, photo, position)}
         <span class="vz-hero-veil" aria-hidden="true"></span>
       </div>
+      ${overlay}
       <div class="vz-hero-top">${top}</div>
       <div class="vz-hero-copy">
         ${chip ? `<span class="vz-chip vz-chip--solid" ${reveal()}>${escapeHtml(chip)}</span>` : ''}

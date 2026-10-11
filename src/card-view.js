@@ -41,7 +41,7 @@ function occasionHref(slug, occasion, { interactive, query }) {
 
 function renderOccasionTile(card, occasion, { lead, wide, href, now }) {
   const settings = card.occasions?.[occasion.id] || {};
-  const photo = settings.photo >= 0 ? photoAt(card, settings.photo) : '';
+  const photo = settings.cover || (settings.photo >= 0 ? photoAt(card, settings.photo) : '');
   const seasonal = occasionInSeason(occasion, now);
   const note = settings.note || occasion.note;
   const classes = [

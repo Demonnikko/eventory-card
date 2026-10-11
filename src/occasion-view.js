@@ -11,7 +11,8 @@
 import './styles/occasion-view.css';
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
-import { occasionInSeason, occasionTitle } from './shared/data/occasions.js';
+import { occasionInSeason, occasionTitle, occasionFx } from './shared/data/occasions.js';
+import { renderFx } from './occasion-fx.js';
 import {
   reveal,
   photoAt,
@@ -179,9 +180,13 @@ function renderFinale(card, settings, { interactive }) {
 export function renderOccasionPage(card, occasion, ctx) {
   const settings = card.occasions?.[occasion.id] || {};
   const title = occasionTitle(occasion, ctx.now);
-  const heroIsCover = !(settings.photo >= 0 && photoAt(card, settings.photo));
-  const photo = heroIsCover ? card.coverPhoto : photoAt(card, settings.photo);
-  const position = heroIsCover ? coverPositionValue(card) : 'center 30%';
+  // Обложка страницы: своя обложка праздника → фото из визитки → обложка визитки.
+  const ownCover = settings.cover || '';
+  const heroIsCover = !ownCover && !(settings.photo >= 0 && photoAt(card, settings.photo));
+  const photo = ownCover || (heroIsCover ? card.coverPhoto : photoAt(card, settings.photo));
+  const position = ownCover
+    ? coverPositionValue(settings)
+    : (heroIsCover ? coverPositionValue(card) : 'center 30%');
   const byline = [card.name, card.role].filter(Boolean).join(' · ');
   // «Все праздники» — только если человек пришёл сюда с главной визитки.
   // По ссылке из Sales страница самостоятельна: заказчик корпоратива не
@@ -203,7 +208,8 @@ export function renderOccasionPage(card, occasion, ctx) {
         title: settings.headline || title,
         titleClass: 'vz-headline',
         lead: settings.text || byline,
-        video: settings.video || card.videoUrl
+        video: settings.video || card.videoUrl,
+        overlay: renderFx(occasionFx(occasion, settings, ctx.now))
       })}
       <div class="vz-body">
         ${renderMoment(card, settings)}

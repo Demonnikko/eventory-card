@@ -105,6 +105,43 @@ export function enabledOccasions(card, date = new Date()) {
   return [seasonal, ...list.filter((item) => item !== seasonal)];
 }
 
+/* ─────────── Обложка и анимация праздника ─────────── */
+
+// Своя обложка праздника лежит в Vercel Blob (в самой визитке места нет:
+// публикация ограничена 1 МБ). Принимаем только ссылку из своего хранилища
+// и своей папки covers/ — чужой адрес на странице клиента не появится.
+export const OCCASION_COVER_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/covers\/[a-z0-9_-]{6,32}\/[a-f0-9]{18}\.(?:jpg|webp)$/i;
+export const COVER_POSITIONS = ['top', 'center', 'bottom'];
+
+// Анимация в шапке страницы праздника. auto — по поводу (см. defaultOccasionFx).
+export const OCCASION_FX = ['auto', 'none', 'garland', 'snow', 'confetti', 'petals', 'sparkles'];
+
+// Свои праздники угадываем по названию: «Новый год» — гирлянда, «Свадьба» —
+// лепестки. Остальным — блёстки: уместно для любого повода.
+const CUSTOM_FX = [
+  { re: /нов(ый|ого)\s*год|новогод|ёлк|елк|рождеств/i, fx: 'garland' },
+  { re: /свад|венча|годовщин/i, fx: 'petals' },
+  { re: /выпуск|последний звонок/i, fx: 'confetti' },
+  { re: /8\s*марта|весн/i, fx: 'petals' },
+  { re: /рожден|юбил|детск|вечерин/i, fx: 'confetti' }
+];
+
+export function defaultOccasionFx(occasion, date = new Date()) {
+  if (!occasion) return 'none';
+  if (occasion.id === 'corporate') return occasionInSeason(occasion, date) ? 'garland' : 'sparkles';
+  if (occasion.id === 'graduation') return 'confetti';
+  if (occasion.id === 'wedding') return 'petals';
+  const match = CUSTOM_FX.find((item) => item.re.test(occasion.title || ''));
+  return match ? match.fx : 'sparkles';
+}
+
+// Что показать на странице: выбор владельца или анимация по поводу.
+export function occasionFx(occasion, settings, date = new Date()) {
+  const chosen = settings?.fx;
+  if (chosen && chosen !== 'auto' && OCCASION_FX.includes(chosen)) return chosen;
+  return defaultOccasionFx(occasion, date);
+}
+
 /* ─────────── Свой праздник ─────────── */
 
 const TRANSLIT = {

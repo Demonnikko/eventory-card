@@ -204,7 +204,8 @@ function buildMetaTags(card, origin, slug, occasionSlug = '') {
   // data-URI, а фото хранятся именно так. Поэтому ведём тег на свою же
   // ветку ?photo=… — она отдаёт тот же снимок обычным jpeg. У праздника —
   // его собственное фото, иначе обложка, иначе заглушка бренда.
-  const image = (page && page.settings.photo >= 0 && photoUrl(card, origin, slug, page.settings.photo))
+  const image = (page && page.settings.cover)
+    || (page && page.settings.photo >= 0 && photoUrl(card, origin, slug, page.settings.photo))
     || photoUrl(card, origin, slug, -1)
     || `${origin}/og-default.png`;
 

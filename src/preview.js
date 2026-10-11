@@ -5,6 +5,7 @@
 // показываем — иначе человек публикует отзыв и не находит его ни на одном экране.
 import { getCard } from './card-data.js';
 import { renderCardView, cleanupRevealHints } from './card-view.js';
+import { watchFx } from './occasion-fx.js';
 import { injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { openDateRequest, resetDateRequest } from './date-request.js';
@@ -12,6 +13,7 @@ import { findOccasion } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
 
 const state = { card: null, occasion: null, reviews: [] };
+let stopFx = () => {};
 
 function renderContent() {
   const card = state.card;
@@ -52,6 +54,7 @@ export const preview = {
     return renderContent();
   },
   unmount() {
+    stopFx();
     document.querySelector('[data-date-sheet]')?.remove();
   },
   async mount(node, ctx = {}) {
@@ -61,6 +64,8 @@ export const preview = {
     node.innerHTML = renderContent();
     cleanupRevealHints(node);
     bind(node);
+    stopFx();
+    stopFx = watchFx(node);
 
     // Отзывы живут на сервере и приходят позже карточки: до публикации их
     // просто нет, поэтому экран не должен их ждать.

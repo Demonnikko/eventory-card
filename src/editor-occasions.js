@@ -17,9 +17,76 @@ import {
   createCustomOccasionId,
   uniqueOccasionSlug,
   MAX_CUSTOM_OCCASIONS,
-  OCCASION_TITLE_MAX
+  OCCASION_TITLE_MAX,
+  OCCASION_FX,
+  defaultOccasionFx
 } from './shared/data/occasions.js';
 import { field } from './editor-sections.js';
+import { FX_LABELS } from './occasion-fx.js';
+import { uploadOccasionCover } from './cover-upload.js';
+
+const COVER_POSITION_LABELS = { top: 'Лицо сверху', center: 'По центру', bottom: 'Ниже' };
+
+// Своя обложка праздника (например, фото в новогоднем колпаке) — загрузка в
+// хранилище. До первой публикации грузить некуда: у визитки ещё нет адреса.
+function coverBlock(card, occasion, settings) {
+  const id = occasion.id;
+  const published = Boolean(card.publishedSlug && card.leadKey);
+  const input = `<input type="file" accept="image/*" hidden data-occ-cover-input="${escapeAttr(id)}" />`;
+  if (settings.cover) {
+    const position = settings.coverPosition || 'top';
+    return `
+      <div class="ca-occ-cover">
+        <img class="ca-occ-cover-img" src="${escapeAttr(settings.cover)}" alt="Обложка праздника"
+          style="object-position:${{ top: 'center 18%', center: 'center', bottom: 'center 82%' }[position]}" />
+        <div class="ca-segment" role="radiogroup" aria-label="Кадр обложки">
+          ${Object.entries(COVER_POSITION_LABELS).map(([value, label]) => `
+            <button type="button" role="radio" aria-checked="${position === value ? 'true' : 'false'}"
+              class="ca-segment-btn${position === value ? ' is-active' : ''}" data-occ-cover-pos="${escapeAttr(id)}" data-value="${value}">
+              ${escapeHtml(label)}
+            </button>
+          `).join('')}
+        </div>
+        <div class="ca-cover-actions">
+          <button type="button" class="ca-btn ca-btn--ghost" data-occ-cover-trigger="${escapeAttr(id)}">Заменить</button>
+          <button type="button" class="ca-btn ca-btn--ghost" data-occ-cover-remove="${escapeAttr(id)}">Убрать</button>
+        </div>
+        ${input}
+      </div>
+    `;
+  }
+  return `
+    <div class="ca-occ-cover">
+      <button type="button" class="ca-btn ca-btn--ghost ca-occ-cover-upload" data-occ-cover-trigger="${escapeAttr(id)}"
+        ${published ? '' : 'disabled'}>${renderIcon('upload')} Загрузить свою обложку</button>
+      <span class="ca-field-hint">${published
+        ? 'Например, фото в новогоднем колпаке — только для этой страницы.'
+        : 'Станет доступно после первой публикации визитки.'}</span>
+      ${input}
+    </div>
+    ${photoPicker(card, id, 'photo', settings.photo ?? -1, { label: 'Или фото из визитки' })}
+  `;
+}
+
+// Анимация шапки: «Авто» подбирает её под праздник.
+function fxPicker(occasion, settings) {
+  const current = settings.fx || 'auto';
+  const auto = FX_LABELS[defaultOccasionFx(occasion)] || '';
+  return `
+    <fieldset class="ca-occ-fx">
+      <legend class="ca-field-label">Анимация в шапке</legend>
+      <div class="ca-chips">
+        ${[...OCCASION_FX.filter((fx) => fx !== 'none'), 'none'].map((fx) => {
+          const label = fx === 'auto' ? `Авто · ${auto.toLowerCase()}` : FX_LABELS[fx];
+          return `
+            <button type="button" class="ca-chip${current === fx ? ' is-active' : ''}" aria-pressed="${current === fx ? 'true' : 'false'}"
+              data-occ-fx="${escapeAttr(occasion.id)}" data-value="${fx}">${escapeHtml(label)}</button>
+          `;
+        }).join('')}
+      </div>
+    </fieldset>
+  `;
+}
 
 // Выбор фото. noneLabel — что значит -1: «Обложка» визитки для обложки
 // страницы или «Без фото» для момента и изюминки.
@@ -117,7 +184,8 @@ function renderOccasionBody(card, occasion, settings) {
       ${group('Обложка', `
         ${occasionField(id, 'headline', 'Заголовок', settings.headline, { placeholder: occasionTitle(occasion), maxlength: 90, hint: 'Что получит вечер — а не «кто я».' })}
         ${occasionField(id, 'text', 'Пара слов под заголовком', settings.text, { textarea: true, rows: 2, maxlength: 220, placeholder: 'Для кого и в чём особенность программы' })}
-        ${photoPicker(card, id, 'photo', settings.photo ?? -1, { label: 'Фото обложки' })}
+        ${coverBlock(card, occasion, settings)}
+        ${fxPicker(occasion, settings)}
         ${occasionField(id, 'video', 'Видео для этой страницы', settings.video, { type: 'url', placeholder: 'Если пусто — видео из «Фото и видео»' })}
         ${occasionField(id, 'note', 'Подпись на плитке', settings.note, { placeholder: occasion.note, maxlength: 60 })}
       `)}
@@ -248,6 +316,60 @@ export function bindOccasionEditor(node, api) {
   bindActs(node, api);
   bindTemplate(node, api);
   bindCustom(node, api);
+  bindCover(node, api);
+  node.querySelectorAll('[data-occ-fx]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      hapticLight();
+      await api.persist(api.occasionPatch(btn.dataset.occFx, { fx: btn.dataset.value }));
+      api.rerender();
+    });
+  });
+}
+
+const COVER_ERRORS = {
+  not_published: 'Сначала опубликуйте визитку — тогда можно загрузить обложку',
+  image_too_large: 'Фото слишком большое — попробуйте другое',
+  forbidden: 'Ключ визитки не совпал. Опубликуйте визитку ещё раз',
+  not_image: 'Это не фото — выберите картинку'
+};
+
+function bindCover(node, api) {
+  node.querySelectorAll('[data-occ-cover-trigger]').forEach((btn) => {
+    const id = btn.dataset.occCoverTrigger;
+    const input = node.querySelector(`[data-occ-cover-input="${id}"]`);
+    btn.addEventListener('click', () => input?.click());
+    input?.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const label = btn.innerHTML;
+      btn.disabled = true;
+      btn.textContent = 'Загружаю…';
+      try {
+        const url = await uploadOccasionCover(api.card(), file);
+        await api.persist(api.occasionPatch(id, { cover: url }));
+        api.rerender();
+        toast.show('Обложка загружена — опубликуйте изменения', { ok: true });
+      } catch (error) {
+        btn.disabled = false;
+        btn.innerHTML = label;
+        input.value = '';
+        toast.show(COVER_ERRORS[error?.message] || 'Не получилось загрузить обложку. Проверьте интернет', { error: true });
+      }
+    });
+  });
+  node.querySelectorAll('[data-occ-cover-remove]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await api.persist(api.occasionPatch(btn.dataset.occCoverRemove, { cover: '' }));
+      api.rerender();
+    });
+  });
+  node.querySelectorAll('[data-occ-cover-pos]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      hapticLight();
+      await api.persist(api.occasionPatch(btn.dataset.occCoverPos, { coverPosition: btn.dataset.value }));
+      api.rerender();
+    });
+  });
 }
 
 // Номера на странице праздника: выбор хранится списком в порядке «Номеров».

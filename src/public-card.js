@@ -7,6 +7,7 @@
 // листает визитку как приложение, а адрес в строке остаётся настоящим —
 // его можно переслать, и превью в мессенджере покажет нужный праздник.
 import { renderCardView, cleanupRevealHints } from './card-view.js';
+import { watchFx } from './occasion-fx.js';
 import { injectReviews } from './reviews-view.js';
 import { fetchReviews } from './reviews-data.js';
 import { openDateRequest, resetDateRequest } from './date-request.js';
@@ -293,10 +294,15 @@ function bindInteractive(node) {
   observeSections(node);
 }
 
+// Праздничная анимация шапки замирает, когда шапка не на экране.
+let stopFx = () => {};
+
 function renderAndBind(node) {
+  stopFx();
   node.innerHTML = renderContent();
   cleanupRevealHints(node);
   bindInteractive(node);
+  stopFx = watchFx(node);
   if (state.reviews.length) injectReviews(node, state.reviews);
 }
 
@@ -338,6 +344,7 @@ export const publicCard = {
   },
   unmount() {
     restoreZoom();
+    stopFx();
     sectionObserver?.disconnect();
     window.removeEventListener('popstate', onPopState);
     document.querySelector('[data-date-sheet]')?.remove();

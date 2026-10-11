@@ -1,31 +1,19 @@
 // Выдаёт короткоживущее разрешение на прямую загрузку видео в Vercel Blob.
 // Большой бинарный файл не проходит через Function: сюда приходит только
 // маленький JSON, а браузер отправляет сам ролик напрямую в Blob.
-import { issueSignedToken, presignUrl } from '@vercel/blob';
 import {
   storeConfigured,
   blobConfigured,
-  blobAuth,
   readInvite,
   MAX_VIDEO_BYTES,
   MAX_POSTER_BYTES
 } from './_reviews-store.js';
 import { enforceRateLimit } from './_rate-limit.js';
 import { normalizeUploadContentType, validReviewPathname } from './_review-upload-policy.js';
+import { presignBlobUpload, readJsonBody } from './_blob-upload.js';
 
 function fail(res, status, error) {
   return res.status(status).json({ ok: false, error });
-}
-
-async function readBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  } catch {
-    return {};
-  }
 }
 
 export default async function handler(req, res) {
@@ -43,7 +31,7 @@ export default async function handler(req, res) {
   if (!storeConfigured()) return fail(res, 503, 'store_not_configured');
   if (!blobConfigured()) return fail(res, 503, 'video_storage_not_configured');
 
-  const body = await readBody(req);
+  const body = await readJsonBody(req);
   const invite = String(body.invite || '').trim();
   if (!/^[a-f0-9]{32}$/i.test(invite)) return fail(res, 400, 'invalid_invite');
   if (!await enforceRateLimit(req, res, {
@@ -63,27 +51,9 @@ export default async function handler(req, res) {
   if (size > maxBytes) return fail(res, 413, 'video_too_large');
   if (!validReviewPathname(pathname, slug, contentType)) return fail(res, 400, 'invalid_video_path');
 
-  const validUntil = Date.now() + 5 * 60 * 1000;
   try {
-    const signedToken = await issueSignedToken({
-      pathname,
-      operations: ['put'],
-      allowedContentTypes: [contentType],
-      maximumSizeInBytes: maxBytes,
-      validUntil,
-      ...blobAuth()
-    });
-    const { presignedUrl } = await presignUrl(signedToken, {
-      operation: 'put',
-      pathname,
-      allowedContentTypes: [contentType],
-      maximumSizeInBytes: maxBytes,
-      validUntil,
-      addRandomSuffix: false,
-      allowOverwrite: false,
-      cacheControlMaxAge: 31536000
-    });
-    return res.status(200).json({ ok: true, uploadUrl: presignedUrl });
+    const uploadUrl = await presignBlobUpload({ pathname, contentType, maxBytes });
+    return res.status(200).json({ ok: true, uploadUrl });
   } catch (error) {
     console.error('[card-review-upload] authorization failed', {
       error: error instanceof Error ? error.message : String(error)

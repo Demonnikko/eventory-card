@@ -8,6 +8,7 @@ import {
   occasionInSeason,
   occasionTemplate,
   occasionTitle,
+  occasionFx,
   slugify,
   uniqueOccasionSlug
 } from '../src/shared/data/occasions.js';
@@ -174,6 +175,45 @@ test('глубина страницы: момент, номера, срочно�
   assert.equal(corporate.urgency.length, 120);
   assert.equal(corporate.video, 'https://vk.com/video1');
   assert.equal(normalizeBusinessCard({ occasions: { corporate: { on: true } } }).occasions.corporate.acts, null, 'не выбрано — значит все номера');
+});
+
+test('своя обложка праздника — только ссылка из своего хранилища, анимация — из списка', () => {
+  const good = 'https://abc123.public.blob.vercel-storage.com/covers/demo-card/0123456789abcdef01.jpg';
+  const card = normalizeBusinessCard({
+    occasions: {
+      corporate: { on: true, cover: good, coverPosition: 'center', fx: 'garland' },
+      wedding: { on: true, cover: 'https://evil.example/covers/demo-card/0123456789abcdef01.jpg', fx: 'fireworks' },
+      graduation: { on: true, cover: 'javascript:alert(1)', coverPosition: 'sideways' }
+    }
+  });
+  assert.equal(card.occasions.corporate.cover, good);
+  assert.equal(card.occasions.corporate.coverPosition, 'center');
+  assert.equal(card.occasions.corporate.fx, 'garland');
+  assert.equal(card.occasions.wedding.cover, '');
+  assert.equal(card.occasions.wedding.fx, 'auto');
+  assert.equal(card.occasions.graduation.cover, '');
+  assert.equal(card.occasions.graduation.coverPosition, 'top');
+});
+
+test('анимация по празднику: гирлянда зимой, конфетти на выпускной, лепестки на свадьбу', () => {
+  const byId = Object.fromEntries(OCCASIONS.map((item) => [item.id, item]));
+  assert.equal(occasionFx(byId.corporate, {}, DECEMBER), 'garland');
+  assert.equal(occasionFx(byId.corporate, {}, JUNE), 'sparkles');
+  assert.equal(occasionFx(byId.graduation, { fx: 'auto' }, JUNE), 'confetti');
+  assert.equal(occasionFx(byId.wedding, {}, JUNE), 'petals');
+  assert.equal(occasionFx(byId.wedding, { fx: 'snow' }, JUNE), 'snow', 'выбор владельца важнее');
+  assert.equal(occasionFx({ id: 'cabcdef', title: 'Новый год', custom: true }, {}), 'garland');
+  assert.equal(occasionFx({ id: 'cabcdef', title: 'Юбилей', custom: true }, {}), 'confetti');
+  assert.equal(occasionFx({ id: 'cabcdef', title: 'Открытие салона', custom: true }, {}), 'sparkles');
+});
+
+test('загрузка обложки принимает только свою папку визитки и картинку', async () => {
+  const { validCoverPathname } = await import('../api/card-cover-upload.js');
+  assert.equal(validCoverPathname('covers/demo-card/0123456789abcdef01.jpg', 'demo-card', 'image/jpeg'), true);
+  assert.equal(validCoverPathname('covers/other-card/0123456789abcdef01.jpg', 'demo-card', 'image/jpeg'), false);
+  assert.equal(validCoverPathname('covers/demo-card/../x/0123456789abcdef01.jpg', 'demo-card', 'image/jpeg'), false);
+  assert.equal(validCoverPathname('covers/demo-card/0123456789abcdef01.webp', 'demo-card', 'image/jpeg'), false);
+  assert.equal(validCoverPathname('covers/demo-card/0123456789abcdef01.svg', 'demo-card', 'image/svg+xml'), false);
 });
 
 test('образец продающих текстов есть у каждого праздника и влезает в поля', () => {

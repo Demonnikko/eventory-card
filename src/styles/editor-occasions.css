@@ -167,3 +167,32 @@
 }
 
 .ca-occ-add .ca-btn { white-space: nowrap; }
+
+/* Своя обложка праздника: превью кадра, кнопки и выбор анимации. */
+.ca-occ-cover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ca-occ-cover-img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+}
+
+.ca-occ-cover-upload { width: 100%; }
+.ca-occ-cover-upload:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ca-occ-fx {
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.ca-occ-fx .ca-chips { margin-top: 8px; }
