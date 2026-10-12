@@ -1531,7 +1531,8 @@ body[data-route='onboarding']::before {
   background-position: center;
   opacity: 0;
   filter: brightness(2.35) contrast(1.22);
-  transition: opacity 0.75s var(--ease-soft);
+  transition: opacity 0.22s var(--ease);
+  will-change: opacity;
 }
 
 .ob-paper.has-template .ob-paper-bg { opacity: 1; }
@@ -1695,30 +1696,59 @@ body[data-route='onboarding']::before {
   cursor: pointer;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.4s var(--ease), color 0.4s var(--ease),
-              transform 0.3s var(--ease), background 0.4s var(--ease);
-  animation: ob-tile-in 0.5s var(--ease-soft) both;
-  animation-delay: calc(var(--tile-order, 0) * 55ms + 120ms);
+  transition: border-color 0.25s var(--ease), color 0.25s var(--ease),
+              transform 0.2s var(--ease), background 0.25s var(--ease);
+  animation: ob-tile-in 0.3s var(--ease-soft) both;
+  animation-delay: calc(var(--tile-order, 0) * 30ms + 40ms);
 }
 
 @keyframes ob-tile-in {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 
 /* Кусочек настоящей текстуры проступает в плитке — превью направления.
-   Кадрируем на левый край макета: там лежит предметный символ профессии
-   (микрофон, карты, камера), по нему направление узнаётся мгновенно.
+   Кадрируем на предметный символ профессии (микрофон, кинокамера, декор и т.д.).
    Яркость поднята — иначе тиснение чёрным по чёрному не читается. */
 .ob-tile-art {
   position: absolute;
   inset: 0;
   background-image: var(--ob-tile-art);
   background-size: 190% auto;
-  background-position: 8% 46%;
+  background-position: center 8%;
   opacity: 0.9;
   filter: brightness(2.6) contrast(1.15);
-  transition: opacity 0.45s var(--ease), transform 0.7s var(--ease-soft), filter 0.45s var(--ease);
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease), filter 0.25s var(--ease);
+  will-change: transform, opacity;
+}
+
+/* Точное позиционирование предметных символов по профессиям:
+   - ведущий и фотограф: микрофон и объектив слева
+   - организатор и видеограф: эмблема и кинокамера по центру
+   - декоратор, вокалист, иллюзионист: люстра/декор, ноты/микрофон, карты/магия */
+.ob-tile[data-profession="host"] .ob-tile-art,
+.ob-tile[data-profession="photographer"] .ob-tile-art {
+  background-position: 6% 8%;
+}
+
+.ob-tile[data-profession="organizer"] .ob-tile-art {
+  background-position: 45% 8%;
+}
+
+.ob-tile[data-profession="videographer"] .ob-tile-art {
+  background-position: 58% 8%;
+}
+
+.ob-tile[data-profession="decorator"] .ob-tile-art {
+  background-position: 75% 8%;
+}
+
+.ob-tile[data-profession="illusionist"] .ob-tile-art {
+  background-position: 85% 8%;
+}
+
+.ob-tile[data-profession="vocalist"] .ob-tile-art {
+  background-position: 85% 10%;
 }
 
 /* Затемнение только под подписью, чтобы текст читался, а символ — виден */
@@ -1741,7 +1771,7 @@ body[data-route='onboarding']::before {
 
 .ob-tile.is-selected .ob-tile-art {
   opacity: 1;
-  transform: scale(1.06);
+  transform: scale(1.05);
   filter: brightness(3.1) contrast(1.2) sepia(0.28) hue-rotate(-12deg);
 }
 

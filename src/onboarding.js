@@ -71,6 +71,13 @@ function preloadAllTemplates(priority = 'auto') {
   });
 }
 
+// Если онбординг ещё не пройден, начинаем немедленный прогрев фонов:
+if (!isOnboarded()) {
+  try {
+    preloadAllTemplates('high');
+  } catch { /* в окружении без DOM игнорируем */ }
+}
+
 // Полноразмерный выбранный фон тихо прогреваем для следующего экрана.
 const fullTemplatePreloads = new Map();
 function preloadFullTemplate(professionId) {
