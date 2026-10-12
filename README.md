@@ -34,6 +34,14 @@ npm run check
 
 Номер пользовательского релиза хранится в `src/app-version.js` и должен повышаться перед публикацией новой версии.
 
+## Российский сервер (tadacard.ru)
+
+Vercel и `*.blob.vercel-storage.com` в РФ частично заблокированы, поэтому основной адрес визитки — `tadacard.ru` на собственном сервере. nginx отдаёт сборку из `dist/`, а `/api/` и `/v/` проксирует на `eventory-card.vercel.app` через закреплённые адреса Vercel с переключением. Фото и видео идут через `/media/` (кэш до 512 МБ), загрузки — через `/blob-api/`. На `*.vercel.app` клиент ходит напрямую, как раньше (`src/shared/lib/media-url.js`).
+
+- Конфигурация: `deploy/nginx/` (на сервере — `snippets/tadacard-*.conf`, `conf.d/tadacard.conf`, `sites-available/tadacard`).
+- Выкладка: сначала `git push` (Vercel), затем `bash scripts/deploy-ru.sh`. Бандлы обеих сборок совпадают; og-шаблон `/v/` берётся с `tadacard.ru`.
+- Откат: `bash scripts/deploy-ru.sh --rollback`.
+
 ## Переменные Vercel
 
 Для собственных serverless-функций обязательны:
