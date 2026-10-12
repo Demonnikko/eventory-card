@@ -14,8 +14,3 @@ export function escapeAttr(s) {
 
 // CSV injection guard: Excel/Numbers исполняют формулы из ячеек начинающихся
 // на =, @, +, -. Префиксим апостроф — Excel его не отображает, но не исполняет.
-export function escapeCsv(s) {
-  const str = String(s ?? '');
-  if (/^[=@+\-]/.test(str)) return `'${str}`;
-  return str;
-}

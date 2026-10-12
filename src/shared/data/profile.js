@@ -1,25 +1,3 @@
-
-const PROFILE_ID = 'profile';
-
-export function defaultProfile() {
-  return {
-    id: PROFILE_ID,
-    name: '',
-    stageName: '',
-    phone: '',
-    telegram: '',
-    vk: '',
-    signature: '',
-    prepayDetails: '',
-    cardBrand: '', // Pro: свой текст в подвале карточки КП вместо «Создано в Eventory»
-    // Авто для расчёта бензина на выезд (новый калькулятор). 0 = не задано.
-    fuelConsumption: 0, // расход, л/100км
-    fuelPrice: 0        // цена топлива, ₽/л
-  };
-}
-
-
-
 export function normalizePhone(raw) {
   const v = String(raw ?? '').trim();
   if (!v) return '';
@@ -45,12 +23,6 @@ export function normalizeTelegram(raw) {
   v = v.replace(/\/+$/, '');
   if (!v) return '';
   return `https://t.me/${v}`;
-}
-
-export function telegramLabel(raw) {
-  const href = normalizeTelegram(raw);
-  if (!href) return '';
-  return '@' + href.replace(/^https?:\/\/t\.me\//, '');
 }
 
 export function normalizeVk(raw) {

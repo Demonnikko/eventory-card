@@ -60,30 +60,3 @@ export function qrSvg(value, { className = 'qr-svg', title = 'QR' } = {}) {
     </svg>
   `;
 }
-
-// Network PNG fallback for surfaces that explicitly need an image URL.
-export function qrImgSrc(value) {
-  return `https://quickchart.io/qr?text=${encodeURIComponent(value)}&size=400&margin=4&ecLevel=M`;
-}
-
-export function qrHtml(value) {
-  const { modules, size, quiet } = qrMatrix(value);
-  const total = size + quiet * 2;
-  let html = '<div class="qr-grid"><div class="qr-grid-inner">';
-
-  for (let y = 0; y < total; y += 1) {
-    for (let x = 0; x < total; x += 1) {
-      const moduleX = x - quiet;
-      const moduleY = y - quiet;
-      const dark = moduleX >= 0
-        && moduleY >= 0
-        && moduleX < size
-        && moduleY < size
-        && modules[moduleY][moduleX];
-      html += `<i class="qr-module${dark ? ' is-dark' : ''}"></i>`;
-    }
-  }
-
-  html += '</div></div>';
-  return html;
-}

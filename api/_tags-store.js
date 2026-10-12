@@ -396,24 +396,13 @@ export async function setLeadTag(slug, id, tagId) {
   return true;
 }
 
-// Есть ли у владельца карточки активная Pro-подписка Eventory. Мост: карточка
+// Pro-подписка Eventory владельца карточки, со сроком действия. Мост: карточка
 // связана с устройством Eventory (card-link, пишет Eventory при переходе по
 // ссылке), а устройство помечено Pro (pro-device, пишет Eventory пока подписка
 // активна). Обе отметки живут в ОБЩЕМ Redis (у визитки и Eventory один Upstash).
-// Нет связки или нет Pro-отметки — значит не Pro, контакт заявки закрыт.
-export async function isOwnerPro(leadKey) {
-  if (!storeConfigured()) return false;
-  const key = String(leadKey || '').trim().toLowerCase();
-  if (!/^[a-f0-9]{32}$/.test(key)) return false;
-  const deviceId = await redis(['GET', `eventory:card-link:${key}`]);
-  if (!deviceId) return false;
-  const pro = await redis(['GET', `eventory:pro-device:${deviceId}`]);
-  return pro === '1';
-}
-
-// Pro со сроком действия. proUntil — до какой даты подписка активна (по TTL
-// отметки pro-device). Визитка запоминает эту дату у себя и до неё показывает
-// Pro-контент, не переспрашивая сервер каждый раз — бесшовно для владельца.
+// proUntil — до какой даты подписка активна (по TTL отметки pro-device).
+// Визитка запоминает эту дату у себя и до неё показывает Pro-контент, не
+// переспрашивая сервер каждый раз — бесшовно для владельца.
 export async function ownerProStatus(leadKey) {
   if (!storeConfigured()) return { pro: false, proUntil: 0 };
   const key = String(leadKey || '').trim().toLowerCase();

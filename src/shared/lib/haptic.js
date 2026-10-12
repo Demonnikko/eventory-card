@@ -9,8 +9,5 @@ function safeVibrate(pattern) {
 }
 
 export function hapticLight() { safeVibrate(8); }
-export function hapticMedium() { safeVibrate(14); }
-export function hapticHeavy() { safeVibrate(22); }
 export function hapticSuccess() { safeVibrate([10, 40, 10]); }
-export function hapticWarning() { safeVibrate([16, 60, 16]); }
 export function hapticError() { safeVibrate([12, 60, 12, 60, 12]); }

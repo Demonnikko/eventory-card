@@ -45,10 +45,6 @@ const BY_ID = new Map(OCCASIONS.map((item) => [item.id, item]));
 const BY_SLUG = new Map(OCCASIONS.map((item) => [item.slug, item]));
 
 // Только каталог — для мест без визитки под рукой (сервер, статистика).
-export function occasionById(id) {
-  return BY_ID.get(String(id || '')) || null;
-}
-
 export function occasionBySlug(slug) {
   return BY_SLUG.get(String(slug || '').toLowerCase()) || null;
 }
