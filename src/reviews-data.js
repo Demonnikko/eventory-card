@@ -1,5 +1,6 @@
 // Работа с видеоотзывами на стороне браузера.
 import { getCard } from './card-data.js';
+import { uploadUrl } from './shared/lib/media-url.js';
 
 export const MAX_DURATION = 30;   // секунд — дольше кружки не смотрят
 export const MIN_DURATION = 2;
@@ -181,7 +182,7 @@ async function uploadReviewVideo(token, slug, blob) {
     body: JSON.stringify({ invite: token, pathname, contentType, size: blob.size })
   });
 
-  const res = await fetch(auth.uploadUrl, {
+  const res = await fetch(uploadUrl(auth.uploadUrl), {
     method: 'PUT',
     headers: {
       'Content-Type': contentType,

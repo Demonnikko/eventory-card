@@ -9,6 +9,7 @@ import { getCard, saveCard, cardPublicUrl } from './card-data.js';
 import { enabledOccasions, occasionTitle } from './shared/data/occasions.js';
 import { fetchOwnReviews, createInvite, approveReview, removeReview } from './reviews-data.js';
 import { openViewer, proxiedVideo } from './reviews-view.js';
+import { mediaUrl } from './shared/lib/media-url.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
 import { referralLink, referralStats } from './insight-data.js';
 
@@ -63,7 +64,7 @@ function renderReviewsBlock() {
               <button type="button" class="ca-review-thumb-btn" data-review-play="${escapeAttr(r.id)}"
                 aria-label="Посмотреть отзыв${r.author ? `: ${escapeAttr(r.author)}` : ''}">
                 <video class="ca-review-thumb" src="${escapeAttr(proxiedVideo(r.videoUrl))}" muted playsinline preload="metadata"
-                  ${r.posterUrl ? `poster="${escapeAttr(r.posterUrl)}"` : ''}></video>
+                  ${r.posterUrl ? `poster="${escapeAttr(mediaUrl(r.posterUrl))}"` : ''}></video>
                 <span class="ca-review-thumb-play" aria-hidden="true">${renderIcon('chevron-right')}</span>
               </button>
               <div class="ca-review-info">

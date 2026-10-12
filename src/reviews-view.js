@@ -6,6 +6,7 @@
 // заговорила сама по себе.
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
+import { mediaUrl } from './shared/lib/media-url.js';
 
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
@@ -14,12 +15,10 @@ function initials(name) {
 }
 
 // Видео в Blob отдаётся с blob.vercel-storage.com — этот домен заблокирован
-// в РФ, поэтому гоним файл через свой прокси (ветка ?video в card-review).
+// в РФ, поэтому показываем файл через свой домен (/media/…, см. media-url.js).
 // Локальные превью (blob:/data:) и уже завёрнутые ссылки оставляем как есть.
 export function proxiedVideo(url) {
-  const src = String(url || '');
-  if (!src.includes('.blob.vercel-storage.com')) return src;
-  return `/api/card-review?video=${encodeURIComponent(src)}`;
+  return mediaUrl(url);
 }
 
 // Сколько отзывов показываем крупными «героями» перед тем, как остальные
@@ -37,7 +36,7 @@ function reelMarkup(r, i, small) {
         <video class="cp-reel-video"
           src="${escapeAttr(proxiedVideo(r.videoUrl))}"
           muted loop playsinline preload="metadata"
-          ${r.posterUrl ? `poster="${escapeAttr(r.posterUrl)}"` : ''}></video>
+          ${r.posterUrl ? `poster="${escapeAttr(mediaUrl(r.posterUrl))}"` : ''}></video>
         <span class="cp-reel-fallback">${escapeHtml(initials(r.author))}</span>
         <span class="cp-reel-play" aria-hidden="true">${renderIcon('chevron-right')}</span>
       </span>

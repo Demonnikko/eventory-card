@@ -10,6 +10,7 @@
 // конца, чтобы оставить заявку, не нужно.
 import './styles/occasion-view.css';
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
+import { mediaUrl } from './shared/lib/media-url.js';
 import { renderIcon } from './shared/components/icons.js';
 import { occasionInSeason, occasionTitle, occasionFx } from './shared/data/occasions.js';
 import { renderFx } from './occasion-fx.js';
@@ -181,7 +182,7 @@ export function renderOccasionPage(card, occasion, ctx) {
   const settings = card.occasions?.[occasion.id] || {};
   const title = occasionTitle(occasion, ctx.now);
   // Обложка страницы: своя обложка праздника → фото из визитки → обложка визитки.
-  const ownCover = settings.cover || '';
+  const ownCover = mediaUrl(settings.cover);
   const heroIsCover = !ownCover && !(settings.photo >= 0 && photoAt(card, settings.photo));
   const photo = ownCover || (heroIsCover ? card.coverPhoto : photoAt(card, settings.photo));
   const position = ownCover

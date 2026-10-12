@@ -10,6 +10,7 @@
 // «Проверить дату».
 import './styles/card-view.css';
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
+import { mediaUrl } from './shared/lib/media-url.js';
 import { renderIcon } from './shared/components/icons.js';
 import { enabledOccasions, occasionInSeason, occasionTitle } from './shared/data/occasions.js';
 import {
@@ -41,7 +42,7 @@ function occasionHref(slug, occasion, { interactive, query }) {
 
 function renderOccasionTile(card, occasion, { lead, wide, href, now }) {
   const settings = card.occasions?.[occasion.id] || {};
-  const photo = settings.cover || (settings.photo >= 0 ? photoAt(card, settings.photo) : '');
+  const photo = mediaUrl(settings.cover) || (settings.photo >= 0 ? photoAt(card, settings.photo) : '');
   const seasonal = occasionInSeason(occasion, now);
   const note = settings.note || occasion.note;
   const classes = [

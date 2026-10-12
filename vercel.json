@@ -6,6 +6,14 @@
       "destination": "https://eventory-mvp.vercel.app/api/$1"
     },
     {
+      "source": "/media/:store/:path*",
+      "destination": "https://:store.public.blob.vercel-storage.com/:path*"
+    },
+    {
+      "source": "/blob-api/:path*",
+      "destination": "https://vercel.com/api/blob/:path*"
+    },
+    {
       "source": "/v/:slug/:occasion",
       "destination": "/api/og?slug=:slug&o=:occasion"
     },
@@ -14,7 +22,7 @@
       "destination": "/api/og?slug=:slug"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|media/|blob-api/).*)",
       "destination": "/index.html"
     }
   ],

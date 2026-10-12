@@ -2,6 +2,7 @@
 // разрешение (он проверяет ключ владельца) и кладём файл прямо в Vercel Blob.
 // В визитке остаётся только ссылка — 1 МБ публикации не тратится.
 import { compressImage } from './shared/data/businessCard.js';
+import { uploadUrl } from './shared/lib/media-url.js';
 
 const COVER_MAX_BYTES = 450 * 1024;
 
@@ -27,7 +28,7 @@ export async function uploadOccasionCover(card, file) {
   const auth = await authRes.json().catch(() => null);
   if (!authRes.ok || !auth?.uploadUrl) throw new Error(auth?.error || 'upload_not_authorized');
 
-  const res = await fetch(auth.uploadUrl, {
+  const res = await fetch(uploadUrl(auth.uploadUrl), {
     method: 'PUT',
     headers: {
       'Content-Type': contentType,

@@ -12,6 +12,14 @@
 import crypto from 'node:crypto';
 import { normalizeSlug } from './_card-access.js';
 import { findOccasion, occasionTitle } from '../src/shared/data/occasions.js';
+import { mediaUrl } from '../src/shared/lib/media-url.js';
+
+// Домены, через которые визитку открывают гости. Российский сервер
+// (tadacard.ru) проксирует сюда /v/… и /api/…, а Vercel подменяет
+// x-forwarded-host своим адресом — поэтому настоящий домен nginx передаёт
+// отдельным заголовком. Берём его только из этого списка: чужое значение
+// не должно попадать в og:url.
+const PUBLIC_HOSTS = new Set(['tadacard.ru', 'www.tadacard.ru']);
 
 // Версия снимка — короткий отпечаток его содержимого. Идёт в адрес картинки
 // (&v=…): сменил владелец фото — сменился адрес, и CDN больше не показывает
@@ -155,6 +163,19 @@ function originOf(req) {
   return `${proto}://${host}`;
 }
 
+// Адрес, который видит гость: для ссылок в превью и для шаблона страницы.
+export function publicOriginOf(req) {
+  const host = String(req.headers['x-card-public-host'] || '').trim().toLowerCase();
+  return PUBLIC_HOSTS.has(host) ? `https://${host}` : originOf(req);
+}
+
+// Ссылку Blob в og:image ведём через домен визитки: краулер VK в РФ
+// до blob.vercel-storage.com не достучится.
+function absoluteMedia(url, origin) {
+  const local = mediaUrl(url);
+  return local.startsWith('/') ? `${origin}${local}` : local;
+}
+
 // Собранный index.html с хешированными бандлами лежит статикой в том же
 // деплое. Читаем его по HTTP у себя же — так мы всегда берём актуальную
 // сборку, не завися от путей файловой системы Vercel.
@@ -204,7 +225,7 @@ function buildMetaTags(card, origin, slug, occasionSlug = '') {
   // data-URI, а фото хранятся именно так. Поэтому ведём тег на свою же
   // ветку ?photo=… — она отдаёт тот же снимок обычным jpeg. У праздника —
   // его собственное фото, иначе обложка, иначе заглушка бренда.
-  const image = (page && page.settings.cover)
+  const image = (page && page.settings.cover && absoluteMedia(page.settings.cover, origin))
     || (page && page.settings.photo >= 0 && photoUrl(card, origin, slug, page.settings.photo))
     || photoUrl(card, origin, slug, -1)
     || `${origin}/og-default.png`;
@@ -238,9 +259,15 @@ export default async function handler(req, res) {
   // Лёгкая карточка для публичного экрана (?card=1) — без base64-фото.
   if (req.query?.card) return serveLightCard(req, res, origin, slug);
 
+  // Шаблон берём там, где гость откроет страницу: у российского сервера
+  // свои файлы сборки, и ссылки на бандлы должны совпасть с ними.
+  const publicOrigin = publicOriginOf(req);
   let html;
   try {
-    html = await loadIndexHtml(origin);
+    html = await loadIndexHtml(publicOrigin).catch((err) => {
+      if (publicOrigin === origin) throw err;
+      return loadIndexHtml(origin);
+    });
   } catch {
     // Не смогли прочитать шаблон — отдаём редирект на SPA, чтобы визитка
     // всё равно открылась в браузере (превью не будет, но страница живёт).
@@ -251,7 +278,7 @@ export default async function handler(req, res) {
   let card = null;
   if (slug) card = await fetchCard(origin, slug);
 
-  const meta = buildMetaTags(card, origin, slug, String(req.query?.o || ''));
+  const meta = buildMetaTags(card, publicOrigin, slug, String(req.query?.o || ''));
 
   // Вставляем перед закрытием </head>, заменив стандартный <title>Визитка</title>.
   const injected = html

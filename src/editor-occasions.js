@@ -6,6 +6,7 @@
 // изюминка → срочность. Черновик и перерисовку даёт editor.js через api.
 import './styles/editor-occasions.css';
 import { escapeHtml, escapeAttr } from './shared/lib/html.js';
+import { mediaUrl } from './shared/lib/media-url.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 import { hapticLight } from './shared/lib/haptic.js';
@@ -37,7 +38,7 @@ function coverBlock(card, occasion, settings) {
     const position = settings.coverPosition || 'top';
     return `
       <div class="ca-occ-cover">
-        <img class="ca-occ-cover-img" src="${escapeAttr(settings.cover)}" alt="Обложка праздника"
+        <img class="ca-occ-cover-img" src="${escapeAttr(mediaUrl(settings.cover))}" alt="Обложка праздника"
           style="object-position:${{ top: 'center 18%', center: 'center', bottom: 'center 82%' }[position]}" />
         <div class="ca-segment" role="radiogroup" aria-label="Кадр обложки">
           ${Object.entries(COVER_POSITION_LABELS).map(([value, label]) => `

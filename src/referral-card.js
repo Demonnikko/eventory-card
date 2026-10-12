@@ -20,7 +20,9 @@ export function captureReferralFromUrl() {
 
   // Фоново: сбой сети не важен, приглашение попробуем зарегистрировать снова
   // при следующем заходе по ссылке (NX на сервере не даст задвоить).
-  fetch('https://eventory-mvp.vercel.app/api/promo?service=referral-card&action=invited', {
+  // Через свой домен: прямой адрес eventory-mvp.vercel.app в РФ закрыт,
+  // а /api/promo проксируется в основной проект (vercel.json / nginx).
+  fetch('/api/promo?service=referral-card&action=invited', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId, inviter })
