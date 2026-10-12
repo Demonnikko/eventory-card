@@ -174,9 +174,9 @@ export function mountApp() {
     if (!isCurrent()) return;
     document.body.dataset.route = id;
     if (view.title) {
-      document.title = id === 'editor' ? 'Визитка' : `${view.title} — Визитка`;
+      document.title = id === 'editor' ? 'Визитка' : `${view.title} · Визитка`;
     } else if (id === 'review-record') {
-      document.title = 'Видеоотзыв — Визитка';
+      document.title = 'Видеоотзыв · Визитка';
     } else if (id !== 'card-public') {
       document.title = 'Визитка';
     }

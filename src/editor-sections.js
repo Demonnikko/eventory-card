@@ -99,7 +99,7 @@ export function renderBasics(card, professionsOpen) {
     ${field({ name: 'role', label: 'Чем занимаетесь', value: card.role, placeholder: 'Ведущий, иллюзионист, фотограф…', maxlength: 80 })}
     ${field({ name: 'city', label: 'Город', value: card.city, placeholder: 'Москва', maxlength: 80 })}
     ${field({ name: 'company', label: 'Бренд над именем', value: card.company, placeholder: 'Например: Kostyuk Project', maxlength: 40, hint: 'Небольшая надпись в верхнем углу визитки. Можно оставить пустым.' })}
-    ${field({ name: 'tagline', label: 'Короткая подпись', value: card.tagline, placeholder: 'Ваши эмоции — мой главный фокус', maxlength: 90 })}
+    ${field({ name: 'tagline', label: 'Короткая подпись', value: card.tagline, placeholder: 'Ваши эмоции в центре внимания', maxlength: 90 })}
   `;
 }
 
@@ -116,7 +116,7 @@ export function renderMedia(card) {
     <div class="ca-cover">
       ${card.coverPhoto
         ? `<img class="ca-cover-img" src="${escapeAttr(card.coverPhoto)}" alt="Обложка визитки" />`
-        : '<div class="ca-cover-empty">Главное фото — первое, что увидит клиент</div>'}
+        : '<div class="ca-cover-empty">Главное фото клиент увидит первым</div>'}
       <div class="ca-cover-actions">
         <button type="button" class="ca-btn ca-btn--ghost" data-cover-trigger>
           ${card.coverPhoto ? 'Заменить фото' : 'Добавить фото'}</button>
@@ -164,7 +164,7 @@ export function renderActs(card) {
                   value="${escapeAttr(headlines[index] || '')}" placeholder="Заголовок: «Один бросок. Та самая карта»"
                   aria-label="Продающий заголовок номера ${index + 1}" data-gallery-headline="${index}" />
                 <textarea class="ca-input" rows="2" maxlength="160"
-                  placeholder="Что видит зал — одна-две строки"
+                  placeholder="Что видит зал, одна-две строки"
                   aria-label="Описание номера ${index + 1}" data-gallery-text="${index}">${escapeHtml(texts[index] || '')}</textarea>
               </div>
               <button type="button" class="ca-icon-btn" aria-label="Удалить фото ${index + 1}"
@@ -172,8 +172,8 @@ export function renderActs(card) {
             </div>
           `).join('')}
         </div>
-        <p class="ca-note">На странице праздника каждый номер — отдельный экран. Фото без названия можно использовать как обложку праздника.</p>
-      ` : '<p class="ca-note">Добавьте лучшие номера — на страницах праздников каждый станет отдельным экраном, как слайд презентации.</p>'}
+        <p class="ca-note">На странице праздника каждый номер стоит на отдельном экране. Фото без названия можно использовать как обложку праздника.</p>
+      ` : '<p class="ca-note">Добавьте лучшие номера: на страницах праздников каждый станет отдельным экраном, как слайд презентации.</p>'}
       ${photos.length < CARD_LIMITS.gallery ? `
         <button type="button" class="ca-btn ca-btn--ghost ca-gallery-add" data-gallery-trigger>
           ${renderIcon('upload')} Добавить фото</button>
@@ -232,7 +232,7 @@ export function renderTrust(card) {
     ${listEditor({
       list: 'facts', items: card.facts || [], limit: CARD_LIMITS.facts,
       title: 'Факты о себе', addLabel: 'Добавить факт',
-      empty: 'Три коротких факта под именем: «10 лет — на сцене», «50+ — городов».',
+      empty: 'Три коротких факта под именем: «10 лет на сцене», «50+ городов».',
       renderRow: (f, i) => `
         <div class="ca-list-pair">
           ${listInput('facts', i, 'value', f.value, { placeholder: '10 лет', maxlength: 12, label: 'Число или факт' })}
@@ -241,11 +241,11 @@ export function renderTrust(card) {
       `
     })}
     ${field({ name: 'clients', label: 'Среди клиентов', value: card.clients, placeholder: 'Газпром · Магнит · Danone', maxlength: 160, hint: 'Компании, для которых вы работали, через точку.' })}
-    ${field({ name: 'credentials', label: 'Регалии', value: card.credentials, textarea: true, rows: 2, placeholder: 'Член Российской ассоциации иллюзионистов. Автор шоу «Секрет».', maxlength: 220, hint: 'На страницах праздников — на экране «Артист».' })}
+    ${field({ name: 'credentials', label: 'Регалии', value: card.credentials, textarea: true, rows: 2, placeholder: 'Член Российской ассоциации иллюзионистов. Автор шоу «Секрет».', maxlength: 220, hint: 'На страницах праздников показываются на экране «Артист».' })}
     ${listEditor({
       list: 'quotes', items: card.quotes || [], limit: CARD_LIMITS.quotes,
       title: 'Слова клиентов', addLabel: 'Добавить отзыв',
-      empty: 'Короткие текстовые отзывы — рядом с видеоотзывами. Отзыв заказчика корпоратива сильнее всего работает на странице корпоратива.',
+      empty: 'Короткие текстовые отзывы стоят рядом с видеоотзывами. Отзыв заказчика корпоратива сильнее всего работает на странице корпоратива.',
       renderRow: (q, i) => `
         ${listInput('quotes', i, 'text', q.text, { placeholder: 'Что сказал клиент', maxlength: 220, label: 'Текст отзыва', textarea: true })}
         ${listInput('quotes', i, 'author', q.author, { placeholder: 'Кто сказал', maxlength: 60, label: 'Автор' })}
@@ -271,7 +271,7 @@ export function renderProgram(card, leadKey) {
     ${listEditor({
       list: 'formats', items: card.formats || [], limit: CARD_LIMITS.formats,
       title: 'Форматы', addLabel: 'Добавить формат',
-      empty: 'Например: «20 минут — Сценический блок — три номера». Цены здесь нет: её вы назовёте под дату.',
+      empty: 'Например: «Сценический блок, 20 минут, три номера». Цены здесь нет: её вы назовёте под дату.',
       renderRow: (f, i) => `
         <div class="ca-list-pair ca-list-pair--time">
           ${listInput('formats', i, 'minutes', f.minutes, { placeholder: '20', maxlength: 6, label: 'Минут' })}
@@ -283,7 +283,7 @@ export function renderProgram(card, leadKey) {
     ${listEditor({
       list: 'requirements', items: card.requirements || [], limit: CARD_LIMITS.requirements,
       title: 'Что нужно от площадки', addLabel: 'Добавить пункт',
-      empty: 'Сцена, звук, свет, гримёрка — организатору спокойнее, когда это видно заранее.',
+      empty: 'Сцена, звук, свет, гримёрка: организатору спокойнее, когда это видно заранее.',
       renderRow: (r, i) => `
         ${listInput('requirements', i, 'title', r.title, { placeholder: 'Звук', maxlength: 24, label: 'Что нужно' })}
         ${listInput('requirements', i, 'text', r.text, { placeholder: 'Колонки для моего микрофона', maxlength: 70, label: 'Подробнее' })}
@@ -293,7 +293,7 @@ export function renderProgram(card, leadKey) {
     ${listEditor({
       list: 'included', items: card.included || [], limit: CARD_LIMITS.included,
       title: 'Что входит в цену', addLabel: 'Добавить пункт',
-      empty: 'Финал страницы праздника: «Подготовка и реквизит», «Ваш логотип в номере», «Дорога — отдельно».',
+      empty: 'Финал страницы праздника: «Подготовка и реквизит», «Ваш логотип в номере», «Дорога оплачивается отдельно».',
       renderRow: (item, i) => `
         ${listInput('included', i, 'text', item.text, { placeholder: 'Подготовка, адаптация и реквизит', maxlength: 80, label: 'Что входит' })}
       `

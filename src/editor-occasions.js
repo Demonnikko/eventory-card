@@ -61,7 +61,7 @@ function coverBlock(card, occasion, settings) {
       <button type="button" class="ca-btn ca-btn--ghost ca-occ-cover-upload" data-occ-cover-trigger="${escapeAttr(id)}"
         ${published ? '' : 'disabled'}>${renderIcon('upload')} Загрузить свою обложку</button>
       <span class="ca-field-hint">${published
-        ? 'Например, фото в новогоднем колпаке — только для этой страницы.'
+        ? 'Например, фото в новогоднем колпаке, только для этой страницы.'
         : 'Станет доступно после первой публикации визитки.'}</span>
       ${input}
     </div>
@@ -136,7 +136,7 @@ function group(title, body, hint = '') {
 function actsPicker(card, occasionId, settings) {
   const photos = card.galleryPhotos || [];
   if (!photos.length) {
-    return '<p class="ca-note">Добавьте фото в раздел «Номера» — здесь можно будет выбрать, какие показать на этой странице.</p>';
+    return '<p class="ca-note">Добавьте фото в раздел «Номера», и здесь можно будет выбрать, какие показать на этой странице.</p>';
   }
   const picked = Array.isArray(settings.acts) ? settings.acts : photos.map((_, i) => i);
   return `
@@ -171,7 +171,7 @@ function renderOccasionBody(card, occasion, settings) {
           ${renderIcon('sparkle', { size: 18 })}
           <span>Подставить продающие тексты</span>
         </button>
-        <p class="ca-occ-template-hint">Заполнит пустые поля образцом — вы поправите под себя.</p>
+        <p class="ca-occ-template-hint">Заполнит пустые поля образцом, а вы поправите под себя.</p>
       ` : ''}
 
       ${occasion.custom ? field({
@@ -183,21 +183,21 @@ function renderOccasionBody(card, occasion, settings) {
       }) : ''}
 
       ${group('Обложка', `
-        ${occasionField(id, 'headline', 'Заголовок', settings.headline, { placeholder: occasionTitle(occasion), maxlength: 90, hint: 'Что получит вечер — а не «кто я».' })}
+        ${occasionField(id, 'headline', 'Заголовок', settings.headline, { placeholder: occasionTitle(occasion), maxlength: 90, hint: 'Что получит вечер, а не «кто я».' })}
         ${occasionField(id, 'text', 'Пара слов под заголовком', settings.text, { textarea: true, rows: 2, maxlength: 220, placeholder: 'Для кого и в чём особенность программы' })}
         ${coverBlock(card, occasion, settings)}
         ${fxPicker(occasion, settings)}
-        ${occasionField(id, 'video', 'Видео для этой страницы', settings.video, { type: 'url', placeholder: 'Если пусто — видео из «Фото и видео»' })}
+        ${occasionField(id, 'video', 'Видео для этой страницы', settings.video, { type: 'url', placeholder: 'Если пусто, возьмём видео из «Фото и видео»' })}
         ${occasionField(id, 'note', 'Подпись на плитке', settings.note, { placeholder: occasion.note, maxlength: 60 })}
       `)}
 
       ${group('Ради этого момента', `
         ${occasionField(id, 'momentTitle', 'Заголовок', settings.momentTitle, { placeholder: 'Когда удивление становится общим', maxlength: 60 })}
-        ${occasionField(id, 'momentText', 'Что происходит в зале', settings.momentText, { textarea: true, rows: 2, maxlength: 160, placeholder: 'Один гость участвует — весь зал проживает финал вместе с ним.' })}
+        ${occasionField(id, 'momentText', 'Что происходит в зале', settings.momentText, { textarea: true, rows: 2, maxlength: 160, placeholder: 'Один гость участвует, а весь зал проживает финал вместе с ним.' })}
         ${photoPicker(card, id, 'momentPhoto', settings.momentPhoto ?? -1, { label: 'Фото момента', noneLabel: 'Без фото' })}
       `, 'Почему ваш номер работает: эмоция гостей, а не описание реквизита.')}
 
-      ${group('Номера на этой странице', actsPicker(card, id, settings), 'Каждый номер — отдельный экран. Заголовки и описания — в разделе «Номера».')}
+      ${group('Номера на этой странице', actsPicker(card, id, settings), 'Каждый номер стоит на отдельном экране. Заголовки и описания задаются в разделе «Номера».')}
 
       ${group('Изюминка', `
         ${occasionField(id, 'highlightTitle', 'Что есть только для этого праздника', settings.highlightTitle, { placeholder: 'Например: ваш логотип в финале', maxlength: 40 })}
@@ -252,7 +252,7 @@ function renderOccasion(card, occasion, open) {
 function renderAddCustom(card) {
   const count = (card.customOccasions || []).length;
   if (count >= MAX_CUSTOM_OCCASIONS) {
-    return `<p class="ca-note">Своих праздников — максимум ${MAX_CUSTOM_OCCASIONS}. Удалите ненужный, чтобы добавить новый.</p>`;
+    return `<p class="ca-note">Своих праздников может быть не больше ${MAX_CUSTOM_OCCASIONS}. Удалите ненужный, чтобы добавить новый.</p>`;
   }
   return `
     <div class="ca-occ-add">
@@ -268,7 +268,7 @@ export function renderOccasions(card, openOccasion) {
   const seasonal = list.filter((o) => !o.custom);
   const custom = list.filter((o) => o.custom);
   return `
-    <p class="ca-note">Каждый праздник — своя продающая страница со своей ссылкой: Sales присылает её заказчику, а по QR человек выбирает повод сам. То, что бронируют сейчас, на визитке стоит первым.</p>
+    <p class="ca-note">У каждого праздника своя продающая страница и своя ссылка: Sales присылает её заказчику, а по QR человек выбирает повод сам. То, что бронируют сейчас, на визитке стоит первым.</p>
     <div class="ca-editor-subhead"><span>Сезонные</span></div>
     <div class="ca-occs">
       ${seasonal.map((o) => renderOccasion(card, o, openOccasion === o.id)).join('')}
@@ -328,10 +328,10 @@ export function bindOccasionEditor(node, api) {
 }
 
 const COVER_ERRORS = {
-  not_published: 'Сначала опубликуйте визитку — тогда можно загрузить обложку',
-  image_too_large: 'Фото слишком большое — попробуйте другое',
+  not_published: 'Сначала опубликуйте визитку, тогда можно будет загрузить обложку',
+  image_too_large: 'Фото слишком большое, попробуйте другое',
   forbidden: 'Ключ визитки не совпал. Опубликуйте визитку ещё раз',
-  not_image: 'Это не фото — выберите картинку'
+  not_image: 'Это не фото, выберите картинку'
 };
 
 function bindCover(node, api) {
@@ -349,7 +349,7 @@ function bindCover(node, api) {
         const url = await uploadOccasionCover(api.card(), file);
         await api.persist(api.occasionPatch(id, { cover: url }));
         api.rerender();
-        toast.show('Обложка загружена — опубликуйте изменения', { ok: true });
+        toast.show('Обложка загружена. Опубликуйте изменения', { ok: true });
       } catch (error) {
         btn.disabled = false;
         btn.innerHTML = label;
@@ -406,7 +406,7 @@ function bindTemplate(node, api) {
       hapticLight();
       await api.persist(api.occasionPatch(id, fill));
       api.rerender();
-      toast.show('Тексты подставлены — поправьте под себя', { ok: true });
+      toast.show('Тексты подставлены, поправьте под себя', { ok: true });
     });
   });
 }

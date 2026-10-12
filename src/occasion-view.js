@@ -150,7 +150,7 @@ function renderFinale(card, settings, { interactive }) {
     <section class="vz-finale" data-section="Ваша дата" ${reveal()}>
       <span class="vz-kicker">Ваше событие</span>
       <h2 class="vz-finale-title">Теперь ваша дата</h2>
-      <p class="vz-finale-sub">Стоимость — под вашу дату и город. Назову точную сумму, когда узнаю дату, город и формат.</p>
+      <p class="vz-finale-sub">Стоимость зависит от даты и города. Назову точную сумму, когда узнаю дату, город и формат.</p>
       ${formats.length ? `
         <div class="vz-finale-formats">
           ${formats.map((f) => `

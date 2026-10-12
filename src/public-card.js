@@ -102,7 +102,7 @@ function updateMeta(card) {
   const name = card?.name || 'Визитка';
   const occasion = activeOccasion();
   if (occasion) document.title = `${occasionTitle(occasion)} · ${name}`;
-  else document.title = card?.role ? `${name} — ${card.role}` : name;
+  else document.title = card?.role ? `${name} · ${card.role}` : name;
   allowZoom();
 }
 

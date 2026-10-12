@@ -147,7 +147,7 @@ function renderSections(card) {
     }),
     section({
       id: 'media', icon: 'image', title: 'Фото и видео', open: open === 'media',
-      sub: card.coverPhoto ? (card.videoUrl ? 'Обложка и выступление' : 'Обложка — добавьте видео') : 'Главное фото визитки',
+      sub: card.coverPhoto ? (card.videoUrl ? 'Обложка и выступление' : 'Обложка, добавьте видео') : 'Главное фото визитки',
       status: card.coverPhoto ? statusDone : '',
       body: renderMedia(card)
     }),
@@ -220,7 +220,7 @@ function renderPublishedMoment(card) {
 // публичную визитку они попадают только по кнопке.
 function renderPublishState(card, dirty) {
   if (!card.publishedSlug) {
-    return '<div class="ca-publish-hint" data-publish-state>Опубликуйте — получите ссылки и QR-код</div>';
+    return '<div class="ca-publish-hint" data-publish-state>Опубликуйте и получите ссылки и QR-код</div>';
   }
   return dirty
     ? `<div class="ca-publish-live is-pending" data-publish-state>
@@ -229,7 +229,7 @@ function renderPublishState(card, dirty) {
        </div>`
     : `<div class="ca-publish-live" data-publish-state>
          <span class="ca-publish-dot" aria-hidden="true"></span>
-         <span>Опубликовано — клиенты видят актуальную визитку</span>
+         <span>Опубликовано: клиенты видят актуальную визитку</span>
        </div>`;
 }
 
@@ -721,7 +721,7 @@ function bindPublish(node) {
       return;
     }
     if (!state.card.name) {
-      toast.show('Добавьте имя — без него визитку не опубликовать');
+      toast.show('Добавьте имя, без него визитку не опубликовать');
       openSection(node, 'basics', { scroll: true });
       return;
     }
@@ -742,7 +742,7 @@ function bindPublish(node) {
       else toast.show('Визитка обновлена', { ok: true });
     } catch (err) {
       toast.show(err?.message === 'card_too_large'
-        ? 'Слишком тяжёлые фото — уберите одно или замените'
+        ? 'Слишком тяжёлые фото, уберите одно или замените'
         : 'Не удалось опубликовать. Попробуйте ещё раз', { error: true });
     } finally {
       state.busy = false;
@@ -752,7 +752,7 @@ function bindPublish(node) {
 
   node.querySelector('[data-rotate-key]')?.addEventListener('click', async () => {
     if (state.busy) return;
-    if (!window.confirm('Сменить ключ доступа к заявкам? Старый ключ перестанет работать. Если у вас подключён Eventory Pro — после смены зайдите в Eventory по ссылке из визитки ещё раз, чтобы контакты снова открылись.')) return;
+    if (!window.confirm('Сменить ключ доступа к заявкам? Старый ключ перестанет работать. Если у вас подключён Eventory Pro, после смены зайдите в Eventory по ссылке из визитки ещё раз, чтобы контакты снова открылись.')) return;
     state.busy = true;
     rerender(node);
     try {

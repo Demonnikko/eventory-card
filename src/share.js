@@ -86,7 +86,7 @@ function renderReviewsBlock() {
         </div>
       ` : `
         <p class="ca-reviews-empty">Живой отзыв убеждает сильнее описаний.
-          Отправьте заказчику ссылку — он запишет короткое видео.</p>
+          Отправьте заказчику ссылку, и он запишет короткое видео.</p>
       `}
 
       <button type="button" class="ca-btn ca-btn--ghost" data-invite ${state.reviewsBusy ? 'disabled' : ''}>
@@ -110,7 +110,7 @@ function renderReferral() {
   return `
     <div class="ca-ref">
       <div class="ca-ref-head">
-        <span class="ca-ref-title">Приведите артистов — получите Pro</span>
+        <span class="ca-ref-title">Приведите артистов и получите Pro</span>
         <span class="ca-ref-sub">${needed} артиста с визиткой = месяц Eventory Pro бесплатно.</span>
       </div>
       <div class="ca-ref-progress">
@@ -139,7 +139,7 @@ function renderOccasionLinks(card) {
     return `
       <section class="sh-section">
         <h2 class="sh-h2">Ссылки на праздники</h2>
-        <p class="sh-sub">Включите праздники в редакторе — у каждого появится своя страница и ссылка для рассылки.</p>
+        <p class="sh-sub">Включите праздники в редакторе, и у каждого появится своя страница и ссылка для рассылки.</p>
         <a class="ca-btn ca-btn--ghost" href="#/editor">Включить праздники</a>
       </section>
     `;
@@ -179,7 +179,7 @@ function renderContent() {
       ${head}
       <div class="ca-empty">
         <p class="ca-empty-title">Визитка ещё не опубликована</p>
-        <p class="ca-empty-text">Опубликуйте её — появятся ссылки и QR-код.</p>
+        <p class="ca-empty-text">Опубликуйте её, и появятся ссылки и QR-код.</p>
         <a class="ca-btn ca-btn--primary" href="#/editor">Вернуться к визитке</a>
       </div>
     `;
@@ -212,7 +212,7 @@ function renderContent() {
         data-kiosk-toggle>
         <span class="ca-kiosk-copy">
           <span class="ca-kiosk-title">Режим витрины</span>
-          <span class="ca-kiosk-text">Приложение открывается сразу визиткой с QR. Выход — долгое удержание карточки.</span>
+          <span class="ca-kiosk-text">Приложение открывается сразу визиткой с QR. Чтобы выйти, долго удерживайте карточку.</span>
         </span>
         <span class="ca-kiosk-switch" aria-hidden="true"><span class="ca-kiosk-knob"></span></span>
       </button>
@@ -317,7 +317,7 @@ function bindReferral(node) {
     copyBtn.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(copyBtn.dataset.refCopy);
-        toast.show('Ссылка скопирована — отправьте артисту', { ok: true });
+        toast.show('Ссылка скопирована, отправьте артисту', { ok: true });
       } catch {
         toast.show('Скопируйте ссылку вручную');
       }
@@ -330,14 +330,14 @@ function bindReferral(node) {
       if (navigator.share) {
         await navigator.share({
           title: 'Сделай визитку в Eventory',
-          text: 'Бесплатная электронная визитка с QR — попробуй.',
+          text: 'Бесплатная электронная визитка с QR. Попробуй!',
           url
         }).catch(() => {});
         return;
       }
       try {
         await navigator.clipboard.writeText(url);
-        toast.show('Ссылка скопирована — отправьте артисту', { ok: true });
+        toast.show('Ссылка скопирована, отправьте артисту', { ok: true });
       } catch {
         toast.show('Скопируйте ссылку вручную');
       }
@@ -357,7 +357,7 @@ function bind(node) {
       try {
         await saveCard(state.card);
         toast.show(next
-          ? 'Витрина включена — иконка открывает визитку'
+          ? 'Витрина включена: иконка открывает визитку'
           : 'Витрина выключена', { ok: true });
       } catch {
         // Откатываем переключатель, если сохранить не удалось.
@@ -422,13 +422,13 @@ function bindReviewActions(node) {
           await navigator.share({ title: 'Видеоотзыв', text, url }).catch(() => {});
         } else {
           await navigator.clipboard.writeText(url);
-          toast.show('Ссылка скопирована — отправьте заказчику', { ok: true });
+          toast.show('Ссылка скопирована, отправьте заказчику', { ok: true });
         }
       } catch (err) {
         const message = err?.message === 'not_published'
           ? 'Сначала опубликуйте визитку'
           : err?.message === 'invite_store_failed'
-            ? 'Ссылка не сохранилась — попробуйте ещё раз'
+            ? 'Ссылка не сохранилась, попробуйте ещё раз'
             : 'Не удалось создать ссылку';
         toast.show(message, { error: true });
       } finally {
@@ -487,7 +487,7 @@ function bindReviewActions(node) {
       } catch (err) {
         btn.disabled = false;
         toast.show(err?.message === 'video_delete_failed'
-          ? 'Хранилище видео недоступно — попробуйте позже'
+          ? 'Хранилище видео недоступно, попробуйте позже'
           : 'Не удалось удалить', { error: true });
       }
     });

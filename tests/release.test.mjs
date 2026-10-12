@@ -86,7 +86,7 @@ test('заявка «Проверить дату» — единственная 
   assert.match(view, /Проверить дату/);
   assert.match(sheet, /Как к вам обращаться\?/);
   assert.match(sheet, /Укажите телефон/);
-  assert.match(sheet, /Telegram или ВКонтакте — по желанию/);
+  assert.match(sheet, /Telegram или ВКонтакте \(по желанию\)/);
   assert.match(sheet, /privacy/);
   assert.doesNotMatch(view, /data-ask|data-offer|data-price-request/);
 });

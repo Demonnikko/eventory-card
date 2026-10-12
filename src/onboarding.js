@@ -104,7 +104,7 @@ function renderWelcome() {
       <div class="ob-copy">
         <p class="ob-kicker">Электронная визитка</p>
         <h1 class="ob-title">Ваша визитка<br />за две минуты</h1>
-        <p class="ob-lead">Клиент открывает ссылку или сканирует QR — и сразу видит, кто вы и как с вами связаться.</p>
+        <p class="ob-lead">Клиент открывает ссылку или сканирует QR и сразу видит, кто вы и как с вами связаться.</p>
       </div>
 
       <div class="ob-actions">
@@ -167,7 +167,7 @@ function renderNameStep() {
       <div class="ob-copy ob-copy--tight">
         <p class="ob-kicker">Шаг 2 из 2</p>
         <h2 class="ob-subtitle">Как вас зовут?</h2>
-        <p class="ob-lead ob-lead--sm">Имя появится на визитке — можно изменить в любой момент.</p>
+        <p class="ob-lead ob-lead--sm">Имя появится на визитке. Его можно изменить в любой момент.</p>
       </div>
 
       <div class="ob-field">

@@ -116,7 +116,7 @@ function renderTag(tag) {
         </div>
       </div>
 
-      ${s.lastAt ? `<p class="in-tag-last">Последний раз — ${escapeHtml(formatDate(s.lastAt))}</p>` : ''}
+      ${s.lastAt ? `<p class="in-tag-last">Последний раз: ${escapeHtml(formatDate(s.lastAt))}</p>` : ''}
 
       ${showQr ? `
         <div class="in-tag-share">
@@ -246,7 +246,7 @@ function renderTelegramConnect() {
       <span class="in-tg-icon" aria-hidden="true">${renderIcon('share')}</span>
       <span class="in-tg-copy">
         <span class="in-tg-title">Уведомления в Telegram</span>
-        <span class="in-tg-text">Заявки будут приходить сразу — бесплатно.</span>
+        <span class="in-tg-text">Заявки будут приходить сразу и бесплатно.</span>
       </span>
       ${renderIcon('chevron-right')}
     </button>
@@ -346,7 +346,7 @@ function renderLeadDossier(lead) {
   }).join('');
 
   const action = top
-    ? `Смотрел «${escapeHtml(top)}». ${score >= 70 ? 'Звони первым — горячий.' : score >= 40 ? 'Перезвони, интерес есть.' : 'Напиши, пока помнит.'}`
+    ? `Смотрел «${escapeHtml(top)}». ${score >= 70 ? 'Звони первым, он горячий.' : score >= 40 ? 'Перезвони, интерес есть.' : 'Напиши, пока помнит.'}`
     : '';
 
   return `
@@ -390,7 +390,7 @@ function renderHotChase() {
       <div class="in-section-head">
         <h2 class="in-section-title">Смотрели, но молчат</h2>
       </div>
-      <p class="in-section-sub">Гости без заявки: заходили не раз и изучали визитку. Контакта нет, но интерес виден — стоит напомнить о себе там, где вы с ними общались.</p>
+      <p class="in-section-sub">Гости без заявки: заходили не раз и изучали визитку. Контакта нет, но интерес виден. Стоит напомнить о себе там, где вы с ними общались.</p>
       <div class="in-chases">${rows}</div>
     </section>
   `;
@@ -476,7 +476,7 @@ function renderLeads() {
           ${renderIcon('wallet')}
           <span class="in-lead-pro-copy">
             <span class="in-lead-pro-title">Открыть контакты клиентов</span>
-            <span class="in-lead-pro-note">Оформите Eventory Pro — имя и телефон появятся прямо здесь</span>
+            <span class="in-lead-pro-note">Оформите Eventory Pro, и имя с телефоном появятся прямо здесь</span>
           </span>
           ${renderIcon('chevron-right')}
         </a>
@@ -576,7 +576,7 @@ function renderSourceStats() {
     .map(([id, label]) => ({ title: label.title, sub: label.sub, count: Number(counts[id]) || 0 }))
     .filter((r) => r.count > 0)
     .sort((a, b) => b.count - a.count);
-  return renderBars('Откуда пришли', rows, 'Ссылки из Sales и QR в режиме показа подписаны каналом — здесь будет видно, что приводит людей.');
+  return renderBars('Откуда пришли', rows, 'Ссылки из Sales и QR в режиме показа подписаны каналом, поэтому здесь будет видно, что приводит людей.');
 }
 
 function renderUpsell(pointId) {
@@ -621,7 +621,7 @@ function renderContent() {
         <div class="in-section-head">
           <h2 class="in-section-title">Мероприятия</h2>
         </div>
-        <p class="in-section-sub">Метка под событие — своя ссылка и QR. Через месяц видно, какое мероприятие принесло клиентов.</p>
+        <p class="in-section-sub">Метка под событие: своя ссылка и QR. Через месяц видно, какое мероприятие принесло клиентов.</p>
 
         ${state.tags.length
           ? `<div class="in-tags">${state.tags.map(renderTag).join('')}</div>`
@@ -729,7 +729,7 @@ function bind(node) {
         if (url) window.open(url, '_blank', 'noopener');
         // После возврата из бота статус подтянется при следующем открытии
         // экрана; подскажем, что нужно нажать Start.
-        toast.show('Нажмите «Начать» в Telegram — заявки пойдут сюда', { ok: true });
+        toast.show('Нажмите «Начать» в Telegram, и заявки пойдут сюда', { ok: true });
       } catch {
         toast.show('Не удалось открыть Telegram', { error: true });
       }
@@ -786,7 +786,7 @@ function bind(node) {
         state.tags = [{ ...tag, stats: { opens: 0, visitors: 0, contacts: 0 } }, ...state.tags];
         state.form = false;
         hapticSuccess();
-        toast.show('Метка создана — раздавайте визитку по её ссылке', { ok: true });
+        toast.show('Метка создана. Раздавайте визитку по её ссылке', { ok: true });
       } catch {
         toast.show('Не удалось создать', { error: true });
       } finally {

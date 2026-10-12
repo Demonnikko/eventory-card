@@ -127,11 +127,11 @@ function renderForm(card, fixedOccasion) {
       ], state.format) : ''}
       ${field({ name: 'name', label: 'Как вас зовут', value: state.name, autocomplete: 'name', max: 80 })}
       ${field({ name: 'phone', label: 'Телефон', type: 'tel', value: state.phone, placeholder: '+7 900 000-00-00', autocomplete: 'tel', inputmode: 'tel', max: 30 })}
-      ${field({ name: 'messenger', label: 'Telegram или ВКонтакте — по желанию', value: state.messenger, placeholder: '@ник или ссылка', max: 120 })}
+      ${field({ name: 'messenger', label: 'Telegram или ВКонтакте (по желанию)', value: state.messenger, placeholder: '@ник или ссылка', max: 120 })}
       <button type="submit" class="vz-cta dr-submit" ${state.busy ? 'disabled' : ''}>
         ${state.busy ? 'Отправляю…' : 'Проверить дату'}
       </button>
-      <p class="dr-privacy">Контакт не публикуется — нужен только чтобы ответить.
+      <p class="dr-privacy">Контакт не публикуется, он нужен только для ответа.
         <a href="/#/privacy" target="_blank" rel="noopener">Подробнее</a></p>
     </form>
   `;
@@ -176,7 +176,7 @@ function renderDone(card, fixedOccasion) {
 function validate() {
   const errors = {};
   if (!state.name.trim()) errors.name = 'Как к вам обращаться?';
-  if (!/\+?[0-9][0-9()\s-]{6,}/.test(state.phone.trim())) errors.phone = 'Укажите телефон — по нему отвечу';
+  if (!/\+?[0-9][0-9()\s-]{6,}/.test(state.phone.trim())) errors.phone = 'Укажите телефон, по нему отвечу';
   state.errors = errors;
   return Object.keys(errors)[0] || '';
 }
@@ -255,7 +255,7 @@ export function openDateRequest({ card, slug, tagId = '', source = '', occasion 
       return;
     }
     if (!interactive) {
-      toast.show('Это предпросмотр — заявки принимает опубликованная визитка');
+      toast.show('Это предпросмотр. Заявки принимает опубликованная визитка');
       return;
     }
     state.busy = true;
@@ -275,7 +275,7 @@ export function openDateRequest({ card, slug, tagId = '', source = '', occasion 
       state.sent = true;
       hapticSuccess();
     } catch {
-      toast.show('Не получилось отправить. Позвоните или напишите — контакты на визитке.', { error: true });
+      toast.show('Не получилось отправить. Позвоните или напишите, контакты есть на визитке.', { error: true });
     } finally {
       state.busy = false;
       render();

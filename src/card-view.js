@@ -78,7 +78,7 @@ function renderOccasions(card, { slug, interactive, query, now }) {
   return `
     <section class="vz-section" data-section="Праздники" ${reveal()}>
       <h2 class="vz-h2">На какой праздник?</h2>
-      <p class="vz-sub">Выберите — покажу программу под ваш повод</p>
+      <p class="vz-sub">Выберите повод, и я покажу программу под него</p>
       <div class="vz-bento">
         ${renderOccasionTile(card, first, { lead: true, href: occasionHref(slug, first, { interactive, query }), now })}
         ${rest.map((occasion, i) => renderOccasionTile(card, occasion, {

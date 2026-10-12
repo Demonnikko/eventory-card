@@ -57,7 +57,7 @@ function renderIntro() {
         <span class="rv-ring-icon">${renderIcon('user')}</span>
       </div>
       <h1 class="rv-title">Видеоотзыв<br />для ${escapeHtml(forWhom)}</h1>
-      <p class="rv-lead">Запишите короткое видео — до ${MAX_DURATION} секунд.
+      <p class="rv-lead">Запишите короткое видео, до ${MAX_DURATION} секунд.
         Расскажите, что понравилось в работе.</p>
       <div class="rv-actions">
         <button type="button" class="rv-btn rv-btn--primary" data-start>
@@ -367,7 +367,7 @@ function stopRecording(node) {
     hapticLight();
   }
   if (state.seconds < MIN_DURATION) {
-    toast.show('Слишком коротко — расскажите чуть подробнее');
+    toast.show('Слишком коротко, расскажите чуть подробнее');
   }
 }
 
@@ -410,13 +410,13 @@ async function send_(node) {
   } catch (err) {
     hapticError();
     const map = {
-      video_too_large: 'Видео слишком большое — запишите покороче',
+      video_too_large: 'Видео слишком большое, запишите покороче',
       reviews_limit: 'У этого исполнителя уже максимум отзывов',
-      invite_not_found: 'Ссылка устарела — попросите новую',
+      invite_not_found: 'Ссылка устарела, попросите новую',
       video_storage_not_configured: 'Приём видео временно недоступен',
       upload_authorization_failed: 'Хранилище видео временно недоступно',
       upload_failed: 'Видео не загрузилось. Проверьте интернет и повторите',
-      video_verification_failed: 'Видео загрузилось не полностью — отправьте ещё раз',
+      video_verification_failed: 'Видео загрузилось не полностью, отправьте ещё раз',
       review_store_failed: 'Видео принято, но отзыв не сохранился. Повторите отправку',
       security_checkpoint: 'Защита сервера остановила запрос. Обновите страницу и повторите'
     };

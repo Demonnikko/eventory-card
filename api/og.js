@@ -214,7 +214,7 @@ function buildMetaTags(card, origin, slug, occasionSlug = '') {
   // «Новогодний корпоратив · Дмитрий Костюк», а не просто имя артиста.
   const title = page
     ? `${occasionTitle(page.occasion)} · ${name}`
-    : (card?.role ? `${name} — ${card.role}` : name);
+    : (card?.role ? `${name} · ${card.role}` : name);
   const description = (page && (page.settings.headline || page.settings.text))
     || card?.tagline
     || (metaParts.length ? metaParts.join(' · ') : 'Контакты, услуги и связь за пару секунд.');
