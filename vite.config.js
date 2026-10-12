@@ -34,7 +34,7 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: false,
       filename: 'sw.js',
-      includeAssets: ['icon.png', 'icon-192.png', 'maskable-icon.png'],
+      includeAssets: ['icon.png', 'icon-192.png', 'maskable-icon.png', 'apple-touch-icon.png', 'favicon.ico'],
       workbox: {
         // woff2 в precache: фирменная антиква должна быть и офлайн.
         // TTF (99КБ) намеренно не кэшируем — это запасной вариант для

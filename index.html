@@ -17,8 +17,10 @@
       name="description"
       content="Бесплатная электронная визитка для event-специалистов: контакты, услуги, QR-код и ссылка."
     />
-    <link rel="icon" type="image/png" href="/icon.png" />
-    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <!-- iPhone берёт иконку экрана «Домой» отсюда; 180×180 без прозрачности. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <!-- Шаблоны онбординга не preload'им в HTML: они нужны только на первом
          входе владельца, а грузились на КАЖДОЙ странице, включая публичную
          визитку клиента (лишние ~230 КБ). Онбординг предзагружает их сам из
