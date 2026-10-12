@@ -28,7 +28,7 @@ npm run check >/dev/null || { echo "СТОП: проверки не прошли
 [ -f dist/index.html ] && [ -f dist/sw.js ] || { echo "СТОП: сборка неполная — выкладку не делаю"; exit 1; }
 
 STAMP=$(date +%Y%m%d-%H%M%S)
-echo "2/3 Загружаю сборку $STAMP…"
+echo "2/3 Загружаю сборку ${STAMP}…"
 COPYFILE_DISABLE=1 tar --no-xattrs -czf - -C dist . |"${SSH[@]}" "set -e; mkdir -p $BASE/releases/$STAMP && tar xzf - -C $BASE/releases/$STAMP
   test -f $BASE/releases/$STAMP/index.html"
 

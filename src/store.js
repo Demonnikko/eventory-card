@@ -14,10 +14,20 @@ let memoryFallback = null;
 function openDb() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
+    // В iOS WebKit (standalone PWA) indexedDB.open на холодном старте может
+    // зависать в pending без вызова onerror/onsuccess. Таймаут 800мс предотвращает
+    // вечный чёрный экран и переводит приложение на резервное хранилище (localStorage).
+    let timer = setTimeout(() => {
+      dbPromise = null;
+      reject(new Error('idb_timeout'));
+    }, 800);
+
     let req;
     try {
       req = indexedDB.open(DB_NAME, SCHEMA_VERSION);
     } catch (err) {
+      clearTimeout(timer);
+      dbPromise = null;
       reject(err);
       return;
     }
@@ -27,9 +37,20 @@ function openDb() {
         db.createObjectStore(STORE, { keyPath: 'id' });
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-    req.onblocked = () => reject(new Error('idb_blocked'));
+    req.onsuccess = () => {
+      clearTimeout(timer);
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      clearTimeout(timer);
+      dbPromise = null;
+      reject(req.error);
+    };
+    req.onblocked = () => {
+      clearTimeout(timer);
+      dbPromise = null;
+      reject(new Error('idb_blocked'));
+    };
   });
   return dbPromise;
 }
@@ -46,10 +67,22 @@ export async function getRecord(id) {
   try {
     const db = await openDb();
     return await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readonly');
-      const req = tx.objectStore(STORE).get(id);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
+      const timer = setTimeout(() => reject(new Error('idb_tx_timeout')), 800);
+      try {
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).get(id);
+        req.onsuccess = () => {
+          clearTimeout(timer);
+          resolve(req.result || null);
+        };
+        req.onerror = () => {
+          clearTimeout(timer);
+          reject(req.error);
+        };
+      } catch (err) {
+        clearTimeout(timer);
+        reject(err);
+      }
     });
   } catch {
     return memory().get(id) || null;
@@ -60,11 +93,26 @@ export async function putRecord(value) {
   try {
     const db = await openDb();
     await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(value);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
+      const timer = setTimeout(() => reject(new Error('idb_tx_timeout')), 1000);
+      try {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(value);
+        tx.oncomplete = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        tx.onerror = () => {
+          clearTimeout(timer);
+          reject(tx.error);
+        };
+        tx.onabort = () => {
+          clearTimeout(timer);
+          reject(tx.error);
+        };
+      } catch (err) {
+        clearTimeout(timer);
+        reject(err);
+      }
     });
     return value;
   } catch {

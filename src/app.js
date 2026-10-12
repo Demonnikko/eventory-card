@@ -170,58 +170,63 @@ export function mountApp() {
     markActiveTab(tabbar, id);
     // Лениво подгружаем код нужного экрана. Оболочка (шапка, фон) уже на
     // месте, предыдущий экран виден те миллисекунды, что грузится чанк.
-    const view = await VIEW_LOADERS[id]();
-    if (!isCurrent()) return;
-    document.body.dataset.route = id;
-    if (view.title) {
-      document.title = id === 'editor' ? 'Визитка' : `${view.title} · Визитка`;
-    } else if (id === 'review-record') {
-      document.title = 'Видеоотзыв · Визитка';
-    } else if (id !== 'card-public') {
-      document.title = 'Визитка';
-    }
+    try {
+      const loader = VIEW_LOADERS[id] || VIEW_LOADERS.editor;
+      const view = await loader();
+      if (!isCurrent()) return;
+      document.body.dataset.route = id;
+      if (view.title) {
+        document.title = id === 'editor' ? 'Визитка' : `${view.title} · Визитка`;
+      } else if (id === 'review-record') {
+        document.title = 'Видеоотзыв · Визитка';
+      } else if (id !== 'card-public') {
+        document.title = 'Визитка';
+      }
 
-    // Экран записи держит камеру — её нужно отпустить при уходе.
-    if (currentView && currentView !== view && typeof currentView.unmount === 'function') {
-      try { await currentView.unmount(); } catch { /* уход не должен ломать переход */ }
-    }
-    if (!isCurrent()) return;
-    currentView = view;
+      // Экран записи держит камеру — её нужно отпустить при уходе.
+      if (currentView && currentView !== view && typeof currentView.unmount === 'function') {
+        try { await currentView.unmount(); } catch { /* уход не должен ломать переход */ }
+      }
+      if (!isCurrent()) return;
+      currentView = view;
 
-    // Таббар зависит только от маршрута, поэтому рисуем его до mount(): экраны
-    // с сетевыми данными («Отклик», «Поделиться») ждут ответа внутри mount, и
-    // раньше на холодном старте панель появлялась лишь через секунды.
-    syncTabbar(id);
+      // Таббар зависит только от маршрута, поэтому рисуем его до mount(): экраны
+      // с сетевыми данными («Отклик», «Поделиться») ждут ответа внутри mount, и
+      // раньше на холодном старте панель появлялась лишь через секунды.
+      syncTabbar(id);
+      window.scrollTo(0, 0);
 
-    // Против моргания при переключении вкладок: раньше роутер сначала рисовал
-    // пустой каркас через render() (≈«Загрузка…»), а mount() затем грузил
-    // данные из IndexedDB и перерисовывал #app ЗАНОВО — две замены DOM подряд,
-    // и промежуточный пустой кадр читался как мигание/обновление.
-    //
-    // Теперь: если у экрана есть async mount(), он сам заполняет #app за один
-    // проход уже готовыми данными. Предыдущий экран остаётся видимым те
-    // считанные миллисекунды, что читается getCard() — без пустого кадра.
-    // Скролл сбрасываем ДО отрисовки нового экрана, пока виден ещё старый.
-    // Раньше scrollTo(0,0) стоял в конце route() — после await mount(). Новый
-    // (высокий) экран успевал отрисоваться на СТАРОЙ позиции скролла, и его
-    // было видно проскролленным вниз/в середину, а потом он «прыгал» наверх.
-    // Сброс здесь: новая вкладка всегда появляется с начала, без прыжка.
-    window.scrollTo(0, 0);
-
-    // render() зовём только для экранов без mount() (статичные вроде privacy).
-    if (typeof view.mount === 'function') {
-      await view.mount(app, {
-        routeId: id,
-        params,
-        // Экран с сетевыми данными сверяется с этим перед тем, как дорисовать
-        // пришедший ответ: человек мог уже уйти на другую вкладку.
-        isCurrent,
-        // Онбординг завершился — перерисовываем маршрут, а не меняем хэш:
-        // хэш и так '#/editor', hashchange бы не сработал.
-        onDone: () => route()
-      });
-    } else {
-      app.innerHTML = typeof view.render === 'function' ? view.render() : '';
+      // render() зовём только для экранов без mount() (статичные вроде privacy).
+      if (typeof view.mount === 'function') {
+        await view.mount(app, {
+          routeId: id,
+          params,
+          // Экран с сетевыми данными сверяется с этим перед тем, как дорисовать
+          // пришедший ответ: человек мог уже уйти на другую вкладку.
+          isCurrent,
+          // Онбординг завершился — перерисовываем маршрут, а не меняем хэш:
+          // хэш и так '#/editor', hashchange бы не сработал.
+          onDone: () => route()
+        });
+      } else {
+        app.innerHTML = typeof view.render === 'function' ? view.render() : '';
+      }
+    } catch (err) {
+      console.error('Route error for', id, err);
+      if (isCurrent()) {
+        syncTabbar(id);
+        // Защита от чёрного экрана: если mount или загрузка упала, не оставляем пустой экран
+        if (!app.innerHTML) {
+          app.innerHTML = `
+            <div style="padding: 48px 16px; text-align: center; color: var(--text);">
+              <p style="font-size: 16px; margin-bottom: 20px; color: var(--muted);">Не удалось загрузить раздел</p>
+              <button type="button" class="ca-tab" style="padding: 12px 24px; border-radius: 12px; background: var(--brand-gold-grad, #d9cbb0); color: #060607; font-weight: 600; border: none; cursor: pointer;" onclick="window.location.reload()">
+                Обновить
+              </button>
+            </div>
+          `;
+        }
+      }
     }
   }
 
