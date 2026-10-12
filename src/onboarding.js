@@ -8,10 +8,13 @@ import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import {
   BUSINESS_CARD_PROFESSIONS,
+  BUSINESS_CARD_TEMPLATE_BY_PROFESSION,
+  DEFAULT_BUSINESS_CARD,
   businessCardOnboardingTemplateUrl,
   businessCardTemplateUrl
 } from './shared/data/businessCard.js';
 import { getCard, saveCard } from './card-data.js';
+import { mirrorRead } from './store.js';
 import { renderPaperCard as renderPaperCardBase, professionLabel, splitName } from './paper-card.js';
 
 const ONBOARDING_KEY = 'eventory-card:onboarded';
@@ -69,13 +72,6 @@ function preloadAllTemplates(priority = 'auto') {
   BUSINESS_CARD_PROFESSIONS.forEach((profession) => {
     preloadTemplate(profession.id, priority);
   });
-}
-
-// Если онбординг ещё не пройден, начинаем немедленный прогрев фонов:
-if (!isOnboarded()) {
-  try {
-    preloadAllTemplates('high');
-  } catch { /* в окружении без DOM игнорируем */ }
 }
 
 // Полноразмерный выбранный фон тихо прогреваем для следующего экрана.
@@ -216,18 +212,27 @@ export const onboarding = {
     return '<div class="ob-loading"></div>';
   },
   async mount(node, ctx = {}) {
-    state.card = await getCard();
-    // Возврат в онбординг с уже заполненной карточкой — показываем её данные.
+    state.card = mirrorRead() || DEFAULT_BUSINESS_CARD;
     state.profession = state.card.profession || '';
     state.name = state.card.name || '';
     state.step = 'welcome';
     state.busy = false;
 
+    // Мгновенный первый кадр — экран приветствия виден в 0 мс без ожидания базы
     node.innerHTML = renderContent();
     bind(node, ctx);
-    // Предзагружаем весь компактный набор шаблонов сразу при входе в
-    // онбординг — до шага выбора профессии всё готово. В <head> их больше
-    // нет: там они грузились и на публичной визитке, где не нужны.
+
+    // Дочитываем из базы в фоне, если карточка уже заполнялась
+    getCard().then((card) => {
+      if (!card) return;
+      state.card = card;
+      if (card.profession || card.name) {
+        state.profession = card.profession || '';
+        state.name = card.name || '';
+        updatePaper(node);
+      }
+    }).catch(() => {});
+
     preloadAllTemplates('high');
     if (state.profession) preloadFullTemplate(state.profession);
   }

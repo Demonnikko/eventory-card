@@ -12,10 +12,12 @@ import {
   compressImage,
   BUSINESS_CARD_GALLERY_MAX_BYTES,
   CARD_LIMITS,
+  DEFAULT_BUSINESS_CARD,
   rotateBusinessCardLeadKey
 } from './shared/data/businessCard.js';
 import { enabledOccasions } from './shared/data/occasions.js';
 import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST, cardPublicUrl, hasUnpublishedChanges } from './card-data.js';
+import { mirrorRead } from './store.js';
 import { createCardDraft } from './editor-draft.js';
 import {
   BACKUP_MAX_BYTES,
@@ -410,11 +412,20 @@ export const editor = {
   async mount(node) {
     // Раскрытый список профессий — состояние одного захода, а не настройка.
     state.professionsOpen = false;
-    state.card = await getCard();
+    state.card = mirrorRead() || DEFAULT_BUSINESS_CARD;
     draft = createCardDraft(state.card, { save: saveCard });
     state.card = draft.card;
     node.innerHTML = renderContent();
     bind(node);
+
+    // Дочитываем актуальные данные из IndexedDB без блокировки первого кадра
+    getCard().then((card) => {
+      if (!card) return;
+      state.card = card;
+      draft = createCardDraft(state.card, { save: saveCard });
+      state.card = draft.card;
+      rerender(node);
+    }).catch(() => {});
   },
   async unmount() {
     clearTimeout(publishStateTimer);

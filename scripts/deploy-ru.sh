@@ -30,7 +30,10 @@ npm run check >/dev/null || { echo "СТОП: проверки не прошли
 STAMP=$(date +%Y%m%d-%H%M%S)
 echo "2/3 Загружаю сборку ${STAMP}…"
 COPYFILE_DISABLE=1 tar --no-xattrs -czf - -C dist . |"${SSH[@]}" "set -e; mkdir -p $BASE/releases/$STAMP && tar xzf - -C $BASE/releases/$STAMP
-  test -f $BASE/releases/$STAMP/index.html"
+  test -f $BASE/releases/$STAMP/index.html
+  if [ -d $BASE/current/assets ]; then
+    cp -n $BASE/current/assets/* $BASE/releases/$STAMP/assets/ 2>/dev/null || true
+  fi"
 
 echo "3/3 Переключаю…"
 "${SSH[@]}" "set -e; ln -sfn $BASE/releases/$STAMP $BASE/current.tmp && mv -T $BASE/current.tmp $BASE/current

@@ -216,7 +216,7 @@ export function mountApp() {
       if (isCurrent()) {
         syncTabbar(id);
         // Защита от чёрного экрана: если mount или загрузка упала, не оставляем пустой экран
-        if (!app.innerHTML) {
+        if (!app.innerHTML || app.querySelector('.ob-loading') || app.querySelector('.ca-splash')) {
           app.innerHTML = `
             <div style="padding: 48px 16px; text-align: center; color: var(--text);">
               <p style="font-size: 16px; margin-bottom: 20px; color: var(--muted);">Не удалось загрузить раздел</p>
