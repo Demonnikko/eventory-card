@@ -220,11 +220,20 @@ export function mountApp() {
           app.innerHTML = `
             <div style="padding: 48px 16px; text-align: center; color: var(--text);">
               <p style="font-size: 16px; margin-bottom: 20px; color: var(--muted);">Не удалось загрузить раздел</p>
-              <button type="button" class="ca-tab" style="padding: 12px 24px; border-radius: 12px; background: var(--brand-gold-grad, #d9cbb0); color: #060607; font-weight: 600; border: none; cursor: pointer;" onclick="window.location.reload()">
+              <button type="button" class="ca-tab" data-route-retry style="padding: 12px 24px; border-radius: 12px; background: var(--brand-gold-grad, #d9cbb0); color: #060607; font-weight: 600; border: none; cursor: pointer;">
                 Обновить
               </button>
             </div>
           `;
+          app.querySelector('[data-route-retry]')?.addEventListener('click', () => {
+            const isStandalone = window.navigator.standalone === true ||
+              window.matchMedia('(display-mode: standalone)').matches;
+            if (isStandalone) {
+              window.location.href = window.location.href;
+            } else {
+              window.location.reload();
+            }
+          });
         }
       }
     }

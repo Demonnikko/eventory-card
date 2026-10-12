@@ -1,6 +1,5 @@
 import { toast } from './shared/components/toast.js';
 import { APP_VERSION } from './app-version.js';
-import { isOnboarded } from './onboarding.js';
 
 const CHECK_INTERVAL = 30 * 60 * 1000;
 const INSTALL_TIMEOUT = 12000;
@@ -33,22 +32,8 @@ function setChecking(checking) {
   }
 }
 
-// Новичок на приветствии: черновика ещё нет, терять нечего, а кнопки
-// «Обновить» на этом экране нет — без автообновления он застревал на старой
-// версии, пока не закроет вкладку. Публичные /v/ и /r/ не трогаем: там гость
-// читает визитку, и перезагрузка посреди чтения ему ни к чему.
-function canUpdateSilently() {
-  const path = window.location.pathname;
-  return !isOnboarded() && !path.startsWith('/v/') && !path.startsWith('/r/');
-}
-
 function showAvailable(worker = null) {
   waitingWorker = worker || watchedRegistration?.waiting || waitingWorker;
-  if (canUpdateSilently() && waitingWorker) {
-    reloadRequested = true;
-    waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-    return;
-  }
   const { banner, status, control } = ui();
   if (banner) banner.hidden = false;
   if (status) status.textContent = 'Доступна новая версия визитки';
@@ -211,7 +196,13 @@ export function initPwaUpdates() {
     if (!reloadRequested || reloading) return;
     reloading = true;
     hideAvailable();
-    window.location.reload();
+    const isStandalone = window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
+      window.location.href = window.location.href;
+    } else {
+      window.location.reload();
+    }
   });
 
   registerPwaUpdates()

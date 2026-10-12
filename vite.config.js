@@ -34,7 +34,20 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: false,
       filename: 'sw.js',
-      includeAssets: ['icon.png', 'icon-192.png', 'maskable-icon.png', 'apple-touch-icon.png', 'apple-touch-icon-precomposed.png', 'favicon.ico'],
+      includeAssets: [
+        'icon.png',
+        'icon-192.png',
+        'maskable-icon.png',
+        'apple-touch-icon.png',
+        'apple-touch-icon-precomposed.png',
+        'apple-touch-icon-240x240.png',
+        'apple-touch-icon-240x240-precomposed.png',
+        'apple-touch-icon-180x180.png',
+        'apple-touch-icon-180x180-precomposed.png',
+        'apple-touch-icon-120x120.png',
+        'apple-touch-icon-120x120-precomposed.png',
+        'favicon.ico'
+      ],
       workbox: {
         // woff2 в precache: фирменная антиква должна быть и офлайн.
         // TTF (99КБ) намеренно не кэшируем — это запасной вариант для
@@ -88,6 +101,8 @@ export default defineConfig({
         background_color: '#060607',
         theme_color: '#060607',
         icons: [
+          { src: '/apple-touch-icon-240x240.png', sizes: '240x240', type: 'image/png', purpose: 'any' },
+          { src: '/apple-touch-icon-180x180.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
           { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

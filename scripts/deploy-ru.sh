@@ -39,4 +39,16 @@ echo "3/3 Переключаю…"
 "${SSH[@]}" "set -e; ln -sfn $BASE/releases/$STAMP $BASE/current.tmp && mv -T $BASE/current.tmp $BASE/current
   cd $BASE/releases && ls -1 | sort | head -n -5 | xargs -r rm -rf"
 
+# Обновляем Nginx сниппет (apple-touch-icon fallback и др.), если изменился
+if [ -f deploy/nginx/tadacard-locations.conf ]; then
+  cat deploy/nginx/tadacard-locations.conf | "${SSH[@]}" "set -e
+    cat > /tmp/tadacard-locations.conf.tmp
+    if ! cmp -s /tmp/tadacard-locations.conf.tmp /etc/nginx/snippets/tadacard-locations.conf; then
+      sudo cp /tmp/tadacard-locations.conf.tmp /etc/nginx/snippets/tadacard-locations.conf
+      sudo nginx -t && sudo systemctl reload nginx
+      echo 'Nginx конфиг обновлён и перезагружен'
+    fi
+    rm -f /tmp/tadacard-locations.conf.tmp" || true
+fi
+
 echo "Готово: tadacard.ru работает на сборке $STAMP"
