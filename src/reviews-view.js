@@ -15,10 +15,14 @@ function initials(name) {
 }
 
 // Видео в Blob отдаётся с blob.vercel-storage.com — этот домен заблокирован
-// в РФ, поэтому показываем файл через свой домен (/media/…, см. media-url.js).
+// в РФ. На своём сервере файл идёт через /media/ (media-url.js), на Vercel —
+// через прокси-ветку ?video в card-review.
 // Локальные превью (blob:/data:) и уже завёрнутые ссылки оставляем как есть.
 export function proxiedVideo(url) {
-  return mediaUrl(url);
+  const src = String(url || '');
+  if (!src.includes('.blob.vercel-storage.com')) return src;
+  const local = mediaUrl(src);
+  return local !== src ? local : `/api/card-review?video=${encodeURIComponent(src)}`;
 }
 
 // Сколько отзывов показываем крупными «героями» перед тем, как остальные

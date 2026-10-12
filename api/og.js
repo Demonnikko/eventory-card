@@ -12,7 +12,7 @@
 import crypto from 'node:crypto';
 import { normalizeSlug } from './_card-access.js';
 import { findOccasion, occasionTitle } from '../src/shared/data/occasions.js';
-import { mediaUrl } from '../src/shared/lib/media-url.js';
+import { mediaUrl, behindOwnServer } from '../src/shared/lib/media-url.js';
 
 // Домены, через которые визитку открывают гости. Российский сервер
 // (tadacard.ru) проксирует сюда /v/… и /api/…, а Vercel подменяет
@@ -169,10 +169,10 @@ export function publicOriginOf(req) {
   return PUBLIC_HOSTS.has(host) ? `https://${host}` : originOf(req);
 }
 
-// Ссылку Blob в og:image ведём через домен визитки: краулер VK в РФ
-// до blob.vercel-storage.com не достучится.
+// Ссылку Blob в og:image на своём сервере ведём через его домен: краулер
+// VK в РФ до blob.vercel-storage.com не достучится. На Vercel — как было.
 function absoluteMedia(url, origin) {
-  const local = mediaUrl(url);
+  const local = mediaUrl(url, behindOwnServer(new URL(origin).hostname));
   return local.startsWith('/') ? `${origin}${local}` : local;
 }
 
