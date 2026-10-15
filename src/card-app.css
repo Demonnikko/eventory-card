@@ -1231,6 +1231,14 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 
 .sh-qr-show { width: 100%; }
 
+.sh-qr-edit {
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-top: 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .sh-section > .ca-btn { width: 100%; margin-top: 14px; }
 
 .sh-links {

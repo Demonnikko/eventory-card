@@ -13,7 +13,8 @@ import {
   BUSINESS_CARD_GALLERY_MAX_BYTES,
   CARD_LIMITS,
   DEFAULT_BUSINESS_CARD,
-  rotateBusinessCardLeadKey
+  rotateBusinessCardLeadKey,
+  slugify
 } from './shared/data/businessCard.js';
 import { enabledOccasions } from './shared/data/occasions.js';
 import { getCard, saveCard, publishCard, cardCompletion, CARD_CHECKLIST, cardPublicUrl, hasUnpublishedChanges } from './card-data.js';
@@ -490,8 +491,24 @@ function bindInput(node, form) {
       });
     } else if (el.dataset.occNewTitle != null) {
       return;
+    } else if (el.name === 'publishedSlug') {
+      const clean = el.value.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+      if (el.value !== clean) {
+        el.value = clean;
+      }
+      updateDraft({ publishedSlug: clean });
     } else if (el.name) {
       updateDraft({ [el.name]: el.value });
+      if (el.name === 'name' && !state.card.publishedSlug) {
+        const suggested = slugify(el.value);
+        if (suggested) {
+          const slugInput = form.querySelector('[name="publishedSlug"]');
+          if (slugInput && !slugInput.value) {
+            slugInput.value = suggested;
+            updateDraft({ publishedSlug: suggested });
+          }
+        }
+      }
     } else {
       return;
     }
@@ -754,6 +771,8 @@ function bindPublish(node) {
     } catch (err) {
       toast.show(err?.message === 'card_too_large'
         ? 'Слишком тяжёлые фото, уберите одно или замените'
+        : err?.message === 'slug_taken'
+        ? 'Этот адрес ссылки уже занят, выберите другой'
         : 'Не удалось опубликовать. Попробуйте ещё раз', { error: true });
     } finally {
       state.busy = false;

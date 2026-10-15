@@ -12,7 +12,7 @@ import {
   slugify,
   uniqueOccasionSlug
 } from '../src/shared/data/occasions.js';
-import { normalizeBusinessCard, publicCardPayload } from '../src/shared/data/businessCard.js';
+import { normalizeBusinessCard, publicCardPayload, slugify as cardSlugify } from '../src/shared/data/businessCard.js';
 import { cardPublicUrl, cardCompletion, DEFAULT_BUSINESS_CARD } from '../src/card-data.js';
 
 const DECEMBER = new Date(2026, 11, 5);
@@ -391,4 +391,23 @@ test('заявка сохраняет праздник, канал, город �
     const leads = await store.listLeads('demo-card');
     assert.deepEqual(leads.map((item) => item.name), ['Ира', 'Олег', 'Анна']);
   });
+});
+
+test('адрес визитки (publishedSlug) и транслитерация имени', () => {
+  assert.equal(cardSlugify('Масляков'), 'maslyakov');
+  assert.equal(cardSlugify('Дмитрий Костюк'), 'dmitriy-kostyuk');
+  assert.equal(cardSlugify('  Magic & Fun!  '), 'magic-fun');
+  assert.equal(cardSlugify(''), '');
+
+  const valid = normalizeBusinessCard({ publishedSlug: 'Maslyakov' });
+  assert.equal(valid.publishedSlug, 'maslyakov');
+
+  const hyphenated = normalizeBusinessCard({ publishedSlug: 'dmitry-kostyuk' });
+  assert.equal(hyphenated.publishedSlug, 'dmitry-kostyuk');
+
+  const short = normalizeBusinessCard({ publishedSlug: 'ab' });
+  assert.equal(short.publishedSlug, '', 'слишком короткий адрес сбрасывается');
+
+  const invalid = normalizeBusinessCard({ publishedSlug: 'maslyakov!' });
+  assert.equal(invalid.publishedSlug, '', 'спецсимволы не допускаются');
 });

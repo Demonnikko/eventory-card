@@ -201,6 +201,7 @@ function renderContent() {
           </button>
         </div>
         <a class="ca-btn ca-btn--primary sh-qr-show" href="#/present">Показать QR</a>
+        <a class="ca-text-link sh-qr-edit" href="#/editor">Изменить адрес визитки</a>
       </section>
 
       ${renderOccasionLinks(card)}

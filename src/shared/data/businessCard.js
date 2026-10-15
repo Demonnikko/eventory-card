@@ -393,7 +393,7 @@ export function normalizeBusinessCard(input = {}) {
     customOccasions,
     leadKey,
     kioskMode: input.kioskMode === true,
-    publishedSlug: /^[a-z0-9_-]{6,32}$/i.test(String(input.publishedSlug || '')) ? String(input.publishedSlug) : '',
+    publishedSlug: /^[a-z0-9_-]{3,32}$/i.test(String(input.publishedSlug || '')) ? String(input.publishedSlug).toLowerCase() : '',
     publishedAt: Number.isFinite(Number(input.publishedAt)) ? Number(input.publishedAt) : null
   };
 }
@@ -522,4 +522,23 @@ export async function compressImage(file, { maxDim = 1200, quality = 0.85, maxBy
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+const RU_TO_EN = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh',
+  з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o',
+  п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts',
+  ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya'
+};
+
+export function slugify(str) {
+  return String(str || '')
+    .toLowerCase()
+    .trim()
+    .split('')
+    .map((ch) => (RU_TO_EN[ch] !== undefined ? RU_TO_EN[ch] : ch))
+    .join('')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
 }
