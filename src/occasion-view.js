@@ -107,15 +107,16 @@ function renderActScreens(card, settings) {
         const headline = card.galleryHeadlines?.[i] || name;
         const text = card.galleryTexts?.[i] || '';
         return `
-          <article class="vz-act-screen">
+          <article class="vz-act-screen vz-act-screen--clickable" role="button" tabindex="0" data-act-open="${i}" aria-label="${escapeAttr(name || headline || `Номер ${i + 1}`)} — подробнее">
             <img class="vz-act-screen-img" src="${escapeAttr(photoAt(card, i))}" alt="${escapeAttr(name || headline || `Номер ${i + 1}`)}" loading="lazy" />
-            ${headline || text ? `
-              <div class="vz-act-screen-copy">
-                ${name && headline !== name ? `<span class="vz-kicker">${escapeHtml(name)}</span>` : ''}
-                ${headline ? `<h3 class="vz-act-screen-title">${escapeHtml(headline)}</h3>` : ''}
-                ${text ? `<p class="vz-act-screen-text">${escapeHtml(text)}</p>` : ''}
+            <div class="vz-act-screen-copy">
+              ${name && headline !== name ? `<span class="vz-kicker">${escapeHtml(name)}</span>` : ''}
+              ${headline ? `<h3 class="vz-act-screen-title">${escapeHtml(headline)}</h3>` : ''}
+              ${text ? `<p class="vz-act-screen-text">${escapeHtml(text)}</p>` : ''}
+              <div class="vz-act-screen-action">
+                <span class="vz-act-more-btn">Подробнее о номере</span>
               </div>
-            ` : ''}
+            </div>
           </article>
         `;
       }).join('')}

@@ -85,6 +85,8 @@ export const DEFAULT_BUSINESS_CARD = {
   // продающий заголовок («Один бросок. Та самая карта») и пара строк.
   galleryHeadlines: [],
   galleryTexts: [],
+  galleryDurations: [],   // длительность номера: «от 20 минут»
+  galleryIncludes: [],    // что входит в номер (строка с переносами или массив)
   // Доверие: короткие факты («10 лет» · «на сцене») и строка клиентов.
   facts: [],              // [{ value, label }] до 3
   clients: '',
@@ -162,6 +164,17 @@ function cleanGallery(input) {
 function cleanGalleryTexts(input, max) {
   if (!Array.isArray(input)) return [];
   return input.slice(0, CARD_LIMITS.gallery).map((value) => clean(value, max));
+}
+
+function cleanGalleryIncludes(input, max = 500) {
+  if (!Array.isArray(input)) return [];
+  return input.slice(0, CARD_LIMITS.gallery).map((value) => {
+    if (Array.isArray(value)) {
+      return value.map((x) => clean(x, 120)).filter(Boolean).join('\n');
+    }
+    const text = String(value ?? '').trim();
+    return text.length > max ? text.slice(0, max) : text;
+  });
 }
 
 // Списки (факты, форматы, требования, цитаты) в редакторе живут построчно:
@@ -381,6 +394,8 @@ export function normalizeBusinessCard(input = {}) {
     galleryCaptions: cleanGalleryTexts(input.galleryCaptions, 100),
     galleryHeadlines: cleanGalleryTexts(input.galleryHeadlines, 60),
     galleryTexts: cleanGalleryTexts(input.galleryTexts, 160),
+    galleryDurations: cleanGalleryTexts(input.galleryDurations, 32),
+    galleryIncludes: cleanGalleryIncludes(input.galleryIncludes, 500),
     facts: cleanFacts(input.facts),
     clients: clean(input.clients, 160),
     credentials: clean(input.credentials, 220),
@@ -424,6 +439,8 @@ export function publicCardPayload(card) {
     galleryCaptions: c.galleryCaptions,
     galleryHeadlines: c.galleryHeadlines,
     galleryTexts: c.galleryTexts,
+    galleryDurations: c.galleryDurations,
+    galleryIncludes: c.galleryIncludes,
     facts: filled(c.facts, 'value'),
     clients: c.clients,
     credentials: c.credentials,

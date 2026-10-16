@@ -479,10 +479,14 @@ function bindInput(node, form) {
       updateDraft(occasionPatch(el.dataset.occ, { [el.dataset.occField]: el.value }));
     } else if (el.dataset.galleryCaption != null) {
       updateDraft(galleryTextPatch('galleryCaptions', Number(el.dataset.galleryCaption), el.value));
+    } else if (el.dataset.galleryDuration != null) {
+      updateDraft(galleryTextPatch('galleryDurations', Number(el.dataset.galleryDuration), el.value));
     } else if (el.dataset.galleryHeadline != null) {
       updateDraft(galleryTextPatch('galleryHeadlines', Number(el.dataset.galleryHeadline), el.value));
     } else if (el.dataset.galleryText != null) {
       updateDraft(galleryTextPatch('galleryTexts', Number(el.dataset.galleryText), el.value));
+    } else if (el.dataset.galleryInclude != null) {
+      updateDraft(galleryTextPatch('galleryIncludes', Number(el.dataset.galleryInclude), el.value));
     } else if (el.dataset.customTitle) {
       // Название своего праздника меняется, адрес страницы — нет: ссылка уже
       // могла уйти клиентам.
@@ -622,8 +626,10 @@ function bindGallery(node) {
         await persist({
           galleryPhotos: [...state.card.galleryPhotos, ...additions],
           galleryCaptions: pad('galleryCaptions'),
+          galleryDurations: pad('galleryDurations'),
           galleryHeadlines: pad('galleryHeadlines'),
-          galleryTexts: pad('galleryTexts')
+          galleryTexts: pad('galleryTexts'),
+          galleryIncludes: pad('galleryIncludes')
         });
         rerender(node);
       } catch {
@@ -656,8 +662,10 @@ function bindGallery(node) {
       await persist({
         galleryPhotos: without('galleryPhotos'),
         galleryCaptions: without('galleryCaptions'),
+        galleryDurations: without('galleryDurations'),
         galleryHeadlines: without('galleryHeadlines'),
         galleryTexts: without('galleryTexts'),
+        galleryIncludes: without('galleryIncludes'),
         occasions
       });
       rerender(node);

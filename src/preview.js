@@ -12,6 +12,7 @@ import { openDateRequest, resetDateRequest } from './date-request.js';
 import { findOccasion } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
 import { openVideoModal, closeVideoModal } from './video-modal.js';
+import { openActModal, closeActModal } from './act-modal.js';
 
 const state = { card: null, occasion: null, reviews: [] };
 let stopFx = () => {};
@@ -59,6 +60,35 @@ function bind(node) {
       }
     });
   });
+
+  node.querySelectorAll('[data-act-open]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      event.preventDefault();
+      const index = Number(btn.dataset.actOpen);
+      if (!Number.isNaN(index)) {
+        openActModal({
+          card: state.card,
+          index,
+          onBook: () => {
+            openDateRequest({
+              card: state.card,
+              slug: state.card?.publishedSlug || '',
+              occasion: state.occasion && state.card?.occasions?.[state.occasion.id]?.on ? state.occasion.id : '',
+              interactive: false,
+              onSaveContact: () => toast.show('В предпросмотре контакт не сохраняется')
+            });
+          }
+        });
+      }
+    });
+    btn.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        btn.click();
+      }
+    });
+  });
 }
 
 export const preview = {
@@ -72,6 +102,8 @@ export const preview = {
     document.querySelector('[data-date-sheet]')?.remove();
     closeVideoModal();
     document.querySelector('.vm-overlay')?.remove();
+    closeActModal();
+    document.querySelector('[data-act-modal]')?.remove();
   },
   async mount(node, ctx = {}) {
     state.card = await getCard();

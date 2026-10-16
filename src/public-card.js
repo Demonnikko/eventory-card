@@ -17,6 +17,7 @@ import { upsellHref } from './crm-upsell.js';
 import { findOccasion, occasionTitle } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
 import { openVideoModal, closeVideoModal } from './video-modal.js';
+import { openActModal, closeActModal } from './act-modal.js';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
@@ -288,6 +289,36 @@ function bindInteractive(node) {
     });
   });
 
+  node.querySelectorAll('[data-act-open]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      event.preventDefault();
+      const index = Number(btn.dataset.actOpen);
+      if (!Number.isNaN(index)) {
+        openActModal({
+          card: state.card,
+          index,
+          onBook: () => {
+            openDateRequest({
+              card: state.card,
+              slug: state.slug,
+              tagId: state.tagId,
+              source: state.source,
+              occasion: activeOccasion()?.id || '',
+              onSaveContact: saveContact
+            });
+          }
+        });
+      }
+    });
+    btn.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        btn.click();
+      }
+    });
+  });
+
   node.querySelectorAll('[data-occasion-link]').forEach((link) => {
     link.addEventListener('click', (event) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
@@ -364,6 +395,8 @@ export const publicCard = {
     document.querySelector('[data-date-sheet]')?.remove();
     closeVideoModal();
     document.querySelector('.vm-overlay')?.remove();
+    closeActModal();
+    document.querySelector('[data-act-modal]')?.remove();
   },
   async mount(node, ctx = {}) {
     const slug = ctx.params?.id || '';

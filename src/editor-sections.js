@@ -155,6 +155,8 @@ export function renderActs(card) {
   const captions = Array.isArray(card.galleryCaptions) ? card.galleryCaptions : [];
   const headlines = Array.isArray(card.galleryHeadlines) ? card.galleryHeadlines : [];
   const texts = Array.isArray(card.galleryTexts) ? card.galleryTexts : [];
+  const durations = Array.isArray(card.galleryDurations) ? card.galleryDurations : [];
+  const includes = Array.isArray(card.galleryIncludes) ? card.galleryIncludes : [];
   return `
     <div class="ca-gallery-editor">
       <div class="ca-editor-subhead">
@@ -168,22 +170,30 @@ export function renderActs(card) {
               <img src="${escapeAttr(photo)}" alt="Фото ${index + 1}" />
               <div class="ca-act-fields">
                 <input class="ca-input" type="text" maxlength="100"
-                  value="${escapeAttr(captions[index] || '')}" placeholder="Название номера"
+                  value="${escapeAttr(captions[index] || '')}" placeholder="Название номера (например, Юбилей)"
                   aria-label="Название номера ${index + 1}" data-gallery-caption="${index}" />
-                <input class="ca-input" type="text" maxlength="60"
-                  value="${escapeAttr(headlines[index] || '')}" placeholder="Заголовок: «Один бросок. Та самая карта»"
-                  aria-label="Продающий заголовок номера ${index + 1}" data-gallery-headline="${index}" />
+                <input class="ca-input" type="text" maxlength="32"
+                  value="${escapeAttr(durations[index] || '')}" placeholder="Длительность (например, от 20 минут)"
+                  aria-label="Длительность номера ${index + 1}" data-gallery-duration="${index}" />
                 <textarea class="ca-input" rows="2" maxlength="160"
-                  placeholder="Что видит зал, одна-две строки"
-                  aria-label="Описание номера ${index + 1}" data-gallery-text="${index}">${escapeHtml(texts[index] || '')}</textarea>
+                  placeholder="Что вы получаете: эмоции и результат для гостей"
+                  aria-label="Что вы получаете для номера ${index + 1}" data-gallery-text="${index}">${escapeHtml(texts[index] || '')}</textarea>
+                <textarea class="ca-input" rows="3" maxlength="500"
+                  placeholder="Что входит (каждый пункт с новой строки):&#10;Интерактив с гостями&#10;Авторский реквизит"
+                  aria-label="Что входит для номера ${index + 1}" data-gallery-include="${index}">${escapeHtml(includes[index] || '')}</textarea>
+                ${headlines[index] ? `
+                  <input class="ca-input" type="text" maxlength="60"
+                    value="${escapeAttr(headlines[index] || '')}" placeholder="Заголовок: «Один бросок. Та самая карта»"
+                    aria-label="Продающий заголовок номера ${index + 1}" data-gallery-headline="${index}" />
+                ` : ''}
               </div>
               <button type="button" class="ca-icon-btn" aria-label="Удалить фото ${index + 1}"
                 data-gallery-remove="${index}">${renderIcon('trash')}</button>
             </div>
           `).join('')}
         </div>
-        <p class="ca-note">На странице праздника каждый номер стоит на отдельном экране. Фото без названия можно использовать как обложку праздника.</p>
-      ` : '<p class="ca-note">Добавьте лучшие номера: на страницах праздников каждый станет отдельным экраном, как слайд презентации.</p>'}
+        <p class="ca-note">При нажатии на фото номера открывается карточка с длительностью, «Что вы получаете» и «Что входит» — как в Eventory.</p>
+      ` : '<p class="ca-note">Добавьте лучшие номера: при тапе клиент сможет открыть детальное описание с длительностью и составом номера.</p>'}
       ${photos.length < CARD_LIMITS.gallery ? `
         <button type="button" class="ca-btn ca-btn--ghost ca-gallery-add" data-gallery-trigger>
           ${renderIcon('upload')} Добавить фото</button>

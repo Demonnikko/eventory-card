@@ -169,6 +169,39 @@
   color: #cfcfd3;
 }
 
+.vz-act-screen--clickable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s;
+}
+
+.vz-act-screen--clickable:active {
+  transform: scale(0.985);
+}
+
+.vz-act-screen-action {
+  margin-top: 4px;
+}
+
+.vz-act-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(232, 181, 99, 0.14);
+  border: 1px solid rgba(232, 181, 99, 0.35);
+  color: var(--accent, #e8b563);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  transition: background 0.16s, color 0.16s;
+}
+
+.vz-act-screen--clickable:hover .vz-act-more-btn {
+  background: rgba(232, 181, 99, 0.22);
+}
+
 /* ===== Теперь ваша дата ===== */
 .vz-finale {
   display: flex;
