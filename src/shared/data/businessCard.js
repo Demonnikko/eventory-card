@@ -111,7 +111,7 @@ export const DEFAULT_BUSINESS_CARD = {
 
 export const CARD_LIMITS = {
   facts: 3,
-  formats: 4,
+  formats: 5,
   requirements: 4,
   included: 4,
   quotes: 3,
@@ -182,7 +182,7 @@ const cleanFacts = (input) => cleanList(input, CARD_LIMITS.facts, (item) => ({
 }));
 
 const cleanFormats = (input) => cleanList(input, CARD_LIMITS.formats, (item) => ({
-  minutes: clean(item.minutes, 6),
+  minutes: clean(item.minutes, 10),
   title: clean(item.title, 48),
   description: clean(item.description, 90)
 }));
