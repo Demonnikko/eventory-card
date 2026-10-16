@@ -10,6 +10,7 @@ import { renderIcon } from './shared/components/icons.js';
 import { BUSINESS_CARD_PROFESSIONS, CARD_LIMITS } from './shared/data/businessCard.js';
 import { occasionsOf, occasionTitle } from './shared/data/occasions.js';
 import { activeUpsell, upsellHref } from './crm-upsell.js';
+import { coverPositionValue } from './card-view-parts.js';
 
 export function field({ name, label, value, type = 'text', textarea = false, rows = 3, placeholder = '', maxlength = 0, hint = '', data = '' }) {
   const attrs = [
@@ -123,7 +124,8 @@ export function renderMedia(card) {
   return `
     <div class="ca-cover">
       ${card.coverPhoto
-        ? `<img class="ca-cover-img" src="${escapeAttr(card.coverPhoto)}" alt="Обложка визитки" />`
+        ? `<img class="ca-cover-img" src="${escapeAttr(card.coverPhoto)}" alt="Обложка визитки"
+            style="object-position:${escapeAttr(coverPositionValue(card))}" />`
         : '<div class="ca-cover-empty">Главное фото клиент увидит первым</div>'}
       <div class="ca-cover-actions">
         <button type="button" class="ca-btn ca-btn--ghost" data-cover-trigger>

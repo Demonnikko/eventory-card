@@ -846,7 +846,10 @@ textarea.ca-input { resize: vertical; line-height: 1.6; }
   display: block;
 }
 
-.ca-cover-img { animation: ca-fade 0.6s var(--ease-soft) both; }
+.ca-cover-img {
+  animation: ca-fade 0.6s var(--ease-soft) both;
+  transition: object-position 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 @keyframes ca-fade {
   from { opacity: 0; }

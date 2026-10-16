@@ -27,6 +27,7 @@ import {
   downloadBackupFile
 } from './card-backup.js';
 import { renderPaperCard } from './paper-card.js';
+import { coverPositionValue } from './card-view-parts.js';
 import {
   section, statusDone, statusNew,
   renderBasics, renderMedia, renderActs, renderContacts,
@@ -582,8 +583,15 @@ function bindCover(node) {
   node.querySelectorAll('[data-cover-position]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       hapticLight();
-      await persist({ coverPosition: btn.dataset.coverPosition });
-      rerender(node);
+      const pos = btn.dataset.coverPosition;
+      const img = node.querySelector('.ca-cover-img');
+      if (img) img.style.objectPosition = coverPositionValue({ coverPosition: pos });
+      node.querySelectorAll('[data-cover-position]').forEach((b) => {
+        const active = b === btn;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-checked', active ? 'true' : 'false');
+      });
+      await persist({ coverPosition: pos });
     });
   });
 }
