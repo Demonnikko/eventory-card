@@ -39,7 +39,7 @@ function notifyOwnerTelegram(leadKey, name, eventDate) {
 async function assertOwner(slug, key) {
   const data = await readPublicCard(slug);
   if (!data) return null;
-  return leadKeyMatches(data, key) ? data : null;
+  return leadKeyMatches(data, key, slug) ? data : null;
 }
 
 async function readBody(req) {

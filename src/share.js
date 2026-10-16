@@ -419,18 +419,31 @@ function bindReviewActions(node) {
       try {
         const url = await createInvite();
         const text = `Оставьте, пожалуйста, короткий видеоотзыв: ${url}`;
+        let shared = false;
         if (navigator.share) {
-          await navigator.share({ title: 'Видеоотзыв', text, url }).catch(() => {});
-        } else {
-          await navigator.clipboard.writeText(url);
-          toast.show('Ссылка скопирована, отправьте заказчику', { ok: true });
+          try {
+            await navigator.share({ title: 'Видеоотзыв', text, url });
+            shared = true;
+          } catch {
+            // Пользователь закрыл системное меню или Safari сбросил жест из-за async fetch
+          }
+        }
+        if (!shared) {
+          try {
+            await navigator.clipboard.writeText(url);
+            toast.show('Ссылка скопирована, отправьте заказчику', { ok: true });
+          } catch {
+            toast.show('Ссылка создана, скопируйте: ' + url, { ok: true });
+          }
         }
       } catch (err) {
         const message = err?.message === 'not_published'
           ? 'Сначала опубликуйте визитку'
           : err?.message === 'invite_store_failed'
             ? 'Ссылка не сохранилась, попробуйте ещё раз'
-            : 'Не удалось создать ссылку';
+            : err?.message === 'forbidden'
+              ? 'Ошибка доступа к визитке. Обновите визитку в редакторе'
+              : 'Не удалось создать ссылку';
         toast.show(message, { error: true });
       } finally {
         state.reviewsBusy = false;

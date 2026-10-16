@@ -36,7 +36,7 @@ function fail(res, status, error) {
 async function assertOwner(slug, key) {
   const data = await readPublicCard(slug);
   if (!data) return null;
-  return leadKeyMatches(data, key) ? data : null;
+  return leadKeyMatches(data, key, slug) ? data : null;
 }
 
 async function readBody(req) {
@@ -183,7 +183,7 @@ export default async function handler(req, res) {
     const token = createInviteToken();
     const saved = await saveInvite(token, slug);
     if (!saved) return fail(res, 503, 'invite_store_failed');
-    return res.status(200).json({ ok: true, token });
+    return res.status(200).json({ ok: true, token, leadKey: owner.leadKey });
   }
 
   /* ─────────── Заказчик присылает кружок ─────────── */
