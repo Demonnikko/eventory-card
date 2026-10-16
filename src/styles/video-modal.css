@@ -1,0 +1,120 @@
+/* Модальное окно для встроенного просмотра видео (VK Видео, YouTube, Rutube) */
+.vm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top, 16px)) max(16px, env(safe-area-inset-right, 16px)) max(16px, env(safe-area-inset-bottom, 16px)) max(16px, env(safe-area-inset-left, 16px));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+
+.vm-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.vm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 6, 7, 0.88);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  cursor: pointer;
+}
+
+.vm-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 840px;
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transform: scale(0.96) translateY(8px);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vm-overlay.is-open .vm-container {
+  transform: scale(1) translateY(0);
+}
+
+.vm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.vm-title {
+  font-family: var(--display, 'Prata', serif);
+  font-size: 18px;
+  color: var(--text, #f5f5f7);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 12px;
+}
+
+.vm-close {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--text, #f5f5f7);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  padding: 0;
+  margin: 0;
+}
+
+.vm-close:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.vm-frame-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.vm-iframe,
+.vm-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .vm-container {
+    max-width: calc((100dvh - 70px) * 16 / 9);
+    gap: 6px;
+  }
+  .vm-header {
+    padding: 0;
+  }
+}

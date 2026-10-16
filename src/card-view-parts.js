@@ -114,7 +114,7 @@ function renderPlay(videoUrl) {
   const href = safeHref(videoUrl);
   if (!href) return '';
   return `
-    <a class="vz-play" href="${escapeAttr(href)}" target="_blank" rel="noopener">
+    <a class="vz-play" href="${escapeAttr(href)}" target="_blank" rel="noopener" data-video-open data-video-url="${escapeAttr(href)}">
       <span class="vz-play-dot" aria-hidden="true">${renderIcon('play', { size: 12 })}</span>
       Смотреть выступление
     </a>

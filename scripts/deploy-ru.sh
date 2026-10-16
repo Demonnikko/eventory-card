@@ -39,14 +39,25 @@ echo "3/3 Переключаю…"
 "${SSH[@]}" "set -e; ln -sfn $BASE/releases/$STAMP $BASE/current.tmp && mv -T $BASE/current.tmp $BASE/current
   cd $BASE/releases && ls -1 | sort | head -n -5 | xargs -r rm -rf"
 
-# Обновляем Nginx сниппет (apple-touch-icon fallback и др.), если изменился
+# Обновляем Nginx сниппеты (tadacard-headers.conf, tadacard-locations.conf), если изменились
+if [ -f deploy/nginx/tadacard-headers.conf ]; then
+  cat deploy/nginx/tadacard-headers.conf | "${SSH[@]}" "set -e
+    cat > /tmp/tadacard-headers.conf.tmp
+    if ! cmp -s /tmp/tadacard-headers.conf.tmp /etc/nginx/snippets/tadacard-headers.conf; then
+      sudo cp /tmp/tadacard-headers.conf.tmp /etc/nginx/snippets/tadacard-headers.conf
+      sudo nginx -t && sudo systemctl reload nginx
+      echo 'Nginx tadacard-headers.conf обновлён и перезагружен'
+    fi
+    rm -f /tmp/tadacard-headers.conf.tmp" || true
+fi
+
 if [ -f deploy/nginx/tadacard-locations.conf ]; then
   cat deploy/nginx/tadacard-locations.conf | "${SSH[@]}" "set -e
     cat > /tmp/tadacard-locations.conf.tmp
     if ! cmp -s /tmp/tadacard-locations.conf.tmp /etc/nginx/snippets/tadacard-locations.conf; then
       sudo cp /tmp/tadacard-locations.conf.tmp /etc/nginx/snippets/tadacard-locations.conf
       sudo nginx -t && sudo systemctl reload nginx
-      echo 'Nginx конфиг обновлён и перезагружен'
+      echo 'Nginx tadacard-locations.conf обновлён и перезагружен'
     fi
     rm -f /tmp/tadacard-locations.conf.tmp" || true
 fi

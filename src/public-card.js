@@ -16,6 +16,7 @@ import { trackOpen, trackSection, readTagFromUrl, readSourceFromUrl } from './in
 import { upsellHref } from './crm-upsell.js';
 import { findOccasion, occasionTitle } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
+import { openVideoModal, closeVideoModal } from './video-modal.js';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
@@ -274,6 +275,19 @@ function bindInteractive(node) {
 
   node.querySelector('[data-share-card]')?.addEventListener('click', shareCard);
 
+  node.querySelectorAll('[data-video-open]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      const url = btn.dataset.videoUrl || btn.getAttribute('href');
+      if (url) {
+        event.preventDefault();
+        const occ = activeOccasion();
+        const title = occ ? occasionTitle(occ) : 'Видео выступления';
+        openVideoModal(url, { title });
+      }
+    });
+  });
+
   node.querySelectorAll('[data-occasion-link]').forEach((link) => {
     link.addEventListener('click', (event) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
@@ -348,6 +362,8 @@ export const publicCard = {
     sectionObserver?.disconnect();
     window.removeEventListener('popstate', onPopState);
     document.querySelector('[data-date-sheet]')?.remove();
+    closeVideoModal();
+    document.querySelector('.vm-overlay')?.remove();
   },
   async mount(node, ctx = {}) {
     const slug = ctx.params?.id || '';

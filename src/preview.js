@@ -11,6 +11,7 @@ import { fetchReviews } from './reviews-data.js';
 import { openDateRequest, resetDateRequest } from './date-request.js';
 import { findOccasion } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
+import { openVideoModal, closeVideoModal } from './video-modal.js';
 
 const state = { card: null, occasion: null, reviews: [] };
 let stopFx = () => {};
@@ -45,6 +46,19 @@ function bind(node) {
       onSaveContact: () => toast.show('В предпросмотре контакт не сохраняется')
     });
   }));
+
+  node.querySelectorAll('[data-video-open]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      const url = btn.dataset.videoUrl || btn.getAttribute('href');
+      if (url) {
+        event.preventDefault();
+        const occ = state.occasion;
+        const title = occ ? (occ.title || 'Выступление') : 'Видео выступления';
+        openVideoModal(url, { title });
+      }
+    });
+  });
 }
 
 export const preview = {
@@ -56,6 +70,8 @@ export const preview = {
   unmount() {
     stopFx();
     document.querySelector('[data-date-sheet]')?.remove();
+    closeVideoModal();
+    document.querySelector('.vm-overlay')?.remove();
   },
   async mount(node, ctx = {}) {
     state.card = await getCard();
