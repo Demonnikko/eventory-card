@@ -31,9 +31,19 @@ export async function redisCommand(command) {
   return data?.result ?? null;
 }
 
+// Красивые адреса, которые ведут на уже опубликованную визитку (их раздают в
+// КП Eventory). Хранилище у визитки одно — под адресом из её QR (kostyuk), поэтому и
+// заявки, и отзывы, и статистика с любого из адресов пишутся в одно место.
+// Права это не даёт: владелец всё равно доказывает их своим ключом.
+const SLUG_ALIASES = {
+  '-lqf7xvp': 'kostyuk',
+  dmitrykostiuk: 'kostyuk'
+};
+
 export function normalizeSlug(slug) {
   const value = String(slug || '').trim();
-  return SLUG_RE.test(value) ? value : '';
+  if (!SLUG_RE.test(value)) return '';
+  return SLUG_ALIASES[value.toLowerCase()] || value;
 }
 
 export function normalizeLeadKey(key) {
@@ -61,14 +71,9 @@ export async function readPublicCard(slug) {
   }
 }
 
-export function isOwnerBypassSlug(slug) {
-  const safe = normalizeSlug(slug);
-  return safe === '-lqf7xvp' || safe === 'dmitrykostiuk' || safe === 'kostyuk';
-}
-
-export function leadKeyMatches(data, key, slug = '') {
-  const targetSlug = normalizeSlug(slug || data?.slug || '');
-  if (targetSlug && isOwnerBypassSlug(targetSlug)) return true;
+// Исключений по адресу нет ни для кого: «обход для владельца» пускал к заявкам
+// и отзывам любого, кто знал адрес визитки.
+export function leadKeyMatches(data, key) {
   const expected = normalizeLeadKey(data?.leadKey);
   const actual = normalizeLeadKey(key);
   return Boolean(expected && actual && timingSafeTextEqual(expected, actual));

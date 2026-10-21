@@ -98,14 +98,6 @@ export function renderBasics(card, professionsOpen) {
     ${renderProfessions(card, professionsOpen)}
     ${field({ name: 'name', label: 'Имя', value: card.name, placeholder: 'Как вас зовут', maxlength: 80 })}
     ${field({ name: 'role', label: 'Чем занимаетесь', value: card.role, placeholder: 'Ведущий, иллюзионист, фотограф…', maxlength: 80 })}
-    ${field({
-      name: 'publishedSlug',
-      label: 'Адрес визитки (ссылка)',
-      value: card.publishedSlug,
-      placeholder: 'например: maslyakov или kostyuk',
-      maxlength: 32,
-      hint: 'Ваша ссылка: tadacard.ru/v/адрес. Английские буквы, цифры и дефис.'
-    })}
     ${field({ name: 'city', label: 'Город', value: card.city, placeholder: 'Москва', maxlength: 80 })}
     ${field({ name: 'company', label: 'Бренд над именем', value: card.company, placeholder: 'Например: Kostyuk Project', maxlength: 40, hint: 'Небольшая надпись в верхнем углу визитки. Можно оставить пустым.' })}
     ${field({ name: 'tagline', label: 'Короткая подпись', value: card.tagline, placeholder: 'Ваши эмоции в центре внимания', maxlength: 90 })}

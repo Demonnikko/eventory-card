@@ -258,7 +258,6 @@ function renderPublishBar(card) {
         ${publishLabel(card, dirty)}
       </button>
       ${published ? '<a class="ca-btn ca-btn--ghost" href="#/share">Ссылки и QR-код</a>' : ''}
-      ${published ? '<button type="button" class="ca-key-rotate" data-rotate-key>Сменить ключ доступа</button>' : ''}
     </div>
   `;
 }
@@ -316,6 +315,12 @@ function renderBackup() {
         <input type="file" accept=".eventory-card,application/json" hidden data-backup-import />
       </div>
       <p class="ca-backup-warning">Не передавайте файл и пароль вместе: копия содержит закрытый ключ владельца.</p>
+      ${state.card?.publishedSlug && state.card?.leadKey ? `
+        <div class="ca-key-zone">
+          <p class="ca-note">Если телефон с визиткой потерян или ключ попал в чужие руки, смените ключ доступа к заявкам.</p>
+          <button type="button" class="ca-key-rotate" data-rotate-key>Сменить ключ доступа</button>
+        </div>
+      ` : ''}
       <a class="ca-text-link" href="#/privacy">Как используются данные</a>
     </div>
   `;
@@ -496,24 +501,8 @@ function bindInput(node, form) {
       });
     } else if (el.dataset.occNewTitle != null) {
       return;
-    } else if (el.name === 'publishedSlug') {
-      const clean = el.value.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
-      if (el.value !== clean) {
-        el.value = clean;
-      }
-      updateDraft({ publishedSlug: clean });
     } else if (el.name) {
       updateDraft({ [el.name]: el.value });
-      if (el.name === 'name' && !state.card.publishedSlug) {
-        const suggested = slugify(el.value);
-        if (suggested) {
-          const slugInput = form.querySelector('[name="publishedSlug"]');
-          if (slugInput && !slugInput.value) {
-            slugInput.value = suggested;
-            updateDraft({ publishedSlug: suggested });
-          }
-        }
-      }
     } else {
       return;
     }
@@ -755,6 +744,30 @@ function bindBackup(node) {
   }
 }
 
+// Адрес визитки меняют только в «Поделиться». При первой публикации его
+// придумываем сами из имени, а если он занят — добавляем короткий хвост,
+// чтобы человек не застрял на ошибке, которую в редакторе не исправить.
+const SLUG_RETRIES = 3;
+
+async function publishFirstTime(card) {
+  // Сервер принимает адрес от 3 символов: короткое имя вроде «Ли» отдаём
+  // без адреса, и сервер придумает его сам.
+  const named = card.publishedSlug || slugify(card.name);
+  const base = named.length >= 3 ? named : '';
+  let lastError = null;
+  for (let attempt = 0; attempt <= SLUG_RETRIES; attempt += 1) {
+    const suffix = attempt ? `-${Math.random().toString(36).slice(2, 5)}` : '';
+    const slug = base ? `${base.slice(0, 32 - suffix.length)}${suffix}` : '';
+    try {
+      return await publishCard({ ...card, publishedSlug: slug });
+    } catch (err) {
+      if (err?.message !== 'slug_taken' || !base) throw err;
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
 function bindPublish(node) {
   node.querySelector('[data-publish]')?.addEventListener('click', async () => {
     if (state.busy) return;
@@ -775,12 +788,15 @@ function bindPublish(node) {
       return;
     }
     // Первая это публикация или обновление — решаем ДО запроса: после него
-    // publishedSlug уже проставлен.
-    const firstTime = !state.card.publishedSlug;
+    // publishedSlug уже проставлен. Ключ выдаёт сервер только при публикации,
+    // поэтому старый черновик с адресом, но без ключа, тоже «первый раз».
+    const firstTime = !state.card.publishedSlug || !state.card.leadKey;
     state.busy = true;
     rerender(node);
     try {
-      const { card } = await publishCard(state.card);
+      const { card } = firstTime
+        ? await publishFirstTime(state.card)
+        : await publishCard(state.card);
       state.card = card;
       if (firstTime) showPublishedMoment();
       else toast.show('Визитка обновлена', { ok: true });
@@ -802,7 +818,7 @@ function bindPublish(node) {
     state.busy = true;
     rerender(node);
     try {
-      state.card = await rotateBusinessCardLeadKey(state.card);
+      state.card = await saveCard(await rotateBusinessCardLeadKey(state.card));
       toast.show('Ключ доступа обновлён', { ok: true });
     } catch (err) {
       toast.show(err?.message === 'not_published'

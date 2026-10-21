@@ -5,7 +5,7 @@ import { escapeHtml, escapeAttr } from './shared/lib/html.js';
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 import { qrSvg } from './shared/data/qr.js';
-import { getCard, saveCard, cardPublicUrl } from './card-data.js';
+import { getCard, saveCard, cardPublicUrl, publishCard } from './card-data.js';
 import { enabledOccasions, occasionTitle } from './shared/data/occasions.js';
 import { fetchOwnReviews, createInvite, approveReview, removeReview } from './reviews-data.js';
 import { openViewer, proxiedVideo } from './reviews-view.js';
@@ -169,6 +169,43 @@ function renderOccasionLinks(card) {
   `;
 }
 
+// Адрес меняется только здесь, рядом с самой ссылкой и QR. Раскрывашка
+// без JS: в свёрнутом виде это одна строка, экран не перегружен.
+function renderSlugEditor(card) {
+  return `
+    <details class="sh-slug">
+      <summary class="sh-slug-toggle">Изменить адрес визитки</summary>
+      <div class="sh-slug-body">
+        <label class="ca-field">
+          <span class="ca-field-label">Новый адрес</span>
+          <span class="sh-slug-input">
+            <span class="sh-slug-prefix">tadacard.ru/v/</span>
+            <input class="ca-input" name="slug" value="${escapeAttr(card.publishedSlug)}"
+              maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false"
+              inputmode="url" data-slug-input />
+          </span>
+          <span class="ca-field-hint">Английские буквы, цифры и дефис.</span>
+        </label>
+        <p class="sh-slug-warning">Старая ссылка и уже напечатанные QR-коды перестанут обновляться. Видеоотзывы и статистика привязаны к адресу и останутся на старом.</p>
+        <button type="button" class="ca-btn ca-btn--ghost" data-slug-save>Сохранить адрес</button>
+      </div>
+    </details>
+  `;
+}
+
+// Партнёрка и календарь Eventory — одним блоком в самом конце, чтобы не
+// перебивать главное на экране: ссылку, QR и отзывы.
+function renderExtras() {
+  const blocks = `${renderReferral()}${renderUpsell('calendar')}`.trim();
+  if (!blocks) return '';
+  return `
+    <section class="sh-extras">
+      <h2 class="sh-h2">Бонусы Eventory</h2>
+      ${blocks}
+    </section>
+  `;
+}
+
 function renderContent() {
   const card = state.card;
   const head = '<div class="ca-page-head"><h1 class="ca-page-title">Поделиться</h1></div>';
@@ -200,8 +237,7 @@ function renderContent() {
             ${renderIcon('share')} Отправить
           </button>
         </div>
-        <a class="ca-btn ca-btn--primary sh-qr-show" href="#/present">Показать QR</a>
-        <a class="ca-text-link sh-qr-edit" href="#/editor">Изменить адрес визитки</a>
+        ${renderSlugEditor(card)}
       </section>
 
       ${renderOccasionLinks(card)}
@@ -218,8 +254,7 @@ function renderContent() {
         <span class="ca-kiosk-switch" aria-hidden="true"><span class="ca-kiosk-knob"></span></span>
       </button>
 
-      ${renderReferral()}
-      ${renderUpsell('calendar')}
+      ${renderExtras()}
     </div>
   `;
 }
@@ -346,8 +381,56 @@ function bindReferral(node) {
   }
 }
 
+function cleanSlug(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+}
+
+function bindSlugEditor(node) {
+  const input = node.querySelector('[data-slug-input]');
+  const save = node.querySelector('[data-slug-save]');
+  if (!input || !save) return;
+
+  input.addEventListener('input', () => {
+    const clean = cleanSlug(input.value);
+    if (input.value !== clean) input.value = clean;
+  });
+
+  save.addEventListener('click', async () => {
+    const next = cleanSlug(input.value);
+    if (next.length < 3) {
+      toast.show('Адрес слишком короткий: нужно от 3 символов');
+      return;
+    }
+    if (next === state.card.publishedSlug) {
+      node.querySelector('.sh-slug')?.removeAttribute('open');
+      return;
+    }
+    if (!window.confirm(`Сменить адрес на tadacard.ru/v/${next}? Старая ссылка перестанет обновляться, отзывы останутся на ней.`)) return;
+    save.disabled = true;
+    save.textContent = 'Сохраняем…';
+    try {
+      const { card } = await publishCard({ ...state.card, publishedSlug: next });
+      state.card = card;
+      state.reviews = [];
+      state.loadedFor = `${card.publishedSlug}:${card.leadKey || ''}`;
+      node.innerHTML = renderContent();
+      bind(node);
+      toast.show('Адрес изменён, новая ссылка и QR готовы', { ok: true });
+    } catch (err) {
+      save.disabled = false;
+      save.textContent = 'Сохранить адрес';
+      toast.show(err?.message === 'slug_taken'
+        ? 'Этот адрес уже занят, выберите другой'
+        : err?.message === 'invalid_slug'
+          ? 'Такой адрес не подходит, попробуйте другой'
+          : 'Не удалось сменить адрес. Попробуйте ещё раз', { error: true });
+    }
+  });
+}
+
 function bind(node) {
   bindReferral(node);
+  bindSlugEditor(node);
   const kioskToggle = node.querySelector('[data-kiosk-toggle]');
   if (kioskToggle) {
     kioskToggle.addEventListener('click', async () => {

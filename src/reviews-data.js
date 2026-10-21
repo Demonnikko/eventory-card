@@ -1,5 +1,5 @@
 // Работа с видеоотзывами на стороне браузера.
-import { getCard, saveCard } from './card-data.js';
+import { getCard } from './card-data.js';
 import { uploadUrl } from './shared/lib/media-url.js';
 
 export const MAX_DURATION = 30;   // секунд — дольше кружки не смотрят
@@ -48,9 +48,6 @@ export async function createInvite() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'invite', slug: card.publishedSlug, key: card.leadKey })
   });
-  if (data?.leadKey && data.leadKey !== card.leadKey) {
-    await saveCard({ ...card, leadKey: data.leadKey }).catch(() => {});
-  }
   return `${window.location.origin}/r/${data.token}`;
 }
 

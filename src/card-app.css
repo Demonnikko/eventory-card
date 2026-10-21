@@ -545,6 +545,14 @@ body[data-route='privacy'] .ca-update-banner { display: none !important; }
   transition: background 0.25s var(--ease), border-color 0.25s var(--ease);
 }
 
+/* Сам переключатель как в iOS (52×32), а зона нажатия — 44pt по высоте и
+   шире по бокам: попасть по празднику пальцем легко. */
+.ca-switch::before {
+  content: '';
+  position: absolute;
+  inset: -7px -6px;
+}
+
 .ca-switch-knob {
   position: absolute;
   top: 3px;
@@ -1232,15 +1240,79 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
   gap: 10px;
 }
 
-.sh-qr-show { width: 100%; }
+/* Смена адреса — раскрывашка под QR. Заголовок высотой 44pt: палец
+   попадает с первого раза. */
+.sh-slug { width: 100%; }
 
-.sh-qr-edit {
-  font-size: 13.5px;
+.sh-slug-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 14px;
   font-weight: 500;
-  margin-top: 6px;
   text-decoration: underline;
   text-underline-offset: 3px;
+  list-style: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+
+.sh-slug-toggle::-webkit-details-marker { display: none; }
+.sh-slug[open] .sh-slug-toggle { color: var(--text); text-decoration: none; }
+
+.sh-slug-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+  text-align: left;
+}
+
+.sh-slug-input {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sh-slug-prefix {
+  flex: 0 0 auto;
+  color: var(--muted-2);
+  font-size: 15px;
+}
+
+.sh-slug-input .ca-input { flex: 1; min-width: 0; }
+
+.sh-slug-warning {
+  margin: 0;
+  color: var(--muted-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.sh-slug-body .ca-btn { width: 100%; }
+
+.sh-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.sh-extras > .sh-h2 { margin: 0 4px; }
+
+.ca-key-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.ca-key-zone .ca-key-rotate { align-self: flex-start; min-height: 44px; }
 
 .sh-section > .ca-btn { width: 100%; margin-top: 14px; }
 
@@ -1365,7 +1437,7 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
   background: transparent;
   color: #b9b9be;
   font: inherit;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: color 0.3s var(--ease), background 0.3s var(--ease);
@@ -1381,7 +1453,13 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
   :root { --tabbar-h: 58px; }
   .ca-tabbar { width: calc(100% - 20px); gap: 6px; }
   .ca-tabs { padding: 4px; gap: 0; }
-  .ca-tab { flex: 1 1 auto; padding: 0 2px; font-size: 9.5px; letter-spacing: -0.1px; }
+  .ca-tab { padding: 0 2px; }
+}
+
+/* iPhone SE / mini (375) и уже: при подписи 11px «Поделиться» не влезает в
+   равную долю — делим ширину по длине подписей. */
+@media (max-width: 389px) {
+  .ca-tab { flex: 1 1 auto; letter-spacing: -0.2px; }
 }
 
 /* Дуотон-подложка иконки: у активной вкладки светится заметнее, у неактивной

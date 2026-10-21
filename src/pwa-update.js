@@ -38,7 +38,6 @@ function showAvailable(worker = null) {
   if (banner) banner.hidden = false;
   if (status) status.textContent = 'Доступна новая версия визитки';
   if (control) {
-    control.hidden = false;
     control.classList.add('has-update');
     control.textContent = 'Обновить';
   }
@@ -106,12 +105,9 @@ export async function registerPwaUpdates() {
       if (error instanceof TypeError) return navigator.serviceWorker.register('/sw.js');
       throw error;
     }).then((registration) => {
+      // Кнопку в углу больше не показываем: она висела поверх статуса
+      // «Есть изменения». О новой версии сообщает плашка сверху.
       watchRegistration(registration);
-      const { control } = ui();
-      if (control) {
-        control.hidden = false;
-        control.title = `Версия ${APP_VERSION}. Проверить обновление`;
-      }
       return registration;
     }).catch((error) => {
       registrationPromise = null;

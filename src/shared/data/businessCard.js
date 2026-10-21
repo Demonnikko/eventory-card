@@ -472,7 +472,7 @@ export function cardDeviceId() {
   return getDeviceIdSafe();
 }
 
-// Ротация leadKey (защита если ключ утёк). Возвращает обновлённую карточку
+// Ротация leadKey (защита если ключ утёк). Возвращает обновлённую, но ещё не сохранённую карточку
 // с новым leadKey. Если карточка не опубликована или ключ не совпал — throws.
 export async function rotateBusinessCardLeadKey(card) {
   const source = normalizeBusinessCard(card);
@@ -486,8 +486,10 @@ export async function rotateBusinessCardLeadKey(card) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data?.ok) throw new Error(data?.error || `rotate_${res.status}`);
-  const saved = await saveBusinessCard({ ...source, leadKey: data.leadKey });
-  return saved;
+  // Сохраняет вызывающий: у визитки и у Eventory свои хранилища. Раньше здесь
+  // звалась функция Eventory, которой в визитке нет, — сервер ключ менял, а
+  // телефон его терял и показывал «Не удалось сменить ключ».
+  return { ...source, leadKey: data.leadKey };
 }
 
 // Сжимает картинку через canvas. Возвращает data:image/jpeg base64.
