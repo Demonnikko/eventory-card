@@ -34,7 +34,14 @@ function photoVersion(src) {
 // проксируется в основной проект, где лежит карточка. Свой Redis у проекта
 // визитки может указывать на другую базу, поэтому напрямую в него не лезем —
 // иначе og-теги получают только заглушку, а не имя владельца.
-async function fetchCard(origin, slug, timeoutMs = 2000) {
+// Ходим сразу в основной проект, где card-get и живёт. Раньше шли «к себе»
+// по имени из запроса: под адресом tadacard.ru это был круг через российский
+// сервер обратно на Vercel — 8–10 секунд и страница без имени.
+const CARD_DATA_ORIGIN = 'https://eventory-mvp.vercel.app';
+// Шаблон страницы — собранный index.html этого же проекта на Vercel.
+const CARD_APP_ORIGIN = 'https://eventory-card.vercel.app';
+
+async function fetchCard(_origin, slug, timeoutMs = 2000) {
   // Жёсткий таймаут: card-get проксируется в другой проект и читает Redis —
   // цепочка из нескольких прыжков. Если она задержится, НЕЛЬЗЯ держать из-за
   // og-тегов весь HTML и весь запуск приложения. Не успели за 2с — отдаём
@@ -43,7 +50,7 @@ async function fetchCard(origin, slug, timeoutMs = 2000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${origin}/api/card-get?slug=${encodeURIComponent(slug)}`, {
+    const res = await fetch(`${CARD_DATA_ORIGIN}/api/card-get?slug=${encodeURIComponent(slug)}`, {
       signal: ctrl.signal
     });
     if (!res.ok) return null;
@@ -179,12 +186,19 @@ function absoluteMedia(url, origin) {
 // Собранный index.html с хешированными бандлами лежит статикой в том же
 // деплое. Читаем его по HTTP у себя же — так мы всегда берём актуальную
 // сборку, не завися от путей файловой системы Vercel.
-async function loadIndexHtml(origin) {
-  const res = await fetch(`${origin}/index.html`, {
-    headers: { 'x-og-passthrough': '1' } // на случай будущих rewrite-петель
-  });
-  if (!res.ok) throw new Error(`index_fetch_${res.status}`);
-  return res.text();
+async function loadIndexHtml(origin, timeoutMs = 3000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${origin}/index.html`, {
+      headers: { 'x-og-passthrough': '1' }, // на случай будущих rewrite-петель
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error(`index_fetch_${res.status}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Страница праздника открыта, если владелец её включил и опубликовал.
@@ -264,10 +278,10 @@ export default async function handler(req, res) {
   const publicOrigin = publicOriginOf(req);
   let html;
   try {
-    html = await loadIndexHtml(publicOrigin).catch((err) => {
-      if (publicOrigin === origin) throw err;
-      return loadIndexHtml(origin);
-    });
+    // Сначала свой проект на Vercel (быстро и без внешней сети), затем
+    // адрес, который видит гость. Сборки одинаковые: российский сервер
+    // выкладывается из того же коммита, имена бандлов совпадают.
+    html = await loadIndexHtml(CARD_APP_ORIGIN).catch(() => loadIndexHtml(publicOrigin));
   } catch {
     // Не смогли прочитать шаблон — отдаём редирект на SPA, чтобы визитка
     // всё равно открылась в браузере (превью не будет, но страница живёт).
