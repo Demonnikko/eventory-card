@@ -431,7 +431,9 @@ test('релизные UI-контракты остаются включены',
   // публичную визитку (~230 КБ впустую). Онбординг сам предзагружает их из JS.
   // Тест защищает эту оптимизацию — preload'а в index.html быть не должно.
   assert.doesNotMatch(html, /onboarding\/illusionist-card\.webp/);
-  assert.match(vite, /skipWaiting:\s*false/);
+  // sw.js только снимает старые воркеры: на iPhone они застревали.
+  assert.match(vite, /selfDestroying:\s*true/);
+  assert.doesNotMatch(pwaUpdate, /serviceWorker\.register\(/);
   assert.match(vite, /business-card-templates\/onboarding\/\*\.webp/);
   assert.match(vite, /eventory-card-templates-v1/);
   // Ощущение приложения: двойной тап и щипок не зумят страницу.

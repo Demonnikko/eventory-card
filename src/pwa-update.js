@@ -9,7 +9,7 @@
 //   2. Версия другая — показываем плашку «Доступна новая версия».
 //   3. «Обновить» — удаляем Service Worker и весь кэш и перезагружаемся с
 //      меткой в адресе: браузер обязан взять свежий код с сервера.
-// Service Worker остаётся только ради работы без интернета.
+// Service Worker больше не используется: он и был источником зависаний.
 import { toast } from './shared/components/toast.js';
 import { APP_VERSION } from './app-version.js';
 
@@ -100,15 +100,14 @@ export async function performUpdate() {
   }
 }
 
-function registerOfflineWorker() {
-  if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
-    .catch((error) => {
-      // Старые Safari не знали updateViaCache — повторяем без него.
-      if (error instanceof TypeError) return navigator.serviceWorker.register('/sw.js');
-      return null;
-    })
-    .catch(() => { /* без Service Worker приложение просто не работает офлайн */ });
+// Service Worker больше не ставим вовсе: /sw.js теперь только снимает старые
+// воркеры у тех, у кого они остались (см. vite.config.js). Если какой-то
+// воркер всё-таки висит — снимаем его сами, без перезагрузки: следующий
+// запуск придёт с сервера.
+function removeLeftoverWorkers() {
+  navigator.serviceWorker?.getRegistrations?.()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .catch(() => { /* не критично */ });
 }
 
 // Метку _v после обновления убираем из адреса, чтобы она не попадала в
@@ -125,7 +124,7 @@ function cleanUpdateMark() {
 export function initPwaUpdates() {
   if (typeof window === 'undefined') return;
   cleanUpdateMark();
-  registerOfflineWorker();
+  removeLeftoverWorkers();
 
   ui().action?.addEventListener('click', () => {
     performUpdate().catch(() => {
