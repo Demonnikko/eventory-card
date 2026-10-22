@@ -93,6 +93,24 @@ export async function publishCard(card) {
   return { card: saved, url: data.url || cardPublicUrl(data.slug) };
 }
 
+// Визитка возвращается на телефон с сервера — новый телефон или приложение
+// переустановили. Берём опубликованную версию и ключ, который выдали по коду
+// из Telegram. Отпечаток ставим сразу: это и есть опубликованная версия.
+export async function adoptPublishedCard(slug, leadKey) {
+  const res = await fetch(`/api/card-get?slug=${encodeURIComponent(slug)}`);
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok || !data.card) throw new Error('card_not_found');
+  const saved = await saveCard({
+    ...DEFAULT_BUSINESS_CARD,
+    ...data.card,
+    publishedSlug: slug,
+    leadKey,
+    publishedAt: Date.now()
+  });
+  writePublishedPrint(saved.publishedSlug, publicFingerprint(saved));
+  return saved;
+}
+
 // ─── Неопубликованные изменения ───
 //
 // Редактор сохраняет правки на телефоне сразу, а на публичную визитку они

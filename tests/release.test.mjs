@@ -397,8 +397,11 @@ test('релизные UI-контракты остаются включены',
   assert.match(vercel, /connect-src[^\n]+https:\/\/vercel\.com/);
   assert.match(vercel, /https:\/\/\*\.blob\.vercel-storage\.com/);
   assert.match(privacy, /случайный идентификатор/);
-  assert.match(pwaUpdate, /registration\.update\(\)/);
-  assert.match(pwaUpdate, /SKIP_WAITING/);
+  // Обновление как в Eventory: сверка с /version.json, снос воркера и кэша.
+  assert.match(pwaUpdate, /\/version\.json\?t=/);
+  assert.match(pwaUpdate, /registration\.unregister\(\)/);
+  assert.match(pwaUpdate, /caches\.delete/);
+  assert.doesNotMatch(pwaUpdate, /SKIP_WAITING/);
   assert.match(onboarding, /preloadAllTemplates\(['"]high['"]\)/);
   assert.match(onboarding, /businessCardOnboardingTemplateUrl/);
   assert.match(present, /data-qr-open/);
@@ -420,7 +423,7 @@ test('релизные UI-контракты остаются включены',
   assert.doesNotMatch(onboarding, /by Eventory/);
   assert.match(cardCss, /--bg:\s*#060607/);
   assert.doesNotMatch(cardCss, /#5d93ff|#6cc8a1|#e26b6b|#7ea8ff|#8edcba|#2d6e52/i);
-  assert.match(html, /data-pwa-update-control/);
+  assert.match(html, /data-pwa-update-action/);
   assert.match(html, /<meta name="theme-color" content="#060607"/);
   assert.doesNotMatch(html, /by Eventory/);
   // Шаблоны онбординга осознанно НЕ preload'им в HTML (v1.6.2): они нужны

@@ -7,8 +7,24 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { APP_VERSION } from './src/app-version.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// /version.json — по нему приложение узнаёт, что вышла новая версия (как в
+// Eventory). В precache не попадает: должен всегда браться с сервера.
+function versionFile() {
+  return {
+    name: 'card-version-file',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: `${JSON.stringify({ version: APP_VERSION }, null, 2)}\n`
+      });
+    }
+  };
+}
 
 export default defineConfig({
   // Общий код лежит выше корня — разрешаем Vite его читать.
@@ -30,6 +46,7 @@ export default defineConfig({
     emptyOutDir: true
   },
   plugins: [
+    versionFile(),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,

@@ -16,6 +16,7 @@ import {
 import { getCard, saveCard } from './card-data.js';
 import { mirrorRead } from './store.js';
 import { renderPaperCard as renderPaperCardBase, professionLabel, splitName } from './paper-card.js';
+import { renderRestoreStep, bindRestoreStep, pendingRestoreSlug } from './onboarding-restore.js';
 
 const ONBOARDING_KEY = 'eventory-card:onboarded';
 
@@ -38,7 +39,8 @@ const state = {
   profession: '',
   name: '',
   card: null,
-  busy: false
+  busy: false,
+  restoreSlug: ''        // «У меня уже есть визитка»: адрес между перерисовками
 };
 
 // Onboarding использует облегчённые 960×540 копии: все семь вместе весят
@@ -116,6 +118,7 @@ function renderWelcome() {
           <span class="ob-btn-sheen" aria-hidden="true"></span>
         </button>
         <p class="ob-fineprint">Бесплатно. Без регистрации.</p>
+        <button type="button" class="ob-btn ob-btn--plain" data-next="restore">У меня уже есть визитка</button>
       </div>
     </div>
   `;
@@ -200,6 +203,7 @@ function renderNameStep() {
 function renderContent() {
   if (state.step === 'welcome') return renderWelcome();
   if (state.step === 'profession') return renderProfessionStep();
+  if (state.step === 'restore') return renderRestoreStep(state.restoreSlug);
   return renderNameStep();
 }
 
@@ -215,7 +219,9 @@ export const onboarding = {
     state.card = mirrorRead() || DEFAULT_BUSINESS_CARD;
     state.profession = state.card.profession || '';
     state.name = state.card.name || '';
-    state.step = 'welcome';
+    // Вернулись из Telegram с кодом — сразу на ввод кода, а не на приветствие.
+    state.restoreSlug = pendingRestoreSlug();
+    state.step = state.restoreSlug ? 'restore' : 'welcome';
     state.busy = false;
 
     // Мгновенный первый кадр — экран приветствия виден в 0 мс без ожидания базы
@@ -331,6 +337,15 @@ function bind(node, ctx = {}) {
 
   const skipBtn = node.querySelector('[data-skip]');
   if (skipBtn) skipBtn.addEventListener('click', () => finish(node, ctx, { skipName: true }));
+
+  bindRestoreStep(node, {
+    onSlug: (value) => { state.restoreSlug = value; },
+    onDone: () => {
+      markOnboarded();
+      if (typeof ctx.onDone === 'function') ctx.onDone();
+      else window.location.hash = '#/editor';
+    }
+  });
 }
 
 async function finish(node, ctx, { skipName = false } = {}) {

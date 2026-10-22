@@ -1,213 +1,144 @@
+// Обновление приложения — так же, как в Eventory.
+//
+// Раньше визитка обновлялась через механизм Service Worker: скачай новый
+// воркер, дождись установки, переключи. На iPhone он застревает: телефон
+// скачивает новый sw.js и молча не ставит его, а кнопка «Обновить» вечно
+// «проверяет». Теперь один простой путь, от iOS не зависящий:
+//   1. Сверяем свою версию с /version.json сервера (при открытии, при
+//      возврате в приложение, при появлении сети и раз в 30 минут).
+//   2. Версия другая — показываем плашку «Доступна новая версия».
+//   3. «Обновить» — удаляем Service Worker и весь кэш и перезагружаемся с
+//      меткой в адресе: браузер обязан взять свежий код с сервера.
+// Service Worker остаётся только ради работы без интернета.
 import { toast } from './shared/components/toast.js';
 import { APP_VERSION } from './app-version.js';
 
 const CHECK_INTERVAL = 30 * 60 * 1000;
-const INSTALL_TIMEOUT = 12000;
+const FIRST_CHECK_DELAY = 2000;
 
-let registrationPromise = null;
-let watchedRegistration = null;
-let waitingWorker = null;
-let lastCheckAt = 0;
-let reloadRequested = false;
-let reloading = false;
+let checking = false;
+let updating = false;
 
 function ui() {
   return {
-    control: document.querySelector('[data-pwa-update-control]'),
     banner: document.querySelector('[data-pwa-update-banner]'),
     action: document.querySelector('[data-pwa-update-action]'),
     status: document.querySelector('[data-pwa-update-status]')
   };
 }
 
-function setChecking(checking) {
-  const { control, action } = ui();
-  if (control) {
-    control.disabled = checking;
-    control.textContent = checking ? 'Проверяем…' : 'Обновить';
-  }
-  if (action) {
-    action.disabled = checking;
-    action.textContent = checking ? 'Обновляем…' : 'Обновить';
-  }
-}
-
-function showAvailable(worker = null) {
-  waitingWorker = worker || watchedRegistration?.waiting || waitingWorker;
-  const { banner, status, control } = ui();
-  if (banner) banner.hidden = false;
-  if (status) status.textContent = 'Доступна новая версия визитки';
-  if (control) {
-    control.classList.add('has-update');
-    control.textContent = 'Обновить';
-  }
-  window.dispatchEvent(new CustomEvent('eventory:pwa-update-available', {
-    detail: { version: APP_VERSION }
-  }));
-}
-
-function hideAvailable() {
-  const { banner, control } = ui();
-  if (banner) banner.hidden = true;
-  if (control) control.classList.remove('has-update');
-}
-
-function waitForInstalled(worker) {
-  if (!worker || ['installed', 'activated', 'redundant'].includes(worker.state)) {
-    return Promise.resolve(worker?.state || 'missing');
-  }
-  return new Promise((resolve) => {
-    let timer = 0;
-    const done = () => {
-      clearTimeout(timer);
-      worker.removeEventListener('statechange', onState);
-      resolve(worker.state);
-    };
-    const onState = () => {
-      if (['installed', 'activated', 'redundant'].includes(worker.state)) done();
-    };
-    worker.addEventListener('statechange', onState);
-    timer = setTimeout(done, INSTALL_TIMEOUT);
-  });
-}
-
-function watchRegistration(registration) {
-  if (!registration || watchedRegistration === registration) return;
-  watchedRegistration = registration;
-
-  if (registration.waiting && navigator.serviceWorker.controller) {
-    showAvailable(registration.waiting);
-  }
-
-  registration.addEventListener('updatefound', () => {
-    const worker = registration.installing;
-    if (!worker) return;
-    worker.addEventListener('statechange', () => {
-      if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-        showAvailable(registration.waiting || worker);
-      }
-    });
-  });
-}
-
-export function pwaUpdatesSupported() {
-  return typeof window !== 'undefined' && 'serviceWorker' in navigator;
-}
-
-export async function registerPwaUpdates() {
-  if (!pwaUpdatesSupported()) throw new Error('pwa_unsupported');
-  if (!registrationPromise) {
-    registrationPromise = navigator.serviceWorker.register('/sw.js', {
-      updateViaCache: 'none'
-    }).catch((error) => {
-      // Старые версии Safari не знали updateViaCache. В этом случае сама
-      // регистрация всё равно работает, поэтому повторяем без новой опции.
-      if (error instanceof TypeError) return navigator.serviceWorker.register('/sw.js');
-      throw error;
-    }).then((registration) => {
-      // Кнопку в углу больше не показываем: она висела поверх статуса
-      // «Есть изменения». О новой версии сообщает плашка сверху.
-      watchRegistration(registration);
-      return registration;
-    }).catch((error) => {
-      registrationPromise = null;
-      throw error;
-    });
-  }
-  return registrationPromise;
-}
-
-export async function checkForPwaUpdate({ silent = false } = {}) {
-  const registration = await registerPwaUpdates();
-  if (registration.waiting && navigator.serviceWorker.controller) {
-    showAvailable(registration.waiting);
-    return { available: true };
-  }
-  if (!navigator.onLine) throw new Error('offline');
-
-  setChecking(true);
-  let foundWorker = null;
-  const onUpdateFound = () => { foundWorker = registration.installing; };
-  registration.addEventListener('updatefound', onUpdateFound);
+// { version } с сервера или null, если проверить нельзя (нет сети и т.п.).
+async function fetchServerVersion() {
   try {
-    lastCheckAt = Date.now();
-    await registration.update();
-    foundWorker = foundWorker || registration.installing;
-    if (foundWorker) await waitForInstalled(foundWorker);
-    const worker = registration.waiting
-      || (foundWorker?.state === 'installed' ? foundWorker : null);
-    if (worker && navigator.serviceWorker.controller) {
-      showAvailable(worker);
-      return { available: true };
-    }
-    if (!silent) toast.show('Установлена последняя версия', { ok: true });
-    return { available: false };
-  } finally {
-    registration.removeEventListener('updatefound', onUpdateFound);
-    setChecking(false);
+    const res = await fetch(`/version.json?t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return data?.version ? String(data.version) : null;
+  } catch {
+    return null;
   }
 }
 
-export async function applyPwaUpdate() {
-  const registration = await registerPwaUpdates();
-  const result = registration.waiting || waitingWorker
-    ? { available: true }
-    : await checkForPwaUpdate();
-  const worker = registration.waiting || waitingWorker;
-  if (!result.available || !worker) return false;
-
-  reloadRequested = true;
-  setChecking(true);
-  const { status } = ui();
-  if (status) status.textContent = 'Устанавливаем обновление…';
-  worker.postMessage({ type: 'SKIP_WAITING' });
-  return true;
+function showBanner() {
+  const { banner, status, action } = ui();
+  if (status) status.textContent = 'Доступна новая версия визитки';
+  if (action) {
+    action.disabled = false;
+    action.textContent = 'Обновить';
+  }
+  if (banner) banner.hidden = false;
 }
 
-function bindUpdateUi() {
-  const { control, action } = ui();
-  const run = async () => {
-    try {
-      if (waitingWorker || watchedRegistration?.waiting) await applyPwaUpdate();
-      else {
-        const result = await checkForPwaUpdate();
-        if (result.available) await applyPwaUpdate();
-      }
-    } catch (error) {
-      setChecking(false);
-      toast.show(error?.message === 'offline'
-        ? 'Для обновления нужен интернет'
-        : 'Не удалось проверить обновление', { error: true });
+export async function checkForUpdate() {
+  if (checking || updating) return false;
+  checking = true;
+  try {
+    const version = await fetchServerVersion();
+    const available = Boolean(version) && version !== APP_VERSION;
+    if (available) showBanner();
+    return available;
+  } finally {
+    checking = false;
+  }
+}
+
+export async function performUpdate() {
+  if (updating) return;
+  updating = true;
+  const { action, status } = ui();
+  if (action) {
+    action.disabled = true;
+    action.textContent = 'Обновляем…';
+  }
+  if (status) status.textContent = 'Загружаем новую версию…';
+
+  // 1. Старый Service Worker больше не отдаёт файлы из кэша.
+  try {
+    const registrations = await navigator.serviceWorker?.getRegistrations?.() || [];
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+  } catch { /* нет Service Worker — и не нужно */ }
+
+  // 2. Кэш приложения целиком: даже если воркер что-то оставил.
+  // Визитка, фото и ключ лежат в IndexedDB и localStorage — их это не трогает.
+  try {
+    if (typeof caches !== 'undefined') {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
     }
-  };
-  control?.addEventListener('click', run);
-  action?.addEventListener('click', run);
+  } catch { /* кэша нет */ }
+
+  // 3. Перезагрузка с меткой: браузер обязан забрать свежий index.html.
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('_v', String(Date.now()));
+    window.location.replace(url.toString());
+  } catch {
+    window.location.reload();
+  }
+}
+
+function registerOfflineWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+    .catch((error) => {
+      // Старые Safari не знали updateViaCache — повторяем без него.
+      if (error instanceof TypeError) return navigator.serviceWorker.register('/sw.js');
+      return null;
+    })
+    .catch(() => { /* без Service Worker приложение просто не работает офлайн */ });
+}
+
+// Метку _v после обновления убираем из адреса, чтобы она не попадала в
+// закладки и ссылки.
+function cleanUpdateMark() {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('_v')) return;
+    url.searchParams.delete('_v');
+    window.history.replaceState(window.history.state, '', url.toString());
+  } catch { /* не критично */ }
 }
 
 export function initPwaUpdates() {
-  if (!pwaUpdatesSupported()) return;
-  bindUpdateUi();
+  if (typeof window === 'undefined') return;
+  cleanUpdateMark();
+  registerOfflineWorker();
 
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!reloadRequested || reloading) return;
-    reloading = true;
-    hideAvailable();
-    const isStandalone = window.navigator.standalone === true ||
-      window.matchMedia('(display-mode: standalone)').matches;
-    if (isStandalone) {
-      window.location.href = window.location.href;
-    } else {
-      window.location.reload();
-    }
+  ui().action?.addEventListener('click', () => {
+    performUpdate().catch(() => {
+      updating = false;
+      toast.show('Не удалось обновить. Закройте и откройте приложение', { error: true });
+    });
   });
 
-  registerPwaUpdates()
-    .then(() => checkForPwaUpdate({ silent: true }))
-    .catch(() => { /* PWA остаётся рабочей и без Service Worker */ });
-
+  const check = () => { checkForUpdate().catch(() => {}); };
+  setTimeout(check, FIRST_CHECK_DELAY);
+  setInterval(check, CHECK_INTERVAL);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
-    if (Date.now() - lastCheckAt < CHECK_INTERVAL) return;
-    checkForPwaUpdate({ silent: true }).catch(() => {});
+    if (document.visibilityState === 'visible') check();
   });
+  window.addEventListener('online', check, { passive: true });
 }

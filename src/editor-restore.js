@@ -5,11 +5,13 @@
 import { renderIcon } from './shared/components/icons.js';
 import { toast } from './shared/components/toast.js';
 
-const ERRORS = {
+export const RESTORE_ERRORS = {
   restore_code_wrong: 'Код не подошёл, проверьте цифры',
   restore_code_expired: 'Код устарел, получите новый',
   rate_limited: 'Слишком много попыток, попробуйте через час',
-  telegram_not_configured: 'Telegram временно недоступен'
+  telegram_not_configured: 'Telegram временно недоступен',
+  invalid_slug: 'Проверьте адрес визитки',
+  card_not_found: 'Визитка с таким адресом не найдена'
 };
 
 async function post(action, body) {
@@ -21,6 +23,18 @@ async function post(action, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data?.ok) throw new Error(data?.error || 'request_failed');
   return data;
+}
+
+// Открыть бота: он пришлёт код, если этот Telegram привязан к визитке.
+export async function openRestoreBot(slug) {
+  const { url } = await post('restore-link', { slug });
+  window.location.href = url;
+}
+
+// Код из Telegram → новый ключ визитки.
+export async function redeemRestoreCode(slug, code, leadKey = '') {
+  const { leadKey: freshKey } = await post('restore', { slug, code, leadKey });
+  return freshKey;
 }
 
 export function renderRestore(card) {
@@ -44,10 +58,9 @@ export function renderRestore(card) {
 export function bindRestore(node, { getCard, setCard }) {
   node.querySelector('[data-restore-link]')?.addEventListener('click', async () => {
     try {
-      const { url } = await post('restore-link', { slug: getCard().publishedSlug });
-      window.location.href = url;
+      await openRestoreBot(getCard().publishedSlug);
     } catch (err) {
-      toast.show(ERRORS[err?.message] || 'Не удалось открыть Telegram', { error: true });
+      toast.show(RESTORE_ERRORS[err?.message] || 'Не удалось открыть Telegram', { error: true });
     }
   });
 
@@ -67,12 +80,12 @@ export function bindRestore(node, { getCard, setCard }) {
     submit.disabled = true;
     try {
       const card = getCard();
-      const { leadKey } = await post('restore', { slug: card.publishedSlug, code, leadKey: card.leadKey });
+      const leadKey = await redeemRestoreCode(card.publishedSlug, code, card.leadKey);
       await setCard({ ...card, leadKey });
       toast.show('Доступ восстановлен', { ok: true });
     } catch (err) {
       submit.disabled = false;
-      toast.show(ERRORS[err?.message] || 'Не удалось восстановить. Попробуйте ещё раз', { error: true });
+      toast.show(RESTORE_ERRORS[err?.message] || 'Не удалось восстановить. Попробуйте ещё раз', { error: true });
     }
   });
 }

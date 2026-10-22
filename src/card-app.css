@@ -160,25 +160,6 @@ body::before {
 
 .ca-header > * { pointer-events: auto; }
 
-.ca-update-control {
-  margin-left: auto;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.ca-update-control.has-update {
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-
-.ca-update-control[disabled] { opacity: 0.62; cursor: wait; }
 
 .ca-update-banner {
   position: sticky;
@@ -1958,6 +1939,36 @@ body[data-route='onboarding']::before {
 }
 
 .ob-btn--primary:active { transform: scale(0.985); }
+
+.ob-btn--ghost {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+
+/* «У меня уже есть визитка»: адрес, код из Telegram, кнопка. */
+.ob-restore {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 26px;
+}
+
+.ob-restore-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ob-restore-prefix {
+  flex: 0 0 auto;
+  color: var(--muted-2);
+  font-size: 15px;
+}
+
+.ob-restore-field .ca-input { flex: 1; min-width: 0; }
+.ob-restore-code { text-align: center; font-variant-numeric: tabular-nums; }
+.ob-restore-code:not(:placeholder-shown) { letter-spacing: 0.3em; }
 
 .ob-btn[disabled] {
   background: rgba(255, 255, 255, 0.05);
