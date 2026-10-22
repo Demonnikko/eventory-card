@@ -12,7 +12,8 @@ cd "$(dirname "$0")/.."
 # С 20.10.2026 tadacard.ru смотрит на сервер AdminVPS; старый Рег.облака
 # (195.19.199.115) больше не обслуживает сайт.
 SERVER="kostyukadmin@168.113.170.119"
-SSH=(ssh -i ~/.ssh/kostyuk_vps_ed25519 -o BatchMode=yes -o ConnectTimeout=15 "$SERVER")
+# ServerAlive: без него оборванная связь (VPN на Mac) вешала выкладку навсегда.
+SSH=(ssh -i ~/.ssh/kostyuk_vps_ed25519 -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 "$SERVER")
 BASE=/var/www/tadacard
 
 if [ "${1:-}" = "--rollback" ]; then
