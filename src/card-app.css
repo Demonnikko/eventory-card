@@ -1086,21 +1086,6 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
   letter-spacing: 0.01em;
 }
 
-.ca-key-rotate {
-  align-self: center;
-  margin-top: 2px;
-  padding: 6px 4px;
-  background: none;
-  border: 0;
-  font: inherit;
-  font-size: 12.5px;
-  color: var(--muted-2);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.ca-key-rotate:active { color: var(--danger, #e5484d); }
 
 .ca-publish-live {
   display: flex;
@@ -1302,17 +1287,41 @@ body[data-route='privacy'] #app { max-width: 720px; padding: 0 18px 40px; }
 
 .sh-extras > .sh-h2 { margin: 0 4px; }
 
-.ca-key-zone {
+/* Восстановление доступа — в «Резервной копии», под чертой: нужно редко. */
+.ca-restore {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  margin-top: 10px;
+  gap: 10px;
+  margin: 10px 0 16px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 
-.ca-key-zone .ca-key-rotate { align-self: flex-start; min-height: 44px; }
+.ca-restore-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ca-restore .ca-note { margin: 0; }
+.ca-restore > .ca-btn { width: 100%; }
+
+.ca-restore-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ca-restore-row .ca-input {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Цифры кода — вразрядку, а подсказка обычным текстом, иначе не влезает. */
+.ca-restore-row .ca-input:not(:placeholder-shown) { letter-spacing: 0.2em; }
+
+.ca-restore-row .ca-btn { flex: 0 0 auto; }
 
 .sh-section > .ca-btn { width: 100%; margin-top: 14px; }
 

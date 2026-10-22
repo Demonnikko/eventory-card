@@ -35,7 +35,8 @@ export async function fetchOwnReviews() {
   const card = await getCard();
   if (!card.publishedSlug || !card.leadKey) return [];
   const data = await request(
-    `/api/card-review?slug=${encodeURIComponent(card.publishedSlug)}&key=${encodeURIComponent(card.leadKey)}`
+    `/api/card-review?slug=${encodeURIComponent(card.publishedSlug)}`,
+    { headers: { 'x-card-key': card.leadKey } }
   );
   return data.reviews || [];
 }

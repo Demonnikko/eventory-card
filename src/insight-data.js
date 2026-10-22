@@ -47,8 +47,10 @@ export async function fetchInsight() {
   if (!card.publishedSlug || !card.leadKey) {
     return { summary: { opens: 0, visitors: 0, contacts: 0, lastAt: 0, occasions: {}, sources: {} }, days: [], tags: [], leads: [] };
   }
+  // Ключ — заголовком, а не в адресе: адреса запросов пишутся в журнал сервера.
   return request(
-    `/api/card-insight?slug=${encodeURIComponent(card.publishedSlug)}&key=${encodeURIComponent(card.leadKey)}`
+    `/api/card-insight?slug=${encodeURIComponent(card.publishedSlug)}`,
+    { headers: { 'x-card-key': card.leadKey } }
   );
 }
 

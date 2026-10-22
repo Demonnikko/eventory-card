@@ -74,7 +74,10 @@ export default async function handler(req, res) {
     if (!await enforceRateLimit(req, res, {
       scope: 'insight-owner', identifier: slug, limit: 120, windowSeconds: 60
     })) return;
-    const owner = await assertOwner(slug, String(req.query?.key || ''));
+    // Ключ приходит заголовком: в адресе он оседал в журнале сервера. Из адреса
+    // читаем только ради старых установленных версий приложения.
+    const ownerKey = String(req.headers?.['x-card-key'] || req.query?.key || '');
+    const owner = await assertOwner(slug, ownerKey);
     if (!owner) return fail(res, 403, 'forbidden');
 
     const tags = await listTags(slug);
@@ -88,7 +91,7 @@ export default async function handler(req, res) {
     // ответе, поэтому barrier не обойти через DevTools. Имя и дата остаются:
     // владелец видит, что спрос есть, но чтобы ответить — нужен Pro.
     // Ключ уже прошёл проверку в assertOwner выше — используем его как есть.
-    const proStatus = await ownerProStatus(String(req.query?.key || ''));
+    const proStatus = await ownerProStatus(ownerKey);
     const ownerPro = proStatus.pro;
     const rawLeads = await listLeads(slug);
 

@@ -149,7 +149,9 @@ export default async function handler(req, res) {
     if (!await enforceRateLimit(req, res, {
       scope: 'review-list', identifier: slug, limit: 120, windowSeconds: 60
     })) return;
-    const key = String(req.query?.key || '').trim();
+    // Ключ приходит заголовком: в адресе он оседал в журнале сервера. Из адреса
+    // читаем только ради старых установленных версий приложения.
+    const key = String(req.headers?.['x-card-key'] || req.query?.key || '').trim();
 
     if (key) {
       const owner = await assertOwner(slug, key);

@@ -13,7 +13,6 @@ import {
   BUSINESS_CARD_GALLERY_MAX_BYTES,
   CARD_LIMITS,
   DEFAULT_BUSINESS_CARD,
-  rotateBusinessCardLeadKey,
   slugify
 } from './shared/data/businessCard.js';
 import { enabledOccasions } from './shared/data/occasions.js';
@@ -28,6 +27,7 @@ import {
 } from './card-backup.js';
 import { renderPaperCard } from './paper-card.js';
 import { coverPositionValue } from './card-view-parts.js';
+import { renderRestore, bindRestore } from './editor-restore.js';
 import {
   section, statusDone, statusNew,
   renderBasics, renderMedia, renderActs, renderContacts,
@@ -315,12 +315,7 @@ function renderBackup() {
         <input type="file" accept=".eventory-card,application/json" hidden data-backup-import />
       </div>
       <p class="ca-backup-warning">Не передавайте файл и пароль вместе: копия содержит закрытый ключ владельца.</p>
-      ${state.card?.publishedSlug && state.card?.leadKey ? `
-        <div class="ca-key-zone">
-          <p class="ca-note">Если телефон с визиткой потерян или ключ попал в чужие руки, смените ключ доступа к заявкам.</p>
-          <button type="button" class="ca-key-rotate" data-rotate-key>Сменить ключ доступа</button>
-        </div>
-      ` : ''}
+      ${renderRestore(state.card)}
       <a class="ca-text-link" href="#/privacy">Как используются данные</a>
     </div>
   `;
@@ -812,20 +807,10 @@ function bindPublish(node) {
     }
   });
 
-  node.querySelector('[data-rotate-key]')?.addEventListener('click', async () => {
-    if (state.busy) return;
-    if (!window.confirm('Сменить ключ доступа к заявкам? Старый ключ перестанет работать. Если у вас подключён Eventory Pro, после смены зайдите в Eventory по ссылке из визитки ещё раз, чтобы контакты снова открылись.')) return;
-    state.busy = true;
-    rerender(node);
-    try {
-      state.card = await saveCard(await rotateBusinessCardLeadKey(state.card));
-      toast.show('Ключ доступа обновлён', { ok: true });
-    } catch (err) {
-      toast.show(err?.message === 'not_published'
-        ? 'Сначала опубликуйте визитку'
-        : 'Не удалось сменить ключ. Попробуйте ещё раз', { error: true });
-    } finally {
-      state.busy = false;
+  bindRestore(node, {
+    getCard: () => state.card,
+    setCard: async (card) => {
+      state.card = await saveCard(card);
       rerender(node);
     }
   });
