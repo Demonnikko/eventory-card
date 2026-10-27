@@ -212,7 +212,7 @@
   border: 1px solid var(--accent-border);
   border-radius: 30px;
   background:
-    radial-gradient(120% 80% at 100% 0%, rgba(217, 203, 176, 0.1), transparent 62%),
+    radial-gradient(120% 80% at 100% 0%, rgba(232, 166, 74, 0.1), transparent 62%),
     var(--surface);
 }
 

@@ -87,7 +87,7 @@ const FALLING = {
   petals: { count: 12, cls: 'fx-petal', size: [9, 14], dur: [10, 16], drift: 80 }
 };
 
-const CONFETTI_COLORS = ['#efe6d3', '#d9cbb0', '#f6d58e', '#c9b38b', '#ffffff'];
+const CONFETTI_COLORS = ['#f0b25a', '#e8a64a', '#f6d58e', '#c9b38b', '#ffffff'];
 const PETAL_COLORS = ['#f4d6d2', '#f3e7cc', '#e9c7b5', '#f7e3df'];
 
 function renderFalling(kind) {
