@@ -1,0 +1,111 @@
+/* КП от партнёра поверх визитки артиста (partner-offer.js, ?o= в адресе).
+   Палитра визитки — графит и шампань; главная кнопка металлом, как
+   «Проверить дату». Блок стоит первым: клиент открыл ссылку ради цены. */
+
+.po-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: calc(env(safe-area-inset-top) + 12px) 16px 16px;
+  padding: 20px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  scroll-margin-top: calc(env(safe-area-inset-top) + 12px);
+}
+
+.po-card-label {
+  margin: 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.po-card-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.po-card-items li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.po-card-items small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.po-card-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.po-card-total span {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.po-card-total b {
+  font-family: var(--display);
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.po-card-date {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.po-card-cta {
+  height: 52px;
+  border: 0;
+  border-radius: 26px;
+  background: var(--gold-leaf);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 10px 24px -12px rgba(217, 203, 176, 0.6);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), filter 0.2s var(--ease);
+  touch-action: manipulation;
+}
+
+.po-card-cta:active { transform: scale(0.98); }
+.po-card-cta:disabled { filter: saturate(0.4) brightness(0.8); }
+
+.po-card-done {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.po-card-phone {
+  align-self: center;
+  color: var(--accent);
+  font-size: 15px;
+  text-decoration: none;
+}

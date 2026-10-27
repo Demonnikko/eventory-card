@@ -189,7 +189,7 @@ export async function deleteReview(slug, id) {
 
 /* ─────────── Blob ─────────── */
 
-export const MAX_VIDEO_BYTES = 12 * 1024 * 1024; // ~30 секунд кружка
+export const MAX_VIDEO_BYTES = 24 * 1024 * 1024; // до минуты: iPhone пишет плотнее заданного битрейта
 export const MAX_POSTER_BYTES = 512 * 1024; // один кадр в JPEG
 
 export async function uploadVideo(slug, buffer, contentType) {

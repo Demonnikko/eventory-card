@@ -2,7 +2,7 @@
 import { getCard } from './card-data.js';
 import { uploadUrl } from './shared/lib/media-url.js';
 
-export const MAX_DURATION = 30;   // секунд — дольше кружки не смотрят
+export const MAX_DURATION = 60;   // секунд: минуты хватает на живой отзыв
 export const MIN_DURATION = 2;
 
 async function request(url, options) {
@@ -198,10 +198,14 @@ async function uploadReviewVideo(token, slug, blob) {
   return result.url;
 }
 
-// Формат подбираем под браузер: Safari умеет mp4, остальные — webm.
+// Формат подбираем под браузер. mp4 — первым: его воспроизводят все, а
+// webm на iPhone часто не играет. Safari не признаёт 'mp4;codecs=avc1', но
+// принимает просто 'video/mp4' — без этой строки iPhone мог писать webm.
 export function pickMimeType() {
   const candidates = [
+    'video/mp4;codecs=avc1,mp4a.40.2',
     'video/mp4;codecs=avc1',
+    'video/mp4',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm'

@@ -18,6 +18,8 @@ import { findOccasion, occasionTitle } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
 import { openVideoModal, closeVideoModal } from './video-modal.js';
 import { openActModal, closeActModal } from './act-modal.js';
+import { readOfferIdFromUrl, fetchOffer, cardForOffer, renderOfferBlock, renderOfferGone, bindOfferBlock, focusOffer } from './partner-offer.js';
+import './styles/partner-offer.css';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
@@ -31,8 +33,17 @@ const state = {
   // а не одного наблюдателя: карточку перерисовывают (кэш → свежие данные,
   // переход на праздник), и без общей памяти раздел засчитался бы дважды.
   sentSections: new Set(),
+  // КП партнёра (?o=): визитка без контактов и цен артиста + блок предложения.
+  offerId: '',
+  offer: null,
   node: null
 };
+
+// Визитка, которую видит гость: в КП партнёра — с контактом партнёра.
+// Ссылка КП, даже устаревшая, контакты артиста не открывает.
+function viewCard() {
+  return state.offerId ? cardForOffer(state.card, state.offer || { partner: {} }) : state.card;
+}
 
 // Кэш: по ссылке часто заходят из мессенджера с плохой сетью.
 const CACHE_PREFIX = 'card_view_';
@@ -91,7 +102,7 @@ function renderContent() {
       </div>
     `;
   }
-  return `<div class="cp-page">${renderCardView(state.card, {
+  return `<div class="cp-page">${state.offer ? renderOfferBlock(state.offer) : (state.offerId ? renderOfferGone() : '')}${renderCardView(viewCard(), {
     interactive: true,
     occasion: activeOccasion(),
     fromMain: state.fromMain,
@@ -193,9 +204,10 @@ function observeSections(node) {
 }
 
 function saveContact() {
+  const card = viewCard();
   downloadVCard({
-    ...state.card,
-    coverPhoto: state.vcardPhoto || state.card.coverPhoto,
+    ...card,
+    coverPhoto: state.vcardPhoto || card.coverPhoto,
     publishedSlug: state.slug
   });
   trackOpen(state.slug, state.tagId, { event: 'contact' });
@@ -251,7 +263,13 @@ function bindInteractive(node) {
   if (!state.card) return;
 
   // Кнопка «Проверить дату» есть на панели внизу и в финале страницы праздника.
-  node.querySelectorAll('[data-date-open]').forEach((btn) => btn.addEventListener('click', () => {
+  // В КП партнёра «Проверить дату» ведёт к предложению: клиент — партнёра,
+  // заявка напрямую артисту его бы обошла.
+  const openBooking = () => {
+    if (state.offerId) {
+      focusOffer(node);
+      return;
+    }
     openDateRequest({
       card: state.card,
       slug: state.slug,
@@ -260,7 +278,9 @@ function bindInteractive(node) {
       occasion: activeOccasion()?.id || '',
       onSaveContact: saveContact
     });
-  }));
+  };
+  node.querySelectorAll('[data-date-open]').forEach((btn) => btn.addEventListener('click', openBooking));
+  if (state.offer) bindOfferBlock(node, state.offer, () => renderAndBind(node));
 
   node.querySelectorAll('[data-save-contact]').forEach((btn) => {
     btn.addEventListener('click', saveContact);
@@ -298,16 +318,7 @@ function bindInteractive(node) {
         openActModal({
           card: state.card,
           index,
-          onBook: () => {
-            openDateRequest({
-              card: state.card,
-              slug: state.slug,
-              tagId: state.tagId,
-              source: state.source,
-              occasion: activeOccasion()?.id || '',
-              onSaveContact: saveContact
-            });
-          }
+          onBook: openBooking
         });
       }
     });
@@ -406,6 +417,7 @@ export const publicCard = {
       // Перезагрузка страницы праздника, открытого с главной, сохраняет «назад».
       fromMain: Boolean(window.history.state?.fromMain),
       vcardPhoto: '', sentSections: new Set(), node,
+      offerId: readOfferIdFromUrl(), offer: null,
       // Метка события и канал из адреса: по ним считаем, откуда гость.
       tagId: readTagFromUrl(),
       source: readSourceFromUrl(),
@@ -424,7 +436,8 @@ export const publicCard = {
     }
 
     // Сначала показываем кэш — страница открывается мгновенно.
-    const cached = readCache(slug);
+    // В КП партнёра кэш не показываем: в нём визитка с контактами артиста.
+    const cached = state.offerId ? null : readCache(slug);
     if (cached) {
       state.card = cached;
       state.loading = false;
@@ -436,12 +449,18 @@ export const publicCard = {
     // страница появляется сразу, снимки догружаются картинками параллельно.
     // Если лёгкая ветка почему-то недоступна, честно берём полную карточку:
     // визитка клиента не должна зависеть от одной функции.
+    const offerPending = state.offerId ? fetchOffer(state.offerId) : Promise.resolve(null);
     let data = await fetchCardJson(`/api/og?card=1&slug=${encodeURIComponent(slug)}`);
     if (!data?.ok || !data.card) {
       data = await fetchCardJson(`/api/card-get?slug=${encodeURIComponent(slug)}`);
     }
     if (state.slug !== slug) return;
     const fresh = data?.ok && data.card ? data.card : null;
+    const offer = await offerPending;
+    if (state.slug !== slug) return;
+    // КП принадлежит именно этой визитке — чужой номер в адресе ничего не меняет.
+    const offerArrived = Boolean(offer && offer.artistSlug === slug);
+    if (offerArrived) state.offer = offer;
 
     state.loading = false;
     if (fresh) {
@@ -453,7 +472,7 @@ export const publicCard = {
       state.error = '';
       writeCache(slug, fresh);
       updateMeta(fresh);
-      if (!unchanged) renderAndBind(node);
+      if (!unchanged || offerArrived) renderAndBind(node);
     } else if (!cached) {
       // Если кэш уже показан, сетевую ошибку не показываем — человек читает
       // визитку, а не наши сообщения.

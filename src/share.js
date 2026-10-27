@@ -505,7 +505,9 @@ function bindReviewActions(node) {
         let shared = false;
         if (navigator.share) {
           try {
-            await navigator.share({ title: 'Видеоотзыв', text, url });
+            // Ссылка — только внутри текста: если передать её ещё и полем url,
+            // мессенджер вставляет её дважды.
+            await navigator.share({ title: 'Видеоотзыв', text });
             shared = true;
           } catch {
             // Пользователь закрыл системное меню или Safari сбросил жест из-за async fetch
