@@ -18,7 +18,7 @@ import { findOccasion, occasionTitle } from './shared/data/occasions.js';
 import { toast } from './shared/components/toast.js';
 import { openVideoModal, closeVideoModal } from './video-modal.js';
 import { openActModal, closeActModal } from './act-modal.js';
-import { readOfferIdFromUrl, fetchOffer, cardForOffer, renderOfferBlock, renderOfferGone, bindOfferBlock, focusOffer } from './partner-offer.js';
+import { readOfferIdFromUrl, fetchOffer, cardForOffer, renderOfferPage, bindOfferBlock, focusOffer } from './partner-offer.js';
 import './styles/partner-offer.css';
 
 const state = {
@@ -39,10 +39,10 @@ const state = {
   node: null
 };
 
-// Визитка, которую видит гость: в КП партнёра — с контактом партнёра.
-// Ссылка КП, даже устаревшая, контакты артиста не открывает.
+// Визитка, которую видит гость. В КП партнёра — без контактов и цен
+// артиста; ссылка КП, даже устаревшая, их не открывает.
 function viewCard() {
-  return state.offerId ? cardForOffer(state.card, state.offer || { partner: {} }) : state.card;
+  return state.offerId ? cardForOffer(state.card) : state.card;
 }
 
 // Кэш: по ссылке часто заходят из мессенджера с плохой сетью.
@@ -102,7 +102,11 @@ function renderContent() {
       </div>
     `;
   }
-  return `<div class="cp-page">${state.offer ? renderOfferBlock(state.offer) : (state.offerId ? renderOfferGone() : '')}${renderCardView(viewCard(), {
+  // КП партнёра — своя страница: витрина артиста и предложение внизу.
+  if (state.offerId) {
+    return `<div class="cp-page">${renderOfferPage(viewCard(), state.offer)}${renderFooter()}</div>`;
+  }
+  return `<div class="cp-page">${renderCardView(viewCard(), {
     interactive: true,
     occasion: activeOccasion(),
     fromMain: state.fromMain,
@@ -316,9 +320,10 @@ function bindInteractive(node) {
       const index = Number(btn.dataset.actOpen);
       if (!Number.isNaN(index)) {
         openActModal({
-          card: state.card,
+          card: viewCard(),
           index,
-          onBook: openBooking
+          onBook: openBooking,
+          bookLabel: state.offerId ? 'К предложению' : 'Проверить дату'
         });
       }
     });

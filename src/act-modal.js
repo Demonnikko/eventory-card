@@ -31,9 +31,10 @@ export function closeActModal() {
  * @param {object} params
  * @param {object} params.card
  * @param {number} params.index
- * @param {function} [params.onBook] — колбэк при клике на «Проверить дату»
+ * @param {function} [params.onBook] — колбэк при клике на главную кнопку
+ * @param {string} [params.bookLabel] — её надпись (в КП партнёра — «К предложению»)
  */
-export function openActModal({ card, index, onBook }) {
+export function openActModal({ card, index, onBook, bookLabel = 'Проверить дату' }) {
   closeActModal();
   const act = getActData(card, index);
   hapticLight();
@@ -85,7 +86,7 @@ export function openActModal({ card, index, onBook }) {
           </div>
 
           <div class="am-cta-wrap">
-            <button type="button" class="am-cta-btn" data-am-book>Проверить дату</button>
+            <button type="button" class="am-cta-btn" data-am-book>${escapeHtml(bookLabel)}</button>
           </div>
         </div>
       </div>
