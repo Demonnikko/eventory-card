@@ -42,27 +42,30 @@ echo "3/3 Переключаю…"
 "${SSH[@]}" "set -e; ln -sfn $BASE/releases/$STAMP $BASE/current.tmp && mv -T $BASE/current.tmp $BASE/current
   cd $BASE/releases && ls -1 | sort | head -n -5 | xargs -r rm -rf"
 
-# Обновляем Nginx сниппеты (tadacard-headers.conf, tadacard-locations.conf), если изменились
-if [ -f deploy/nginx/tadacard-headers.conf ]; then
-  cat deploy/nginx/tadacard-headers.conf | "${SSH[@]}" "set -e
-    cat > /tmp/tadacard-headers.conf.tmp
-    if ! cmp -s /tmp/tadacard-headers.conf.tmp /etc/nginx/snippets/tadacard-headers.conf; then
-      sudo cp /tmp/tadacard-headers.conf.tmp /etc/nginx/snippets/tadacard-headers.conf
-      sudo nginx -t && sudo systemctl reload nginx
-      echo 'Nginx tadacard-headers.conf обновлён и перезагружен'
+# Обновляем Nginx сниппеты (tadacard-headers.conf, tadacard-locations.conf),
+# если изменились. Старый файл сохраняем: не прошёл nginx -t — возвращаем
+# его, чтобы сломанный конфиг не остался лежать до следующей перезагрузки.
+sync_snippet() {
+  local name="$1"
+  [ -f "deploy/nginx/$name" ] || return 0
+  cat "deploy/nginx/$name" | "${SSH[@]}" "set -e
+    F=/etc/nginx/snippets/$name
+    cat > /tmp/$name.tmp
+    if ! cmp -s /tmp/$name.tmp \$F; then
+      sudo cp \$F /tmp/$name.bak
+      sudo cp /tmp/$name.tmp \$F
+      if sudo nginx -t; then
+        sudo systemctl reload nginx
+        echo 'Nginx $name обновлён и перезагружен'
+      else
+        sudo cp /tmp/$name.bak \$F
+        echo 'СТОП: Nginx $name не прошёл проверку — вернул прежний'
+        exit 1
+      fi
     fi
-    rm -f /tmp/tadacard-headers.conf.tmp" || true
-fi
-
-if [ -f deploy/nginx/tadacard-locations.conf ]; then
-  cat deploy/nginx/tadacard-locations.conf | "${SSH[@]}" "set -e
-    cat > /tmp/tadacard-locations.conf.tmp
-    if ! cmp -s /tmp/tadacard-locations.conf.tmp /etc/nginx/snippets/tadacard-locations.conf; then
-      sudo cp /tmp/tadacard-locations.conf.tmp /etc/nginx/snippets/tadacard-locations.conf
-      sudo nginx -t && sudo systemctl reload nginx
-      echo 'Nginx tadacard-locations.conf обновлён и перезагружен'
-    fi
-    rm -f /tmp/tadacard-locations.conf.tmp" || true
-fi
+    rm -f /tmp/$name.tmp"
+}
+sync_snippet tadacard-headers.conf || true
+sync_snippet tadacard-locations.conf || true
 
 echo "Готово: tadacard.ru работает на сборке $STAMP"
