@@ -184,7 +184,7 @@ export function renderActs(card) {
             </div>
           `).join('')}
         </div>
-        <p class="ca-note">При нажатии на фото номера открывается карточка с длительностью, «Что вы получаете» и «Что входит» — как в Eventory.</p>
+        <p class="ca-note">При нажатии на фото номера открывается карточка с длительностью, «Что вы получаете» и «Что входит», как в Eventory.</p>
       ` : '<p class="ca-note">Добавьте лучшие номера: при тапе клиент сможет открыть детальное описание с длительностью и составом номера.</p>'}
       ${photos.length < CARD_LIMITS.gallery ? `
         <button type="button" class="ca-btn ca-btn--ghost ca-gallery-add" data-gallery-trigger>

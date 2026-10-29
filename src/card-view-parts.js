@@ -243,7 +243,7 @@ export function renderActsStrip(card) {
       <h2 class="vz-h2">Номера</h2>
       <div class="vz-strip" role="list">
         ${photos.map((src, i) => `
-          <figure class="vz-act vz-act--clickable" role="button" tabindex="0" data-act-open="${i}" aria-label="${escapeAttr(captions[i] || `Номер ${i + 1}`)} — подробнее">
+          <figure class="vz-act vz-act--clickable" role="button" tabindex="0" data-act-open="${i}" aria-label="${escapeAttr(captions[i] || `Номер ${i + 1}`)}, подробнее">
             <img src="${escapeAttr(src)}" alt="${escapeAttr(captions[i] || `Номер ${i + 1}`)}" loading="lazy" />
             <div class="vz-act-info">
               ${captions[i] ? `<figcaption>${escapeHtml(captions[i])}</figcaption>` : ''}

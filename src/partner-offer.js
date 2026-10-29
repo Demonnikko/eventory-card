@@ -138,7 +138,7 @@ export function renderOfferBlock(offer) {
       <div class="po-items">${(offer.items || []).map(renderItem).join('')}</div>
       <div class="po-sum">
         <div class="po-sum-row is-total"><span>Итого</span><b>${escapeHtml(money(offer.total))}</b></div>
-        <div class="po-sum-row"><span>Предоплата ${prepayPercent}% — бронь даты</span><b>${escapeHtml(money(prepay))}</b></div>
+        <div class="po-sum-row"><span>Предоплата ${prepayPercent}%, бронь даты</span><b>${escapeHtml(money(prepay))}</b></div>
       </div>
       ${agreed
         ? `<p class="po-done">Спасибо! ${escapeHtml(partnerName || 'Организатор')} свяжется с вами, чтобы закрепить дату.</p>`
@@ -204,7 +204,7 @@ export function bindOfferBlock(node, offer, onAgreed) {
     } catch {
       btn.disabled = false;
       btn.textContent = 'Согласен';
-      toast.show('Не получилось отправить — проверьте интернет');
+      toast.show('Не получилось отправить. Проверьте интернет');
     }
   });
 }
