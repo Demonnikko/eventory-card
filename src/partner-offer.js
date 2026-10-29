@@ -64,11 +64,11 @@ export function cardForOffer(card) {
   };
 }
 
-function money(value) {
+export function money(value) {
   return `${new Intl.NumberFormat('ru-RU').format(Math.round(Number(value) || 0))} ₽`;
 }
 
-function longDate(iso) {
+export function longDate(iso) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map(Number);
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' }).format(new Date(y, m - 1, d));
@@ -97,7 +97,7 @@ function agreedHere(offer) {
   try { return localStorage.getItem(SEEN_KEY + offer.offerId) === '1'; } catch { return false; }
 }
 
-function renderItem(item) {
+export function renderItem(item) {
   const includes = String(item.description || '')
     .split('\n')
     .map((line) => line.replace(/^[\s•\-–—]+/, '').trim())

@@ -21,6 +21,7 @@ import { openActModal, closeActModal } from './act-modal.js';
 import { readOfferIdFromUrl, fetchOffer, cardForOffer, renderOfferPage, bindOfferBlock, focusOffer } from './partner-offer.js';
 import './styles/partner-offer.css';
 import { readCityFromUrl, fetchCardTeam, injectTeamBlock, resetTeamBlock } from './team-block.js';
+import { readTeamOfferId, fetchTeamOffer, injectTeamOffer } from './team-offer.js';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
@@ -39,6 +40,8 @@ const state = {
   offer: null,
   // Артисты команды организатора под город (блок «Рекомендую…», team-block.js).
   team: null,
+  // Предложение с датой (?c=, team-offer.js): заменяет блок «Рекомендую…».
+  teamOffer: null,
   node: null
 };
 
@@ -368,7 +371,8 @@ function renderAndBind(node) {
   bindInteractive(node);
   stopFx = watchFx(node);
   if (state.reviews.length) injectReviews(node, state.reviews);
-  if (state.team && !state.offerId) injectTeamBlock(node, state.team, { slug: state.slug });
+  if (state.teamOffer) injectTeamOffer(node, state.teamOffer);
+  else if (state.team && !state.offerId) injectTeamBlock(node, state.team, { slug: state.slug });
 }
 
 // Фото для сохранённого контакта. В лёгкой карточке обложка — ссылка, а vCard
@@ -427,7 +431,7 @@ export const publicCard = {
       // Перезагрузка страницы праздника, открытого с главной, сохраняет «назад».
       fromMain: Boolean(window.history.state?.fromMain),
       vcardPhoto: '', sentSections: new Set(), node,
-      offerId: readOfferIdFromUrl(), offer: null, team: null,
+      offerId: readOfferIdFromUrl(), offer: null, team: null, teamOffer: null,
       // Метка события и канал из адреса: по ним считаем, откуда гость.
       tagId: readTagFromUrl(),
       source: readSourceFromUrl(),
@@ -499,7 +503,15 @@ export const publicCard = {
 
     // Артисты команды — отдельно и после визитки: она уже на экране. В КП
     // партнёра (?o=) блока нет — там своя страница.
-    if (!state.offerId) {
+    const teamOfferId = state.offerId ? '' : readTeamOfferId();
+    if (teamOfferId) {
+      fetchTeamOffer(teamOfferId).then((offer) => {
+        // Предложение принадлежит именно этой визитке — чужой номер ничего не меняет.
+        if (state.slug !== slug || !offer || offer.slug !== slug) return;
+        state.teamOffer = offer;
+        injectTeamOffer(node, offer);
+      });
+    } else if (!state.offerId) {
       fetchCardTeam(slug, readCityFromUrl()).then((team) => {
         if (state.slug !== slug || !team?.members?.length) return;
         state.team = team;
