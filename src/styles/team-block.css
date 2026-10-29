@@ -1,0 +1,277 @@
+/* «Рекомендую для вашего праздника» (team-block.js).
+   Блок в духе визитки: графитовые карточки, золото — только на ценах и
+   включённом переключателе. Шторки — те же, что у «Проверить дату». */
+
+.tb {
+  display: grid;
+  gap: 10px;
+  margin: 28px 16px 0;
+  padding: 22px 16px 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(120% 60% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.tb-kicker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tb-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 26px;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.tb-lead {
+  margin: 0 0 6px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.tb-list { display: grid; gap: 8px; }
+
+.tb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.tb-item.is-on {
+  border-color: var(--accent-border);
+  background: linear-gradient(180deg, rgba(232, 166, 74, 0.1), rgba(232, 166, 74, 0.03)), var(--surface-2);
+}
+
+.tb-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tb-photo {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  object-fit: cover;
+  object-position: top;
+  background: var(--surface);
+}
+
+.tb-photo.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.tb-text { min-width: 0; display: grid; gap: 2px; }
+
+.tb-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tb-role,
+.tb-service {
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-side {
+  flex: none;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.tb-price {
+  font-size: 15px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* Переключатель как в iOS: золото, когда артист добавлен. */
+.tb-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.2s var(--ease);
+}
+
+.tb-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.22s var(--ease-soft);
+}
+
+.tb-switch[aria-checked='true'] { background: var(--gold-leaf); }
+.tb-switch[aria-checked='true']::after { transform: translateX(20px); }
+
+/* Итог вместо «Проверить дату» — то же место и то же стекло. */
+.tb-bar {
+  position: fixed;
+  z-index: 41;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 14px);
+  width: min(calc(100% - 28px), 532px);
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 32px;
+  background: linear-gradient(180deg, rgba(36, 36, 40, 0.78), rgba(16, 16, 19, 0.72));
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 16px 36px rgba(0, 0, 0, 0.55);
+  transform: translateX(-50%);
+}
+
+.tb-bar[hidden] { display: none; }
+
+.tb-bar-text { flex: 1; min-width: 0; display: grid; }
+
+.tb-bar-names {
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-bar-text b { font-size: 18px; color: var(--text); }
+
+.tb-bar-cta { flex: none; padding: 0 22px; }
+
+.vz-bar[hidden] { display: none; }
+
+/* Промо артиста в шторке. */
+.tb-promo { display: grid; gap: 10px; }
+
+.tb-cover {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+  object-position: top;
+}
+
+.tb-promo .dr-title { margin: 6px 0 0; }
+
+.tb-tagline {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.tb-video {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 20px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tb-gallery {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 42%;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 4px;
+}
+
+.tb-gallery figure { margin: 0; scroll-snap-align: start; }
+
+.tb-gallery img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+
+.tb-gallery figcaption { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+
+.tb-services { display: grid; gap: 8px; margin-top: 4px; }
+
+.tb-option {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.tb-option.is-on { border-color: var(--accent); }
+
+.tb-option-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tb-option-head b { color: var(--accent); white-space: nowrap; }
+.tb-option-text { font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+
+.tb-summary .tb-summary-total dt,
+.tb-summary .tb-summary-total dd { color: var(--accent); font-weight: 700; }
+
+.tb-summary dd { white-space: nowrap; }

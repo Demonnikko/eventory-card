@@ -20,6 +20,7 @@ import { openVideoModal, closeVideoModal } from './video-modal.js';
 import { openActModal, closeActModal } from './act-modal.js';
 import { readOfferIdFromUrl, fetchOffer, cardForOffer, renderOfferPage, bindOfferBlock, focusOffer } from './partner-offer.js';
 import './styles/partner-offer.css';
+import { readCityFromUrl, fetchCardTeam, injectTeamBlock, resetTeamBlock } from './team-block.js';
 
 const state = {
   card: null, error: '', loading: true, reviews: [],
@@ -36,6 +37,8 @@ const state = {
   // КП партнёра (?o=): визитка без контактов и цен артиста + блок предложения.
   offerId: '',
   offer: null,
+  // Артисты команды организатора под город (блок «Рекомендую…», team-block.js).
+  team: null,
   node: null
 };
 
@@ -365,6 +368,7 @@ function renderAndBind(node) {
   bindInteractive(node);
   stopFx = watchFx(node);
   if (state.reviews.length) injectReviews(node, state.reviews);
+  if (state.team && !state.offerId) injectTeamBlock(node, state.team, { slug: state.slug });
 }
 
 // Фото для сохранённого контакта. В лёгкой карточке обложка — ссылка, а vCard
@@ -413,6 +417,7 @@ export const publicCard = {
     document.querySelector('.vm-overlay')?.remove();
     closeActModal();
     document.querySelector('[data-act-modal]')?.remove();
+    resetTeamBlock();
   },
   async mount(node, ctx = {}) {
     const slug = ctx.params?.id || '';
@@ -422,7 +427,7 @@ export const publicCard = {
       // Перезагрузка страницы праздника, открытого с главной, сохраняет «назад».
       fromMain: Boolean(window.history.state?.fromMain),
       vcardPhoto: '', sentSections: new Set(), node,
-      offerId: readOfferIdFromUrl(), offer: null,
+      offerId: readOfferIdFromUrl(), offer: null, team: null,
       // Метка события и канал из адреса: по ним считаем, откуда гость.
       tagId: readTagFromUrl(),
       source: readSourceFromUrl(),
@@ -491,6 +496,16 @@ export const publicCard = {
     // Учёт открытия — тихо, в фоне, не задерживая показ визитки.
     trackOpen(slug, state.tagId, { occasion: activeOccasion()?.id || '', source: state.source });
     prepareVcardPhoto(state.card, slug);
+
+    // Артисты команды — отдельно и после визитки: она уже на экране. В КП
+    // партнёра (?o=) блока нет — там своя страница.
+    if (!state.offerId) {
+      fetchCardTeam(slug, readCityFromUrl()).then((team) => {
+        if (state.slug !== slug || !team?.members?.length) return;
+        state.team = team;
+        injectTeamBlock(node, team, { slug });
+      });
+    }
 
     // Видеоотзывы догружаем отдельно: видео тяжёлое, а визитка уже на экране
     // и полностью работает. Придут — встанут на своё место.
