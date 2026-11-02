@@ -2844,21 +2844,22 @@ body[data-route='present']::before {
 .cp-reel--sm .cp-reel-role,
 .cp-reel--sm .cp-reel-play { display: none; }
 
-/* ===== Просмотр отзыва ===== */
+/* ===== Просмотр отзыва (Stories / Fullscreen) ===== */
 .cp-viewer {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 9999;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 18px);
-  background: rgba(7, 7, 8, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  animation: cp-viewer-in 0.35s var(--ease-soft) both;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  animation: cp-viewer-in 0.25s var(--ease-soft) both;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 @keyframes cp-viewer-in {
@@ -2866,162 +2867,260 @@ body[data-route='present']::before {
   to { opacity: 1; }
 }
 
-.cp-viewer-close {
+.cp-viewer-backdrop {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 12px);
-  right: 14px;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--muted);
+  inset: 0;
+  z-index: 1;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 
-.cp-viewer-close:active { background: rgba(255, 255, 255, 0.14); }
+.cp-viewer-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  height: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #000;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  animation: cp-viewer-pop 0.35s var(--ease-soft) both;
+}
 
-/* Видео остаётся кружком и в развёрнутом виде — узнаваемость формата */
-.cp-viewer-stage {
-  width: min(78vw, 360px);
-  aspect-ratio: 1;
-  animation: cp-viewer-pop 0.45s var(--ease-soft) both;
+@media (min-width: 480px) and (min-height: 700px) {
+  .cp-viewer-card {
+    height: min(92dvh, 860px);
+    border-radius: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
 
 @keyframes cp-viewer-pop {
-  from { opacity: 0; transform: scale(0.9); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: none; }
 }
 
-/* Круглый плеер без нативных controls: тап = пуск/пауза, прогресс — тонкой
-   дугой по краю круга (как в сторис). Нативная полоса в круглой маске
-   обрезалась и выглядела сломанной. */
-.cp-viewer-player {
-  position: relative;
-  display: block;
+/* Верхняя плашка: полоски прогресса, автор, кнопки звука и закрытия */
+.cp-viewer-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px 24px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.35) 65%, transparent 100%);
+  pointer-events: none;
+}
+
+.cp-viewer-bars {
+  display: flex;
+  gap: 5px;
   width: 100%;
+  margin-bottom: 12px;
+}
+
+.cp-viewer-bar {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cp-viewer-bar-fill {
+  display: block;
   height: 100%;
+  width: 0%;
+  background: #fff;
+  transition: width 0.1s linear;
+}
+
+.cp-viewer-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cp-viewer-author-box {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cp-viewer-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-viewer-role {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.cp-viewer-btn {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  border: none;
-  background: none;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.cp-viewer-btn:active {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(0.92);
+}
+
+.cp-viewer-btn--close {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Сцена с видео на весь экран */
+.cp-viewer-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
 }
 
 .cp-viewer-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 50%;
+  border-radius: 0;
   background: #000;
-  box-shadow:
-    0 0 0 2px rgba(232, 166, 74, 0.5),
-    0 30px 70px -30px rgba(0, 0, 0, 1);
+  display: block;
 }
 
-/* Кольцо прогресса поверх круга — не обрезается маской видео. */
-.cp-viewer-ring {
+/* Тап-зоны: лево (назад), центр (пауза/звук), право (вперед) */
+.cp-viewer-tap-zone {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-  pointer-events: none;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.cp-viewer-ring-track {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 1.5;
-}
+.cp-viewer-tap-left { left: 0; width: 25%; }
+.cp-viewer-tap-center { left: 25%; width: 50%; }
+.cp-viewer-tap-right { right: 0; width: 25%; }
 
-.cp-viewer-ring-bar {
-  fill: none;
-  stroke: var(--accent, #e8a64a);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.15s linear;
-}
-
-/* Иконка play в центре — видна только на паузе. */
-.cp-viewer-play {
+/* Иконка play по центру — исчезает во время воспроизведения */
+.cp-viewer-play-center {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 64px;
-  height: 64px;
+  z-index: 6;
+  width: 72px;
+  height: 72px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(10, 10, 12, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: #fff;
   pointer-events: none;
-  transition: opacity 0.25s var(--ease-soft), transform 0.25s var(--ease-soft);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.cp-viewer-play .ui-icon { width: 30px; height: 30px; margin-left: 3px; }
+.cp-viewer-play-center .ui-icon {
+  width: 36px;
+  height: 36px;
+  margin-left: 3px;
+}
 
-.cp-viewer-player.is-playing .cp-viewer-play {
+.cp-viewer-stage.is-playing .cp-viewer-play-center {
   opacity: 0;
   transform: scale(0.7);
 }
 
-.cp-viewer-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  text-align: center;
-}
-
-.cp-viewer-name {
-  font-family: var(--display);
-  font-size: 20px;
-  color: var(--text);
-}
-
-.cp-viewer-role {
-  font-size: 12px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-}
-
-.cp-viewer-nav {
+/* Нижняя навигация */
+.cp-viewer-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
-  gap: 18px;
+  justify-content: center;
+  gap: 20px;
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.25) 65%, transparent 100%);
+  pointer-events: none;
 }
 
 .cp-viewer-arrow {
+  pointer-events: auto;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--border);
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--muted);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.3s var(--ease), color 0.3s var(--ease);
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
 }
 
-.cp-viewer-arrow:active { border-color: var(--accent-border); color: var(--accent); }
+.cp-viewer-arrow:active {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0.92);
+}
 
 .cp-viewer-count {
-  font-size: 12px;
-  color: var(--muted-2);
-  min-width: 62px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  min-width: 68px;
   text-align: center;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cp-reel, .cp-viewer, .cp-viewer-stage { animation: none !important; }
+  .cp-reel, .cp-viewer, .cp-viewer-card, .cp-viewer-stage { animation: none !important; }
 }
 
 /* ============================================================
@@ -3044,6 +3143,296 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   padding: calc(env(safe-area-inset-top) + 34px) 22px calc(env(safe-area-inset-bottom) + 26px);
   text-align: center;
   animation: ob-step-in 0.5s var(--ease-soft) both;
+}
+
+/* ===== Премиальный экран видеоотзыва (минимализм Eventory) ===== */
+.rv-step--intro-lux {
+  padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 24px);
+  justify-content: space-between;
+  text-align: left;
+}
+
+.rv-container {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 44px);
+  justify-content: space-between;
+}
+
+.rv-top-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rv-badge-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #F8CE82;
+  text-transform: uppercase;
+  background: rgba(232, 166, 74, 0.12);
+  border: 1px solid rgba(232, 166, 74, 0.20);
+  padding: 5px 14px;
+  border-radius: 999px;
+}
+
+.rv-artist-card {
+  position: relative;
+  background: linear-gradient(155deg, #181820 0%, #0F0F14 100%);
+  border: 1.5px solid rgba(232, 166, 74, 0.42);
+  border-radius: 22px;
+  padding: 16px 18px;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.95), 0 0 28px rgba(232, 166, 74, 0.22);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.rv-artist-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, rgba(248, 206, 130, 0.8), transparent);
+}
+
+.rv-artist-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #22222B, #121217);
+  border: 1.5px solid rgba(232, 166, 74, 0.55);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.rv-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rv-avatar-emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.rv-avatar-initials {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  margin-left: 2px;
+  background: linear-gradient(135deg, #F8CE82 0%, #E8A64A 55%, #C27D28 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.rv-artist-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rv-artist-name {
+  font-family: var(--display, 'Eventory Display', Georgia, serif);
+  font-size: 23px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: #FFFFFF;
+  line-height: 1.15;
+}
+
+.rv-artist-role {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent, #E8A64A);
+  text-transform: uppercase;
+}
+
+.rv-headline-block {
+  margin-bottom: 12px;
+}
+
+.rv-headline-title {
+  font-family: var(--display, 'Eventory Display', Georgia, serif);
+  font-size: 26px;
+  line-height: 1.18;
+  color: #FFFFFF;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+.rv-headline-subtitle {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted, #A39F95);
+}
+
+.rv-ideas-card {
+  background: var(--surface-2, #14141A);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.rv-ideas-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #F8CE82;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rv-ideas-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rv-idea-chip {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #F6F4EF;
+}
+
+.rv-bento-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.rv-bento-item {
+  background: var(--surface-2, #14141A);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rv-bento-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(232, 166, 74, 0.12);
+  border: 1px solid rgba(232, 166, 74, 0.20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.rv-bento-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.rv-bento-text {
+  font-size: 11px;
+  color: var(--muted-2, #706C64);
+  line-height: 1.3;
+}
+
+.rv-trust-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
+}
+
+.rv-trust-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.rv-trust-text {
+  font-size: 11px;
+  color: var(--muted, #A39F95);
+  line-height: 1.35;
+}
+
+.rv-trust-text strong {
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.rv-actions-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.rv-btn-gold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #F8CE82 0%, #E8A64A 55%, #C27D28 100%);
+  color: #0A0A0E;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  box-shadow: 0 10px 25px rgba(232, 166, 74, 0.35);
+  cursor: pointer;
+}
+
+.rv-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text, #F6F4EF);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rv-footnote {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted-2, #706C64);
+  margin-top: 2px;
 }
 
 .rv-stage {
@@ -3333,6 +3722,63 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 .rv-loading { min-height: 100dvh; }
 
 .rv-step--record .rv-actions { padding-top: 22px; }
+
+/* Индикатор уровня микрофона */
+.rr-mic-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 18, 24, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin: 8px auto 0;
+}
+
+.rr-mic-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rr-mic-badge.is-speaking .rr-mic-dot {
+  background: #34c759;
+  box-shadow: 0 0 8px rgba(52, 199, 89, 0.8);
+}
+
+.rr-mic-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+}
+
+.rr-mic-bars span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: #ffffff;
+  transform-origin: center;
+  will-change: transform;
+  transform: scaleY(calc(0.22 + var(--mic-level, 0) * 0.78));
+  transition: transform 0.05s linear;
+}
+
+.rr-mic-bars span:nth-child(1) {
+  transform: scaleY(calc(0.22 + var(--mic-level, 0) * 0.5));
+}
+.rr-mic-bars span:nth-child(2) {
+  transform: scaleY(calc(0.22 + var(--mic-level, 0) * 0.95));
+}
+.rr-mic-bars span:nth-child(3) {
+  transform: scaleY(calc(0.22 + var(--mic-level, 0) * 0.75));
+}
+.rr-mic-bars span:nth-child(4) {
+  transform: scaleY(calc(0.22 + var(--mic-level, 0) * 0.4));
+}
 
 @media (prefers-reduced-motion: reduce) {
   .rv-step, .rv-ring, .rv-ring.is-sent { animation: none !important; }

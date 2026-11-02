@@ -116,6 +116,21 @@ async function proxyVideo(req, res, rawUrl) {
   return res.end();
 }
 
+async function resolveInviteSlug(raw) {
+  const token = String(raw || '').trim();
+  if (!token) return null;
+  if (/^[a-f0-9]{32}$/i.test(token)) {
+    const fromInvite = await readInvite(token);
+    if (fromInvite) return fromInvite;
+  }
+  const slug = normalizeSlug(token);
+  if (slug && /^[a-z0-9_-]{3,64}$/i.test(slug)) {
+    const card = await readPublicCard(slug);
+    if (card) return slug;
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   // Прокси видео не зависит от хранилища отзывов — обслуживаем до проверки store.
   if (req.method === 'GET' && req.query?.video) {
@@ -128,19 +143,22 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const invite = String(req.query?.invite || '').trim();
     if (invite) {
-      if (!/^[a-f0-9]{32}$/i.test(invite)) return fail(res, 400, 'invalid_invite');
-      if (!await enforceRateLimit(req, res, {
-        scope: 'review-invite-read', identifier: invite, limit: 60, windowSeconds: 3600
-      })) return;
-      const slug = await readInvite(invite);
+      const slug = await resolveInviteSlug(invite);
       if (!slug) return fail(res, 404, 'invite_not_found');
+      if (!await enforceRateLimit(req, res, {
+        scope: 'review-invite-read', identifier: slug, limit: 60, windowSeconds: 3600
+      })) return;
       const data = await readPublicCard(slug);
       if (!data) return fail(res, 404, 'card_not_found');
-      // Заказчику показываем минимум — чьё имя он подтверждает отзывом.
+      const avatarUrl = data.card?.avatarUrl || data.card?.avatarPhoto || data.card?.coverUrl || data.card?.coverPhoto || '';
       return res.status(200).json({
         ok: true,
         slug,
-        card: { name: data.card?.name || '', role: data.card?.role || '' }
+        card: {
+          name: data.card?.name || '',
+          role: data.card?.role || '',
+          avatarUrl
+        }
       });
     }
 
@@ -196,17 +214,16 @@ export default async function handler(req, res) {
     if (body.consent !== true) return fail(res, 400, 'consent_required');
 
     const token = String(body.invite || '').trim();
-    if (!/^[a-f0-9]{32}$/i.test(token)) return fail(res, 400, 'invalid_invite');
-    if (!await enforceRateLimit(req, res, {
-      scope: 'review-upload', identifier: token, limit: 5, windowSeconds: 3600
-    })) return;
-    const slug = await readInvite(token);
+    const slug = await resolveInviteSlug(token);
     if (!slug) return fail(res, 404, 'invite_not_found');
+    if (!await enforceRateLimit(req, res, {
+      scope: 'review-upload', identifier: slug, limit: 10, windowSeconds: 3600
+    })) return;
 
     const author = String(body.author || '').trim().slice(0, 60);
     const duration = Number(body.duration);
     if (!author) return fail(res, 400, 'invalid_author');
-    if (!Number.isFinite(duration) || duration < 2 || duration > 30) return fail(res, 400, 'invalid_duration');
+    if (!Number.isFinite(duration) || duration < 2 || duration > 65) return fail(res, 400, 'invalid_duration');
 
     let videoUrl = '';
     const directUrl = String(body.videoUrl || '').trim();

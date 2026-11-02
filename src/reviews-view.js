@@ -84,80 +84,174 @@ function renderReels(reviews) {
   `;
 }
 
-// Модалка просмотра — создаётся по требованию, чтобы не держать в DOM
-// тяжёлое видео до первого тапа.
-// Экспортируется ещё и для экрана «Поделиться»: владелец должен посмотреть
-// присланный отзыв целиком, прежде чем решать, публиковать ли его.
+// Модалка просмотра — формат сторис во весь экран с чистым звуком и удобным управлением.
+// Экспортируется для экрана визитки и экрана «Поделиться».
 export function openViewer(reviews, startId) {
   let index = Math.max(0, reviews.findIndex((r) => r.id === startId));
+  let isMuted = false;
 
   const overlay = document.createElement('div');
   overlay.className = 'cp-viewer';
-  // Кольцо прогресса по краю круга: длина окружности при r=49 в системе 100×100.
-  const RING = 2 * Math.PI * 49;
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Просмотр видеоотзыва');
+
   overlay.innerHTML = `
-    <button type="button" class="cp-viewer-close" aria-label="Закрыть">${renderIcon('x')}</button>
-    <div class="cp-viewer-stage">
-      <button type="button" class="cp-viewer-player" data-player aria-label="Пуск/пауза">
-        <video class="cp-viewer-video" playsinline autoplay></video>
-        <svg class="cp-viewer-ring" viewBox="0 0 100 100" aria-hidden="true">
-          <circle class="cp-viewer-ring-track" cx="50" cy="50" r="49" />
-          <circle class="cp-viewer-ring-bar" cx="50" cy="50" r="49"
-            style="stroke-dasharray:${RING};stroke-dashoffset:${RING}" />
-        </svg>
-        <span class="cp-viewer-play" data-playicon aria-hidden="true">${renderIcon('play')}</span>
-      </button>
-    </div>
-    <div class="cp-viewer-meta">
-      <span class="cp-viewer-name"></span>
-      <span class="cp-viewer-role"></span>
-    </div>
-    <div class="cp-viewer-nav">
-      <button type="button" class="cp-viewer-arrow" data-prev aria-label="Предыдущий">${renderIcon('arrow-left')}</button>
-      <span class="cp-viewer-count"></span>
-      <button type="button" class="cp-viewer-arrow" data-next aria-label="Следующий">${renderIcon('chevron-right')}</button>
+    <div class="cp-viewer-backdrop" data-close></div>
+    <div class="cp-viewer-card">
+      <div class="cp-viewer-header">
+        <div class="cp-viewer-bars">
+          ${reviews.map((_, i) => `
+            <div class="cp-viewer-bar"><span class="cp-viewer-bar-fill" data-bar="${i}"></span></div>
+          `).join('')}
+        </div>
+        <div class="cp-viewer-top-row">
+          <div class="cp-viewer-author-box">
+            <span class="cp-viewer-name"></span>
+            <span class="cp-viewer-role"></span>
+          </div>
+          <div class="cp-viewer-actions">
+            <button type="button" class="cp-viewer-btn" data-sound aria-label="Включить или выключить звук">
+              <span data-sound-icon>${renderIcon('volume', { size: 20 })}</span>
+            </button>
+            <button type="button" class="cp-viewer-btn cp-viewer-btn--close" data-close aria-label="Закрыть">
+              ${renderIcon('x', { size: 22 })}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cp-viewer-stage">
+        <video class="cp-viewer-video" playsinline webkit-playsinline preload="auto"></video>
+        <div class="cp-viewer-tap-zone cp-viewer-tap-left" data-tap-prev aria-label="Предыдущий"></div>
+        <div class="cp-viewer-tap-zone cp-viewer-tap-center" data-tap-play aria-label="Пауза / Воспроизведение"></div>
+        <div class="cp-viewer-tap-zone cp-viewer-tap-right" data-tap-next aria-label="Следующий"></div>
+        <div class="cp-viewer-play-center" data-playicon aria-hidden="true">
+          ${renderIcon('play', { size: 40 })}
+        </div>
+      </div>
+
+      <div class="cp-viewer-footer">
+        <button type="button" class="cp-viewer-arrow" data-prev aria-label="Предыдущий">${renderIcon('arrow-left', { size: 18 })}</button>
+        <span class="cp-viewer-count"></span>
+        <button type="button" class="cp-viewer-arrow" data-next aria-label="Следующий">${renderIcon('chevron-right', { size: 18 })}</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
 
   const video = overlay.querySelector('.cp-viewer-video');
-  const player = overlay.querySelector('[data-player]');
-  const ringBar = overlay.querySelector('.cp-viewer-ring-bar');
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  const stage = overlay.querySelector('.cp-viewer-stage');
+  const bars = overlay.querySelectorAll('.cp-viewer-bar-fill');
   const nameEl = overlay.querySelector('.cp-viewer-name');
   const roleEl = overlay.querySelector('.cp-viewer-role');
   const countEl = overlay.querySelector('.cp-viewer-count');
   const prevBtn = overlay.querySelector('[data-prev]');
   const nextBtn = overlay.querySelector('[data-next]');
+  const soundBtn = overlay.querySelector('[data-sound]');
+  const soundIcon = overlay.querySelector('[data-sound-icon]');
+  const tapPrev = overlay.querySelector('[data-tap-prev]');
+  const tapNext = overlay.querySelector('[data-tap-next]');
+  const tapPlay = overlay.querySelector('[data-tap-play]');
 
-  // Кольцо-прогресс по краю круга: дуга открывается по мере воспроизведения.
-  function paintRing() {
-    if (!video.duration || !Number.isFinite(video.duration)) return;
-    ringBar.style.strokeDashoffset = `${RING * (1 - video.currentTime / video.duration)}`;
+  function updateSoundIcon() {
+    if (soundIcon) {
+      soundIcon.innerHTML = isMuted
+        ? renderIcon('volume-x', { size: 20 })
+        : renderIcon('volume', { size: 20 });
+    }
   }
-  video.addEventListener('timeupdate', paintRing);
-  // Иконка play видна только на паузе — как в сторис.
-  video.addEventListener('play', () => player.classList.add('is-playing'));
-  video.addEventListener('pause', () => player.classList.remove('is-playing'));
+
+  function paintProgress() {
+    if (!video.duration || !Number.isFinite(video.duration)) return;
+    const currentBar = bars[index];
+    if (currentBar) {
+      const pct = Math.min(100, Math.max(0, (video.currentTime / video.duration) * 100));
+      currentBar.style.width = `${pct}%`;
+    }
+  }
+  video.addEventListener('timeupdate', paintProgress);
+  video.addEventListener('play', () => stage.classList.add('is-playing'));
+  video.addEventListener('pause', () => stage.classList.remove('is-playing'));
 
   function show(i) {
     index = (i + reviews.length) % reviews.length;
     const r = reviews[index];
-    ringBar.style.strokeDashoffset = `${RING}`;
+
+    bars.forEach((bar, idx) => {
+      if (idx < index) bar.style.width = '100%';
+      else bar.style.width = '0%';
+    });
+
+    video.pause();
     video.src = proxiedVideo(r.videoUrl);
-    video.play().catch(() => { /* автовоспроизведение могли запретить */ });
-    nameEl.textContent = r.author || '';
+    video.defaultMuted = isMuted;
+    video.muted = isMuted;
+    video.volume = 1.0;
+    video.load();
+    updateSoundIcon();
+
+    nameEl.textContent = r.author || 'Отзыв';
     roleEl.textContent = r.role || '';
+    roleEl.style.display = r.role ? 'block' : 'none';
     countEl.textContent = `${index + 1} из ${reviews.length}`;
+
     const single = reviews.length < 2;
     prevBtn.hidden = single;
     nextBtn.hidden = single;
+    tapPrev.hidden = single;
+    tapNext.hidden = single;
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Если Safari заблокировал звук автовоспроизведения без тапа,
+        // включаем muted и показываем иконку
+        isMuted = true;
+        video.defaultMuted = true;
+        video.muted = true;
+        updateSoundIcon();
+        video.play().catch(() => {});
+      });
+    }
   }
 
-  // Тап по кругу — пуск/пауза.
-  player.addEventListener('click', () => {
+  // Переключение звука по кнопке
+  soundBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    isMuted = !isMuted;
+    video.muted = isMuted;
+    video.volume = 1.0;
+    updateSoundIcon();
+    if (!isMuted && video.paused) {
+      video.play().catch(() => {});
+    }
+  });
+
+  // Тап по центру — пауза/пуск (и разблокировка звука при первом касании)
+  tapPlay.addEventListener('click', () => {
+    if (isMuted) {
+      isMuted = false;
+      video.muted = false;
+      video.volume = 1.0;
+      updateSoundIcon();
+    }
     if (video.paused) video.play().catch(() => {});
     else video.pause();
+  });
+
+  tapPrev.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (reviews.length > 1) show(index - 1);
+  });
+
+  tapNext.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (reviews.length > 1) show(index + 1);
   });
 
   function close() {
@@ -172,17 +266,48 @@ export function openViewer(reviews, startId) {
     if (e.key === 'Escape') close();
     if (e.key === 'ArrowRight') show(index + 1);
     if (e.key === 'ArrowLeft') show(index - 1);
+    if (e.key === ' ' || e.key === 'k') {
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    }
   }
 
-  overlay.querySelector('.cp-viewer-close').addEventListener('click', close);
+  // Закрытие по кнопкам [data-close] и по клику на фон
+  overlay.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', close));
   overlay.addEventListener('click', (e) => {
-    // Клик по фону закрывает, по видео — нет.
     if (e.target === overlay) close();
   });
-  prevBtn.addEventListener('click', () => show(index - 1));
-  nextBtn.addEventListener('click', () => show(index + 1));
-  // Досмотрел до конца — сразу следующий, как в сторис.
-  video.addEventListener('ended', () => { if (reviews.length > 1) show(index + 1); });
+  prevBtn.addEventListener('click', (e) => { e.stopPropagation(); show(index - 1); });
+  nextBtn.addEventListener('click', (e) => { e.stopPropagation(); show(index + 1); });
+
+  // Свайп вниз для закрытия (жест как в iOS Stories)
+  let touchStartY = 0;
+  let touchStartX = 0;
+  overlay.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+    }
+  }, { passive: true });
+
+  overlay.addEventListener('touchend', (e) => {
+    if (e.changedTouches.length === 1) {
+      const deltaY = e.changedTouches[0].clientY - touchStartY;
+      const deltaX = Math.abs(e.changedTouches[0].clientX - touchStartX);
+      if (deltaY > 60 && deltaY > deltaX * 1.3) {
+        close();
+      }
+    }
+  }, { passive: true });
+
+  // Досмотрел до конца — сразу следующий отзыв
+  video.addEventListener('ended', () => {
+    if (reviews.length > 1 && index < reviews.length - 1) {
+      show(index + 1);
+    } else if (reviews.length > 1) {
+      show(0);
+    }
+  });
   document.addEventListener('keydown', onKey);
 
   show(index);

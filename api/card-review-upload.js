@@ -8,12 +8,28 @@ import {
   MAX_VIDEO_BYTES,
   MAX_POSTER_BYTES
 } from './_reviews-store.js';
+import { readPublicCard, normalizeSlug } from './_card-access.js';
 import { enforceRateLimit } from './_rate-limit.js';
 import { normalizeUploadContentType, validReviewPathname } from './_review-upload-policy.js';
 import { presignBlobUpload, readJsonBody } from './_blob-upload.js';
 
 function fail(res, status, error) {
   return res.status(status).json({ ok: false, error });
+}
+
+async function resolveInviteSlug(raw) {
+  const token = String(raw || '').trim();
+  if (!token) return null;
+  if (/^[a-f0-9]{32}$/i.test(token)) {
+    const fromInvite = await readInvite(token);
+    if (fromInvite) return fromInvite;
+  }
+  const slug = normalizeSlug(token);
+  if (slug && /^[a-z0-9_-]{3,64}$/i.test(slug)) {
+    const card = await readPublicCard(slug);
+    if (card) return slug;
+  }
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -33,13 +49,11 @@ export default async function handler(req, res) {
 
   const body = await readJsonBody(req);
   const invite = String(body.invite || '').trim();
-  if (!/^[a-f0-9]{32}$/i.test(invite)) return fail(res, 400, 'invalid_invite');
-  if (!await enforceRateLimit(req, res, {
-    scope: 'review-upload-authorize', identifier: invite, limit: 8, windowSeconds: 3600
-  })) return;
-
-  const slug = await readInvite(invite);
+  const slug = await resolveInviteSlug(invite);
   if (!slug) return fail(res, 404, 'invite_not_found');
+  if (!await enforceRateLimit(req, res, {
+    scope: 'review-upload-authorize', identifier: slug, limit: 15, windowSeconds: 3600
+  })) return;
 
   const contentType = normalizeUploadContentType(body.contentType);
   const size = Number(body.size);

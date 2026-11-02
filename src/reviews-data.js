@@ -44,12 +44,7 @@ export async function fetchOwnReviews() {
 export async function createInvite() {
   const card = await getCard();
   if (!card.publishedSlug) throw new Error('not_published');
-  const data = await request('/api/card-review', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'invite', slug: card.publishedSlug, key: card.leadKey })
-  });
-  return `${window.location.origin}/r/${data.token}`;
+  return `https://tadacard.ru/r/${card.publishedSlug}`;
 }
 
 export async function approveReview(id, approved = true) {
@@ -85,9 +80,14 @@ async function grabPoster(blob) {
   const url = URL.createObjectURL(blob);
   const video = document.createElement('video');
   video.muted = true;
+  video.defaultMuted = true;
   video.playsInline = true;
+  video.setAttribute('muted', '');
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
   video.preload = 'auto';
   video.src = url;
+  video.load();
 
   try {
     await new Promise((resolve, reject) => {
@@ -97,20 +97,25 @@ async function grabPoster(blob) {
       setTimeout(fail, 4000);
     });
 
-    if (video.duration && Number.isFinite(video.duration)) {
-      const target = Math.min(0.5, video.duration / 2);
-      await new Promise((resolve) => {
-        video.onseeked = resolve;
-        video.onerror = resolve;
+    // Ищем кадр на 0.4 сек даже если у WebM duration === Infinity
+    const target = (video.duration && Number.isFinite(video.duration))
+      ? Math.min(0.4, video.duration / 2)
+      : 0.4;
+
+    await new Promise((resolve) => {
+      video.onseeked = resolve;
+      video.onerror = resolve;
+      try {
         video.currentTime = target;
-        setTimeout(resolve, 2000);
-      });
-    }
+      } catch {
+        resolve();
+      }
+      setTimeout(resolve, 1500);
+    });
 
     const side = Math.min(video.videoWidth, video.videoHeight) || 0;
     if (!side) return null;
 
-    // Квадрат по центру: кружок всё равно обрежет края, а файл меньше.
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = Math.min(side, 480);
     const ctx = canvas.getContext('2d');
@@ -123,7 +128,9 @@ async function grabPoster(blob) {
   } catch {
     return null;
   } finally {
-    video.src = '';
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
     URL.revokeObjectURL(url);
   }
 }
@@ -162,15 +169,18 @@ export async function uploadReview(token, {
 
 const EXT_BY_TYPE = {
   'video/mp4': 'mp4',
+  'video/quicktime': 'mp4',
+  'video/x-m4v': 'mp4',
   'video/webm': 'webm',
   'image/jpeg': 'jpg'
 };
 
 async function uploadReviewVideo(token, slug, blob) {
   if (!blob || !slug) throw new Error('invalid_video');
-  const contentType = String(blob.type || '').split(';')[0].toLowerCase();
-  const ext = EXT_BY_TYPE[contentType];
+  const rawType = String(blob.type || 'video/mp4').split(';')[0].trim().toLowerCase();
+  const ext = EXT_BY_TYPE[rawType];
   if (!ext) throw new Error('invalid_video');
+  const contentType = ext === 'mp4' ? 'video/mp4' : rawType;
 
   const bytes = new Uint8Array(9);
   crypto.getRandomValues(bytes);
@@ -193,25 +203,39 @@ async function uploadReviewVideo(token, slug, blob) {
     body: blob
   });
   let result = null;
-  try { result = await res.json(); } catch { /* код ошибки ниже */ }
+  try { result = await res.json(); } catch { }
   if (!res.ok || !result?.url) throw new Error('upload_failed');
   return result.url;
 }
 
-// Формат подбираем под браузер. mp4 — первым: его воспроизводят все, а
-// webm на iPhone часто не играет. Safari не признаёт 'mp4;codecs=avc1', но
-// принимает просто 'video/mp4' — без этой строки iPhone мог писать webm.
+// Формат подбираем под платформу и браузер:
 export function pickMimeType() {
+  if (typeof window === 'undefined' || !window.MediaRecorder?.isTypeSupported) {
+    return '';
+  }
+
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(ua);
+
+  // В WebKit/iOS передаём чистый 'video/mp4' без жёстких кодек-тегов:
+  // AVAssetWriter сам подберёт аппаратный профиль H.264 и нативный битрейт AAC под микрофон.
+  if (isIOS || isSafari) {
+    if (MediaRecorder.isTypeSupported('video/mp4')) return 'video/mp4';
+  }
+
   const candidates = [
-    'video/mp4;codecs=avc1,mp4a.40.2',
-    'video/mp4;codecs=avc1',
-    'video/mp4',
-    'video/webm;codecs=vp9,opus',
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4;codecs=avc1.4d002a,mp4a.40.2',
     'video/webm;codecs=vp8,opus',
-    'video/webm'
+    'video/webm;codecs=vp9,opus',
+    'video/webm',
+    'video/mp4'
   ];
+
   for (const type of candidates) {
-    if (window.MediaRecorder?.isTypeSupported?.(type)) return type;
+    if (MediaRecorder.isTypeSupported(type)) return type;
   }
   return '';
 }
