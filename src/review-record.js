@@ -177,11 +177,11 @@ function configurePreviewVideo(video, stream) {
 /* ─────────── Экраны ─────────── */
 
 function renderIntro() {
-  const name = state.target?.name || '';
-  const role = state.target?.role || '';
+  const name = state.target?.name || 'Дмитрий Костюк';
+  const role = state.target?.role || 'Иллюзионист';
   const avatarUrl = state.target?.avatarUrl || '';
-  const firstName = name.trim().split(/\s+/)[0] || name || 'Артист';
-  const dativeName = name ? dativeFullName(name) : 'исполнителю';
+  const firstName = name.trim().split(/\s+/)[0] || name || 'Дмитрий';
+  const dativeName = name ? dativeFullName(name) : 'Дмитрию Костюку';
 
   let initials = '';
   if (name) {
@@ -191,82 +191,77 @@ function renderIntro() {
 
   const avatarContent = avatarUrl
     ? `<img class="rv-avatar-img" src="${escapeAttr(avatarUrl)}" alt="${escapeAttr(name)}" />`
-    : `<span class="rv-avatar-initials">${escapeHtml(initials)}</span>`;
+    : `<span class="rv-avatar-initials">${escapeHtml(initials || 'ДК')}</span>`;
+
+  const eyebrow = role ? `${escapeHtml(role)} · Визитка` : 'Персональная визитка';
 
   return `
     <div class="rv-step rv-step--intro-lux">
       <div class="rv-container">
-        <div>
-          <!-- Верхний бейдж: минималистично Визитка -->
-          <div class="rv-top-bar">
-            <span class="rv-badge-label">Визитка</span>
-          </div>
-
-          <!-- Карточка артиста: аватарка слева, имя и профессия -->
-          <div class="rv-artist-card">
-            <div class="rv-artist-avatar">
-              ${avatarContent}
-            </div>
+        <div class="rv-top-content">
+          <div class="rv-artist-header">
+            <div class="rv-artist-avatar">${avatarContent}</div>
             <div class="rv-artist-meta">
+              <div class="rv-artist-eyebrow">${eyebrow}</div>
               <div class="rv-artist-name">${escapeHtml(name)}</div>
-              ${role ? `<div class="rv-artist-role">${escapeHtml(role)}</div>` : ''}
             </div>
           </div>
 
-          <!-- Заголовок и обращение -->
           <div class="rv-headline-block">
             <h1 class="rv-headline-title">Поделитесь впечатлениями о событии</h1>
-            <p class="rv-headline-subtitle">${escapeHtml(firstName)} будет искренне рад вашему видеоотзыву. Это займет меньше минуты и поможет сделать следующие выступления еще лучше.</p>
+            <p class="rv-headline-subtitle">${escapeHtml(firstName)} будет искренне рад вашему видеоотзыву. Это займёт меньше минуты и поможет сделать следующие выступления ещё лучше.</p>
           </div>
 
-          <!-- Подсказка: о чем рассказать -->
-          <div class="rv-ideas-card">
-            <div class="rv-ideas-label">💡 О чем можно рассказать:</div>
-            <div class="rv-ideas-chips">
-              <span class="rv-idea-chip">Эмоции гостей</span>
-              <span class="rv-idea-chip">Любимый номер</span>
-              <span class="rv-idea-chip">Атмосфера события</span>
-            </div>
-          </div>
-
-          <!-- Bento-условия -->
-          <div class="rv-bento-grid">
-            <div class="rv-bento-item">
-              <div class="rv-bento-icon">⏱</div>
-              <div class="rv-bento-title">До 60 секунд</div>
-              <div class="rv-bento-text">Достаточно пары теплых искренних слов</div>
+          <div class="rv-monolith-card">
+            <div class="rv-monolith-row">
+              <div class="rv-monolith-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5"/><path d="M9 3h6"/></svg>
+              </div>
+              <div class="rv-monolith-body">
+                <div class="rv-monolith-title">До 60 секунд в свободном формате</div>
+                <div class="rv-monolith-desc">Запишите пару тёплых слов на камеру или выберите готовое видео из галереи</div>
+              </div>
             </div>
 
-            <div class="rv-bento-item">
-              <div class="rv-bento-icon">✨</div>
-              <div class="rv-bento-title">Удобный формат</div>
-              <div class="rv-bento-text">Запись на камеру или файл из галереи</div>
+            <div class="rv-monolith-row">
+              <div class="rv-monolith-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg>
+              </div>
+              <div class="rv-monolith-body">
+                <div class="rv-monolith-title">О чём можно упомянуть</div>
+                <div class="rv-ideas-chips">
+                  <span class="rv-idea-chip">Эмоции гостей</span>
+                  <span class="rv-idea-chip">Любимый номер</span>
+                  <span class="rv-idea-chip">Атмосфера</span>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <!-- Гарантия приватности -->
-          <div class="rv-trust-strip">
-            <div class="rv-trust-icon">🛡</div>
-            <div class="rv-trust-text">
-              <strong>Полный контроль за вами:</strong> видео поступит лично ${escapeHtml(dativeName)} и появится на визитке только после согласования.
+            <div class="rv-monolith-row">
+              <div class="rv-monolith-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </div>
+              <div class="rv-monolith-body">
+                <div class="rv-monolith-title">Полный контроль за вами</div>
+                <div class="rv-monolith-desc">Видео поступит лично ${escapeHtml(dativeName)} и появится на визитке только после согласования</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Кнопки действий -->
         <div class="rv-actions-box">
           <button type="button" class="rv-btn-gold" data-start>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-            <span>Записать видеоотзыв сейчас</span>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            <span>Записать видеоотзыв</span>
           </button>
 
           <button type="button" class="rv-btn-secondary" data-gallery>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span>Выбрать готовое видео из галереи</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Выбрать готовое из галереи</span>
           </button>
           <input type="file" accept="video/*" class="rv-file-input" style="display:none;" data-file-input />
 
-          <p class="rv-footnote">Откроется в браузере. Устанавливать приложения не требуется.</p>
+          <p class="rv-footnote">Откроется в браузере · Устанавливать приложения не нужно</p>
         </div>
       </div>
     </div>

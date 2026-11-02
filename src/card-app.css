@@ -3167,9 +3167,11 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 
 /* ===== Премиальный экран видеоотзыва (минимализм Eventory) ===== */
 .rv-step--intro-lux {
-  padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 24px);
+  padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px);
   justify-content: space-between;
   text-align: left;
+  min-height: 100dvh;
+  box-sizing: border-box;
 }
 
 .rv-container {
@@ -3178,61 +3180,30 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 44px);
+  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px);
   justify-content: space-between;
 }
 
-.rv-top-bar {
+.rv-top-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.rv-artist-header {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
-}
-
-.rv-badge-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: #F8CE82;
-  text-transform: uppercase;
-  background: rgba(232, 166, 74, 0.12);
-  border: 1px solid rgba(232, 166, 74, 0.20);
-  padding: 5px 14px;
-  border-radius: 999px;
-}
-
-.rv-artist-card {
-  position: relative;
-  background: linear-gradient(155deg, #181820 0%, #0F0F14 100%);
-  border: 1.5px solid rgba(232, 166, 74, 0.42);
-  border-radius: 22px;
-  padding: 16px 18px;
-  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.95), 0 0 28px rgba(232, 166, 74, 0.22);
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  overflow: hidden;
-}
-
-.rv-artist-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 15%;
-  right: 15%;
-  height: 1.5px;
-  background: linear-gradient(90deg, transparent, rgba(248, 206, 130, 0.8), transparent);
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
 .rv-artist-avatar {
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   background: linear-gradient(145deg, #22222B, #121217);
-  border: 1.5px solid rgba(232, 166, 74, 0.55);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(232, 166, 74, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -3245,54 +3216,48 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   object-fit: cover;
 }
 
-.rv-avatar-emoji {
-  font-size: 20px;
-  line-height: 1;
-}
-
 .rv-avatar-initials {
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  margin-left: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   background: linear-gradient(135deg, #F8CE82 0%, #E8A64A 55%, #C27D28 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   line-height: 1;
-  margin-top: 2px;
 }
 
 .rv-artist-meta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  min-width: 0;
+  gap: 2px;
+}
+
+.rv-artist-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #F8CE82;
+  text-transform: uppercase;
 }
 
 .rv-artist-name {
   font-family: var(--display, 'Eventory Display', Georgia, serif);
-  font-size: 23px;
+  font-size: 20px;
   font-weight: 400;
   letter-spacing: 0.01em;
   color: #FFFFFF;
-  line-height: 1.15;
-}
-
-.rv-artist-role {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--accent, #E8A64A);
-  text-transform: uppercase;
+  line-height: 1.2;
 }
 
 .rv-headline-block {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .rv-headline-title {
   font-family: var(--display, 'Eventory Display', Georgia, serif);
-  font-size: 26px;
-  line-height: 1.18;
+  font-size: 24px;
+  line-height: 1.2;
   color: #FFFFFF;
   margin-bottom: 6px;
   letter-spacing: -0.01em;
@@ -3300,112 +3265,80 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
 
 .rv-headline-subtitle {
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.42;
   color: var(--muted, #A39F95);
 }
 
-.rv-ideas-card {
-  background: var(--surface-2, #14141A);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
+/* Монолитная карточка условий отзыва */
+.rv-monolith-card {
+  background: linear-gradient(165deg, rgba(24, 24, 30, 0.85) 0%, rgba(14, 14, 18, 0.95) 100%);
+  border: 1px solid rgba(232, 166, 74, 0.22);
+  border-radius: 20px;
+  padding: 4px 16px;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  margin-bottom: 16px;
 }
 
-.rv-ideas-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+.rv-monolith-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.rv-monolith-row:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rv-monolith-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(232, 166, 74, 0.12);
+  border: 1px solid rgba(232, 166, 74, 0.25);
   color: #F8CE82;
-  text-transform: uppercase;
-  margin-bottom: 6px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rv-monolith-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rv-monolith-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  line-height: 1.3;
+}
+
+.rv-monolith-desc {
+  font-size: 12px;
+  color: var(--muted, #A39F95);
+  line-height: 1.38;
 }
 
 .rv-ideas-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-top: 4px;
 }
 
 .rv-idea-chip {
   font-size: 11px;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   color: #F6F4EF;
-}
-
-.rv-bento-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.rv-bento-item {
-  background: var(--surface-2, #14141A);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.rv-bento-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: rgba(232, 166, 74, 0.12);
-  border: 1px solid rgba(232, 166, 74, 0.20);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  margin-bottom: 2px;
-}
-
-.rv-bento-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #FFFFFF;
-}
-
-.rv-bento-text {
-  font-size: 11px;
-  color: var(--muted-2, #706C64);
-  line-height: 1.3;
-}
-
-.rv-trust-strip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 14px;
-}
-
-.rv-trust-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.rv-trust-text {
-  font-size: 11px;
-  color: var(--muted, #A39F95);
-  line-height: 1.35;
-}
-
-.rv-trust-text strong {
-  color: #FFFFFF;
-  font-weight: 600;
 }
 
 .rv-actions-box {
@@ -3430,6 +3363,12 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   border: none;
   box-shadow: 0 10px 25px rgba(232, 166, 74, 0.35);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, box-shadow 0.2s;
+}
+
+.rv-btn-gold:active {
+  transform: scale(0.98);
 }
 
 .rv-btn-secondary {
@@ -3446,6 +3385,20 @@ body[data-route='review-record'] #app { padding: 0; max-width: none; }
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.rv-btn-secondary:active {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(0.98);
+}
+
+.rv-footnote {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted-2, #706C64);
+  margin-top: 2px;
 }
 
 .rv-footnote {
