@@ -2844,7 +2844,7 @@ body[data-route='present']::before {
 .cp-reel--sm .cp-reel-role,
 .cp-reel--sm .cp-reel-play { display: none; }
 
-/* ===== Просмотр отзыва (Stories / Fullscreen) ===== */
+/* ===== Просмотр отзыва (Telegram-кружок с размытием визитки) ===== */
 .cp-viewer {
   position: fixed;
   inset: 0;
@@ -2852,9 +2852,9 @@ body[data-route='present']::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.88);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(5, 5, 8, 0.64);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
   animation: cp-viewer-in 0.25s var(--ease-soft) both;
   overscroll-behavior: none;
   touch-action: pan-y;
@@ -2878,41 +2878,29 @@ body[data-route='present']::before {
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   height: 100%;
   height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: #000;
+  background: transparent;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
-  animation: cp-viewer-pop 0.35s var(--ease-soft) both;
-}
-
-@media (min-width: 480px) and (min-height: 700px) {
-  .cp-viewer-card {
-    height: min(92dvh, 860px);
-    border-radius: 28px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
+  pointer-events: none;
+  animation: cp-viewer-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes cp-viewer-pop {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: none; }
 }
 
 /* Верхняя плашка: полоски прогресса, автор, кнопки звука и закрытия */
 .cp-viewer-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   z-index: 10;
-  padding: calc(env(safe-area-inset-top) + 12px) 16px 24px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.35) 65%, transparent 100%);
-  pointer-events: none;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  pointer-events: auto;
 }
 
 .cp-viewer-bars {
@@ -2943,6 +2931,13 @@ body[data-route='present']::before {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 6px 10px 6px 14px;
+  background: rgba(20, 20, 26, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .cp-viewer-author-box {
@@ -2952,11 +2947,10 @@ body[data-route='present']::before {
 }
 
 .cp-viewer-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #fff;
   letter-spacing: -0.01em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2964,8 +2958,7 @@ body[data-route='present']::before {
 
 .cp-viewer-role {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.75);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.72);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2974,7 +2967,7 @@ body[data-route='present']::before {
 .cp-viewer-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -2982,14 +2975,12 @@ body[data-route='present']::before {
   pointer-events: auto;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -3002,43 +2993,72 @@ body[data-route='present']::before {
 }
 
 .cp-viewer-btn--close {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
 }
 
-/* Сцена с видео на весь экран */
+/* Сцена по центру с круглым видео в стиле Telegram */
 .cp-viewer-stage {
   position: relative;
   width: 100%;
-  height: 100%;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
+  pointer-events: none;
+  padding: 12px 16px;
+}
+
+.cp-viewer-circle-wrap {
+  pointer-events: auto;
+  position: relative;
+  width: min(84vw, 52dvh, 360px);
+  height: min(84vw, 52dvh, 360px);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
   overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15), 0 24px 60px -8px rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cp-viewer-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.cp-viewer-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 3;
+}
+
+.cp-viewer-ring-bar {
+  fill: none;
+  stroke: var(--accent, #e8a64a);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: 301.6;
+  stroke-dashoffset: 301.6;
+  transition: stroke-dashoffset 0.1s linear;
 }
 
 .cp-viewer-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 0;
+  border-radius: 50%;
   background: #000;
   display: block;
 }
-
-/* Тап-зоны: лево (назад), центр (пауза/звук), право (вперед) */
-.cp-viewer-tap-zone {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 5;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.cp-viewer-tap-left { left: 0; width: 25%; }
-.cp-viewer-tap-center { left: 25%; width: 50%; }
-.cp-viewer-tap-right { right: 0; width: 25%; }
 
 /* Иконка play по центру — исчезает во время воспроизведения */
 .cp-viewer-play-center {
@@ -3046,8 +3066,8 @@ body[data-route='present']::before {
   inset: 0;
   margin: auto;
   z-index: 6;
-  width: 72px;
-  height: 72px;
+  width: 68px;
+  height: 68px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -3060,43 +3080,38 @@ body[data-route='present']::before {
 }
 
 .cp-viewer-play-center .ui-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   margin-left: 3px;
 }
 
 .cp-viewer-stage.is-playing .cp-viewer-play-center {
   opacity: 0;
-  transform: scale(0.7);
+  transform: scale(0.65);
 }
 
 /* Нижняя навигация */
 .cp-viewer-footer {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px);
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.25) 65%, transparent 100%);
-  pointer-events: none;
+  gap: 16px;
+  padding: 12px 16px calc(env(safe-area-inset-bottom) + 16px);
+  pointer-events: auto;
 }
 
 .cp-viewer-arrow {
-  pointer-events: auto;
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(20, 20, 26, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   color: #fff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -3113,10 +3128,15 @@ body[data-route='present']::before {
   font-size: 13px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(20, 20, 26, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   min-width: 68px;
   text-align: center;
-  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
