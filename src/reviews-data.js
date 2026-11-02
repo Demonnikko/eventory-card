@@ -130,7 +130,6 @@ async function grabPoster(blob) {
   } finally {
     video.pause();
     video.removeAttribute('src');
-    video.load();
     URL.revokeObjectURL(url);
   }
 }

@@ -477,9 +477,10 @@ function rerender(node) {
     playback.muted = false;
     playback.defaultMuted = false;
     playback.volume = 1.0;
+    playback.preload = 'auto';
     playback.src = state.blobUrl;
 
-    // Фикс для WebM (duration === Infinity в Chrome) и отрисовки 1-го кадра в iOS Safari
+    // Фикс для WebM (duration === Infinity в Chrome)
     playback.onloadedmetadata = () => {
       if (playback.duration === Infinity || Number.isNaN(playback.duration)) {
         playback.currentTime = 1e101;
@@ -487,8 +488,6 @@ function rerender(node) {
           playback.ontimeupdate = null;
           playback.currentTime = 0.001;
         };
-      } else if (playback.currentTime === 0) {
-        playback.currentTime = 0.001;
       }
     };
     playback.load();
@@ -496,19 +495,36 @@ function rerender(node) {
 
   const playToggle = node.querySelector('[data-playback-toggle]');
   if (playToggle && playback) {
-    playToggle.addEventListener('click', () => {
+    const handleToggle = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       if (playback.paused) {
         playback.muted = false;
         playback.defaultMuted = false;
         playback.volume = 1.0;
-        playback.play().catch(() => {});
+        const playPromise = playback.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Фолбэк для строгих политик автоплея iOS: если со звуком не разрешено,
+            // запускаем без звука, чтобы превью в кружке гарантированно запустилось
+            playback.muted = true;
+            playback.play().catch(() => {});
+          });
+        }
       } else {
         playback.pause();
       }
-    });
+    };
+
+    playToggle.addEventListener('click', handleToggle);
     playback.addEventListener('play', () => playToggle.classList.add('is-playing'));
     playback.addEventListener('pause', () => playToggle.classList.remove('is-playing'));
-    playback.addEventListener('ended', () => playToggle.classList.remove('is-playing'));
+    playback.addEventListener('ended', () => {
+      playToggle.classList.remove('is-playing');
+      try { playback.currentTime = 0; } catch {}
+    });
   }
 }
 
